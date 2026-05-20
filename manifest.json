@@ -1,0 +1,19 @@
+{
+  "name": "Mi Finanzas",
+  "short_name": "Finanzas",
+  "description": "Dashboard de finanzas personales",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
