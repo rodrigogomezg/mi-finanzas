@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m http.server 8765)",
+      "Bash(npx --yes serve \"c:\\\\Users\\\\Rodrigo\\\\OneDrive\\\\Desktop\\\\Repositorios\\\\mi-finanzas\" --listen 8765 --no-clipboard)",
+      "Bash(npx playwright *)",
+      "Bash(node -e ' *)",
+      "Bash(cd /tmp)",
+      "Bash(npm install *)"
+    ]
+  }
+}

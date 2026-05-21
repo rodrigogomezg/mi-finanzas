@@ -683,7 +683,7 @@
     <!-- TARJETA NARANJA X -->
     <div id="page-tarjeta" class="page">
       <div class="page-title">Tarjeta</div>
-      <div class="page-sub">Gastos fijos, variables y cuánto separar para llegar cómodo al 10</div>
+      <div class="page-sub">Fijos siempre presentes y compras del ciclo — todo calculado para que el 10 no te agarre corto</div>
 
       <div style="display:flex;align-items:center;gap:10px;background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:13px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -696,18 +696,49 @@
       <div id="tarjeta-separar-box"></div>
 
       <div class="progress-section">
-        <h3>Gastos fijos mensuales</h3>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Débitos automáticos · cierre el 27 · vence el 10</div>
-        <div id="tabla-fijos-tarjeta"></div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:13px;font-weight:600">
-          <span>Total fijos en dólares</span>
-          <span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">US$35,90 / mes</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:10px">
+          <h3 style="margin-bottom:0">Gastos fijos mensuales</h3>
+          <button class="btn btn-sm" style="font-size:11px;background:var(--surface2);border:1px solid var(--border)" onclick="toggleFormAgregarFijo()">+ Agregar</button>
         </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Débitos automáticos recurrentes · cierre el 27 · vence el 10</div>
+        <div id="agregar-fijo-form" style="display:none;background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:14px">
+          <div class="form-grid" style="margin-bottom:10px">
+            <div class="form-group">
+              <label>Descripción</label>
+              <input type="text" id="nf-desc" placeholder="Ej: Spotify, OSDE...">
+            </div>
+            <div class="form-group">
+              <label>Moneda</label>
+              <select id="nf-moneda" onchange="toggleNFMoneda()">
+                <option value="ars">Pesos ($)</option>
+                <option value="usd">Dólares (US$)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Monto</label>
+              <input type="number" id="nf-monto" placeholder="0" step="1">
+            </div>
+            <div class="form-group">
+              <label>Tipo</label>
+              <select id="nf-tipo">
+                <option value="Débito automático">Débito automático</option>
+                <option value="Mantenimiento">Mantenimiento</option>
+                <option value="Mensual">Mensual</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="agregarFijo()">Guardar</button>
+            <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border)" onclick="toggleFormAgregarFijo()">Cancelar</button>
+          </div>
+        </div>
+        <div id="tabla-fijos-tarjeta"></div>
+        <div id="tabla-fijos-footer"></div>
       </div>
 
       <div class="progress-section">
-        <h3>Gastos en tarjeta este ciclo</h3>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Cargá cada compra que hacés con la tarjeta. Se suman al estimado del próximo resumen.</div>
+        <h3>Compras y cuotas en tarjeta</h3>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Compras antes del 27 → próximo resumen &nbsp;·&nbsp; Del 27 en adelante → resumen siguiente</div>
 
         <div class="form-grid" style="margin-bottom:14px">
           <div class="form-group">
@@ -715,7 +746,7 @@
             <input type="text" id="gt-desc" placeholder="Ej: ropa, electrónica...">
           </div>
           <div class="form-group">
-            <label>Monto ($)</label>
+            <label>Monto total ($)</label>
             <input type="number" id="gt-monto" placeholder="0">
           </div>
           <div class="form-group">
@@ -744,18 +775,18 @@
             </select>
           </div>
           <div class="form-group">
-            <label>Fecha</label>
+            <label>Fecha de compra</label>
             <input type="date" id="gt-fecha">
           </div>
         </div>
-        <button class="btn btn-primary" onclick="agregarGastoTarjeta()">Agregar gasto</button>
+        <button class="btn btn-primary" onclick="agregarCompra()">Agregar compra</button>
 
         <div style="margin-top:16px" id="tabla-gastos-tarjeta"></div>
       </div>
 
       <div class="progress-section">
         <h3>Proyección próximos resúmenes</h3>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Basado en fijos + cuotas del PDF. No incluye gastos variables futuros.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Basado en fijos + cuotas en curso. No incluye compras futuras.</div>
         <div id="tabla-proyeccion-tarjeta"></div>
       </div>
 
@@ -1270,6 +1301,8 @@ async function init(){
   gastosTarjeta = await S.get('gastosTarjeta') || [];
   const fijosGuardados = await S.get('fijos_tarjeta');
   if(fijosGuardados) FIJOS_TARJETA = fijosGuardados;
+  const savedCompras = await S.get('comprasTarjeta');
+  if(savedCompras != null){ comprasTarjeta = savedCompras; } else { await migrarComprasTarjeta(); }
 
   tarifaHora = await S.get('tarifaHora') || 8440;
   const seedVer = await S.get('seedVersion') || 0;
@@ -1419,8 +1452,8 @@ const pct  = (v,t) => Math.min(100, Math.round(v/t*100));
 
 // ── PLAN — helpers ────────────────────────────────────────
 function getPlanObls(){
-  const { fijosTotal, varTotal, cuotasFuturas } = calcTarjeta();
-  const tarjetaDin = Math.ceil((fijosTotal + varTotal + (cuotasFuturas[0]||0)) / 1000) * 1000;
+  const { totalProximo } = calcTarjeta();
+  const tarjetaDin = Math.ceil(totalProximo / 1000) * 1000;
   return planMensual.obligaciones.map(o => ({
     ...o,
     monto: o.dinamico ? tarjetaDin : o.monto
@@ -2348,8 +2381,7 @@ function renderResumen(){
   document.getElementById('resumen-fecha').textContent = mesNombre.charAt(0).toUpperCase()+mesNombre.slice(1)+' · actualizá cada vez que cobrás o gastás';
 
   // ── Alerta desequilibrio tarjeta ──
-  const { fijosTotal, varTotal, cuotasFuturas } = calcTarjeta();
-  const totalEstTarjeta = fijosTotal + varTotal + cuotasFuturas[0];
+  const { totalProximo: totalEstTarjeta } = calcTarjeta();
   const asignadosCobros = _getCobrosAsignados();
   const separadoTarjeta = asignadosCobros.tarjeta || 0;
   const diff = Math.round(totalEstTarjeta - separadoTarjeta);
@@ -2523,8 +2555,8 @@ function calcPresupuesto(montoPreview=0, catPreview=''){
   });
   const cobrado = delMes.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
 
-  const { fijosTotal, varTotal, cuotasFuturas } = calcTarjeta();
-  const tarjetaTarget = Math.ceil((fijosTotal+varTotal+cuotasFuturas[0])/1000)*1000;
+  const { totalProximo } = calcTarjeta();
+  const tarjetaTarget = Math.ceil(totalProximo/1000)*1000;
 
   const tareasSvc = tareas.filter(t=>{
     const d=new Date(t.venc+'T12:00');
@@ -3046,6 +3078,7 @@ function renderObjetivo(){
 
 let pagosTarjeta = [];
 let gastosTarjeta = [];
+let comprasTarjeta = [];
 
 // ── DATOS FIJOS TARJETA ───────────────────────────────────
 const FIJOS_DEFAULT = [
@@ -3062,71 +3095,107 @@ const FIJOS_DEFAULT = [
 ];
 let FIJOS_TARJETA = [...FIJOS_DEFAULT];
 
-const CUOTAS_TARJETA = [
-  { desc:'Merpago Infinit',     cuotaAct:6,  cuotaTotal:12, montoCuota:16667 },
-  { desc:'Desillas (x2)',       cuotaAct:2,  cuotaTotal:5,  montoCuota:28726 },
-  { desc:'Cachilostore',        cuotaAct:1,  cuotaTotal:3,  montoCuota:26667 },
-  { desc:'Tapicería Buon',      cuotaAct:1,  cuotaTotal:6,  montoCuota:26957 },
-];
+// ── HELPERS CICLO TARJETA ─────────────────────────────────
+function fmtYM(date){
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+}
+function getProximoResumenYM(){
+  const hoy = new Date();
+  return fmtYM(new Date(hoy.getFullYear(), hoy.getMonth() + (hoy.getDate() < 27 ? 1 : 2), 1));
+}
+function getPrimerResumenYM(fechaCompra){
+  const d = new Date(fechaCompra+'T12:00');
+  return fmtYM(new Date(d.getFullYear(), d.getMonth() + (d.getDate() < 27 ? 1 : 2), 1));
+}
+function getCuotaNumParaResumen(compra, resumenYM){
+  const [py, pm] = getPrimerResumenYM(compra.fechaCompra).split('-').map(Number);
+  const [ry, rm] = resumenYM.split('-').map(Number);
+  const n = (ry - py) * 12 + (rm - pm) + 1;
+  return (n >= 1 && n <= compra.cuotas) ? n : 0;
+}
+function getUltimoResumenYM(compra){
+  const [py, pm] = getPrimerResumenYM(compra.fechaCompra).split('-').map(Number);
+  return fmtYM(new Date(py, pm - 1 + (compra.cuotas - 1), 1));
+}
+function nombreMesCorto(ym){
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m-1, 1).toLocaleString('es-AR',{month:'short'}).replace('.','') + '/' + String(y).slice(2);
+}
+
+async function migrarComprasTarjeta(){
+  const REF = '2026-06';
+  const [ry, rm] = REF.split('-').map(Number);
+  const cuotasViejas = [
+    { desc:'Merpago Infinit', cuotaAct:6, cuotaTotal:12, montoCuota:16667, cat:'Otro' },
+    { desc:'Desillas (x2)',   cuotaAct:2, cuotaTotal:5,  montoCuota:28726, cat:'Hogar' },
+    { desc:'Cachilostore',    cuotaAct:1, cuotaTotal:3,  montoCuota:26667, cat:'Hogar' },
+    { desc:'Tapicería Buon',  cuotaAct:1, cuotaTotal:6,  montoCuota:26957, cat:'Hogar' },
+  ];
+  const nuevas = cuotasViejas.map((c, i) => {
+    const primerDate = new Date(ry, rm - 1 - (c.cuotaAct - 1), 1);
+    const compraDate = new Date(primerDate.getFullYear(), primerDate.getMonth() - 1, 15);
+    const fechaCompra = `${compraDate.getFullYear()}-${String(compraDate.getMonth()+1).padStart(2,'0')}-15`;
+    return { id: 900000 + i, desc: c.desc, monto: c.montoCuota * c.cuotaTotal, montoCuota: c.montoCuota, cuotas: c.cuotaTotal, fechaCompra, cat: c.cat };
+  });
+  gastosTarjeta.forEach(g => {
+    nuevas.push({ id: g.id, desc: g.desc, monto: g.monto, montoCuota: g.montoCuota || g.monto, cuotas: g.cuotas || 1, fechaCompra: g.fecha || new Date().toISOString().split('T')[0], cat: g.cat || 'Otro' });
+  });
+  comprasTarjeta = nuevas;
+  await S.set('comprasTarjeta', comprasTarjeta);
+}
 
 // ── TARJETA RENDER ────────────────────────────────────────
 function calcTarjeta(){
-  const fijosARS   = FIJOS_TARJETA.reduce((s,f)=>s+(f.monto||f.montoARS||0),0);
-  const fijosUSD   = FIJOS_TARJETA.reduce((s,f)=>s+f.usd,0);
-  const fijosTotal = fijosARS + (fijosUSD * tcUSD);
-  // lo que se va a mostrar en el próximo resumen de gastos nuevos (cuota 1 de cada gasto)
-  const varTotal = gastosTarjeta.reduce((s,g)=>s+(g.montoCuota||g.monto),0);
-  // cuotas MES A MES: offset 0 = próximo resumen (junio), 1 = julio, etc.
-  const cuotasFuturas = [0,1,2,3,4,5].map(offset=>{
-    const dePDF = CUOTAS_TARJETA.reduce((s,c)=>{
-      const restantes = c.cuotaTotal - c.cuotaAct;
-      return offset < restantes ? s + c.montoCuota : s;
-    }, 0);
-    const deNuevos = gastosTarjeta.reduce((s,g)=>{
-      return offset < g.cuotas ? s + (g.montoCuota||g.monto) : s;
-    }, 0);
-    return dePDF + deNuevos;
+  const proximoYM  = getProximoResumenYM();
+  const activos    = FIJOS_TARJETA.filter(f => f.activo !== false);
+  const fijosARS   = activos.reduce((s,f) => s + (f.monto||0), 0);
+  const fijosUSD   = activos.reduce((s,f) => s + (f.usd||0),   0);
+  const fijosTotal = fijosARS + fijosUSD * tcUSD;
+  const cuotasTotal = comprasTarjeta.reduce((s,c) => {
+    const n = getCuotaNumParaResumen(c, proximoYM);
+    return n > 0 ? s + c.montoCuota : s;
+  }, 0);
+  const totalProximo = fijosTotal + cuotasTotal;
+  const [pry, prm] = proximoYM.split('-').map(Number);
+  const futuros = [0,1,2,3,4,5].map(off => {
+    const ym = fmtYM(new Date(pry, prm - 1 + off, 1));
+    return comprasTarjeta.reduce((s,c) => { const n = getCuotaNumParaResumen(c,ym); return n>0?s+c.montoCuota:s; }, 0);
   });
-  return { fijosARS, fijosUSD, fijosTotal, varTotal, cuotasFuturas, tcUSD };
+  return { fijosARS, fijosUSD, fijosTotal, cuotasTotal, totalProximo, futuros, proximoYM, tcUSD };
 }
 
 function renderTarjeta(){
-  const { fijosARS, fijosUSD, fijosTotal, varTotal, cuotasFuturas, tcUSD } = calcTarjeta();
+  const { fijosARS, fijosUSD, fijosTotal, cuotasTotal, totalProximo, futuros, proximoYM } = calcTarjeta();
+  const [pry, prm] = proximoYM.split('-').map(Number);
+  const proximoLabel = nombreMesCorto(proximoYM);
   const _hoy = new Date();
   const ingresoMensual = movimientos
     .filter(m => m.tipo==='cobro' && new Date(m.fecha).getMonth()===_hoy.getMonth() && new Date(m.fecha).getFullYear()===_hoy.getFullYear())
     .reduce((s,m) => s+m.monto, 0) || 1679200;
-  const totalEstProx = fijosTotal + varTotal + cuotasFuturas[0];
-  const pctIngreso = Math.round(totalEstProx / ingresoMensual * 100);
-  const separar = Math.ceil(totalEstProx / 1000) * 1000;
+  const pctIngreso = Math.round(totalProximo / ingresoMensual * 100);
+  const separar = Math.ceil(totalProximo / 1000) * 1000;
 
-  // Mantener la tarea de tarjeta siempre en sintonía con el estimado real
   const tareaTarjeta = tareas.find(t => t.cat === 'tarjeta' && !t.done);
-  if(tareaTarjeta && tareaTarjeta.monto !== separar){
-    tareaTarjeta.monto = separar;
-    S.set('tareas', tareas);
-  }
+  if(tareaTarjeta && tareaTarjeta.monto !== separar){ tareaTarjeta.monto = separar; S.set('tareas', tareas); }
 
-  // Metric cards
+  const activasEnProximo = comprasTarjeta.filter(c => getCuotaNumParaResumen(c, proximoYM) > 0).length;
   document.getElementById('cards-tarjeta').innerHTML = `
     <div class="metric-card red"><div class="label">Fijos mensuales</div><div class="value">${fmt(Math.round(fijosTotal))}</div><div class="sub">pesos + USD pesificados</div></div>
-    <div class="metric-card amber"><div class="label">Gastos cargados este ciclo</div><div class="value">${fmt(varTotal)}</div><div class="sub">${gastosTarjeta.length} compras</div></div>
-    <div class="metric-card purple"><div class="label">Total estimado próx. resumen</div><div class="value">${fmt(Math.round(totalEstProx))}</div><div class="sub">fijos + variables + cuotas</div></div>
+    <div class="metric-card amber"><div class="label">Cuotas resumen ${proximoLabel}</div><div class="value">${fmt(cuotasTotal)}</div><div class="sub">${activasEnProximo} compras activas</div></div>
+    <div class="metric-card purple"><div class="label">Total resumen ${proximoLabel}</div><div class="value">${fmt(Math.round(totalProximo))}</div><div class="sub">fijos + cuotas</div></div>
     <div class="metric-card ${pctIngreso>25?'red':'green'}"><div class="label">% del ingreso mensual</div><div class="value">${pctIngreso}%</div><div class="sub">${pctIngreso>25?'⚠ alto':'✓ razonable'}</div></div>
   `;
 
-  // Cuánto separar
   const separadoActual = _getCobrosAsignados().tarjeta || 0;
   const progPct = Math.min(100, Math.round(separadoActual / separar * 100));
   document.getElementById('tarjeta-separar-box').innerHTML = `
     <div style="background:var(--surface2);border-radius:10px;padding:16px 18px;margin-bottom:20px;border:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:500;margin-bottom:4px">Cuánto separar para este resumen</div>
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px">A separar para el resumen de ${proximoLabel.toUpperCase()}</div>
       <div style="font-size:28px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--purple);margin-bottom:8px">${fmt(separar)}</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
-        = fijos <strong style="color:var(--text)">${fmt(Math.round(fijosTotal))}</strong>
-        + variables <strong style="color:var(--text)">${fmt(varTotal)}</strong>
-        + cuotas próx. <strong style="color:var(--text)">${fmt(cuotasFuturas[0])}</strong>
-        (redondeado al millar)
+        fijos <strong style="color:var(--text)">${fmt(Math.round(fijosTotal))}</strong>
+        + cuotas activas <strong style="color:var(--text)">${fmt(cuotasTotal)}</strong>
+        = <strong style="color:var(--text)">${fmt(Math.round(totalProximo))}</strong> · redondeado al millar
       </div>
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px">
         <span>Separado hasta ahora</span>
@@ -3135,82 +3204,120 @@ function renderTarjeta(){
       <div class="progress-bar"><div class="progress-fill fill-purple" style="width:${progPct}%"></div></div>
       <div style="margin-top:10px;font-size:12px;color:var(--muted)">
         Representa el <strong style="color:${pctIngreso>25?'var(--red)':'var(--green)'}">${pctIngreso}%</strong> de tu ingreso mensual de ${fmt(ingresoMensual)}.
-        ${pctIngreso>25?'⚠ La tarjeta está consumiendo más del 25% de tus ingresos — revisá los gastos variables.':''}
+        ${pctIngreso>25?'⚠ La tarjeta está consumiendo más del 25% de tus ingresos.':''}
       </div>
     </div>`;
 
-  // Tabla fijos — editable inline
-  const filasFijos = FIJOS_TARJETA.map(f=>`
-    <tr id="fijo-row-${f.id}">
-      <td style="padding:8px 4px 8px 0;border-bottom:0.5px solid var(--border)">${f.desc}</td>
+  // Tabla fijos — editable inline + dar de baja
+  const filasFijos = FIJOS_TARJETA.map(f => {
+    const inactivo = f.activo === false;
+    return `
+    <tr id="fijo-row-${f.id}" style="${inactivo?'opacity:0.45':''}">
+      <td style="padding:8px 4px 8px 0;border-bottom:0.5px solid var(--border)">
+        ${inactivo?`<span style="text-decoration:line-through;color:var(--muted)">${f.desc}</span><span class="badge badge-red" style="margin-left:6px;font-size:9px">BAJA</span>`:f.desc}
+      </td>
       <td style="padding:8px 4px;border-bottom:0.5px solid var(--border);text-align:right">
-        ${f.usd > 0
-          ? `<span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">US$${f.usd.toFixed(2)}</span>`
-          : `<span style="font-family:'JetBrains Mono',monospace;color:var(--red)">${fmt(f.monto)}</span>`
+        ${f.usd>0
+          ?`<span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">US$${f.usd.toFixed(2)}</span>`
+          :`<span style="font-family:'JetBrains Mono',monospace;color:${inactivo?'var(--muted)':'var(--red)'}">${fmt(f.monto)}</span>`
         }
       </td>
       <td style="padding:8px 0 8px 4px;border-bottom:0.5px solid var(--border);text-align:right">
-        <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;background:var(--surface2);border:1px solid var(--border)"
-          onclick="abrirEditorFijo(${f.id})">Editar</button>
+        <div style="display:flex;gap:4px;justify-content:flex-end">
+          <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;background:var(--surface2);border:1px solid var(--border)" onclick="abrirEditorFijo(${f.id})">Editar</button>
+          <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;${inactivo?'background:var(--green-bg);border:1px solid var(--green-border);color:var(--green)':'background:var(--red-bg);border:1px solid var(--red-border);color:var(--red)'}" onclick="toggleFijoActivo(${f.id})">${inactivo?'Reactivar':'Dar de baja'}</button>
+        </div>
       </td>
     </tr>
     <tr id="fijo-edit-${f.id}" style="display:none">
       <td colspan="3" style="padding:10px 0;border-bottom:1px solid var(--border)">
         <div style="background:var(--surface2);border-radius:8px;padding:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
           <div class="form-group" style="flex:1;min-width:120px">
-            <label>${f.usd > 0 ? 'Monto (US$)' : 'Monto ($)'}</label>
-            <input type="number" id="fijo-val-${f.id}" value="${f.usd > 0 ? f.usd : f.monto}" step="${f.usd > 0 ? '0.01' : '1'}">
+            <label>${f.usd>0?'Monto (US$)':'Monto ($)'}</label>
+            <input type="number" id="fijo-val-${f.id}" value="${f.usd>0?f.usd:f.monto}" step="${f.usd>0?'0.01':'1'}">
           </div>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-primary btn-sm" onclick="guardarFijo(${f.id}, ${f.usd > 0})">Guardar</button>
+            <button class="btn btn-primary btn-sm" onclick="guardarFijo(${f.id},${f.usd>0})">Guardar</button>
             <button class="btn btn-sm" style="background:var(--surface2);border:1px solid var(--border)" onclick="cerrarEditorFijo(${f.id})">Cancelar</button>
           </div>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
+  const fijosUSDtot = FIJOS_TARJETA.filter(f=>f.activo!==false&&f.usd>0).reduce((s,f)=>s+f.usd,0);
   document.getElementById('tabla-fijos-tarjeta').innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr>
         <th style="text-align:left;padding:6px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Concepto</th>
-        <th style="text-align:right;padding:6px 4px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Monto actual</th>
-        <th style="text-align:right;padding:6px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)"></th>
+        <th style="text-align:right;padding:6px 4px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Monto</th>
+        <th style="text-align:right;padding:6px 0 10px;border-bottom:1px solid var(--border)"></th>
       </tr></thead>
       <tbody>${filasFijos}</tbody>
     </table>`;
+  document.getElementById('tabla-fijos-footer').innerHTML = `
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;flex-wrap:wrap;gap:6px">
+      <span>Total fijos activos</span>
+      <div style="display:flex;gap:12px;align-items:center">
+        ${fijosUSDtot>0?`<span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">US$${fijosUSDtot.toFixed(2)}</span>`:''}
+        <span style="font-family:'JetBrains Mono',monospace;color:var(--red)">${fmt(Math.round(fijosARS))} en $</span>
+        <span style="font-family:'JetBrains Mono',monospace;color:var(--purple)">${fmt(Math.round(fijosTotal))} total</span>
+      </div>
+    </div>`;
 
-  // Tabla gastos variables cargados
-  const gtHTML = gastosTarjeta.length
-    ? mkTabla(
-        ['Fecha','Descripción','Cat.','Cuotas','Cuota/mes','Total',''],
-        gastosTarjeta.map(g=>[
-          new Date(g.fecha+'T12:00').toLocaleDateString('es-AR'),
-          g.desc,
-          `<span class="badge badge-amber">${g.cat}</span>`,
-          g.cuotas === 1 ? '1 pago' : `${g.cuotas} cuotas`,
-          `<span style="font-family:'JetBrains Mono',monospace;color:var(--amber)">${fmt(g.montoCuota||g.monto)}</span>`,
-          `<span style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${fmt(g.monto)}</span>`,
-          `<button class="btn btn-danger btn-sm" onclick="eliminarGastoTarjeta(${g.id})">×</button>`
-        ]),
-        [null,null,null,'center','right','right',null]
-      )
-    : `<div class="empty-state" style="padding:20px"><p>No cargaste gastos en tarjeta este ciclo</p></div>`;
-  document.getElementById('tabla-gastos-tarjeta').innerHTML = gtHTML;
+  // Tabla compras y cuotas
+  if(comprasTarjeta.length){
+    const ordenadas = [...comprasTarjeta].sort((a,b) => new Date(b.fechaCompra)-new Date(a.fechaCompra));
+    const filas = ordenadas.map(c => {
+      const cuotaNum  = getCuotaNumParaResumen(c, proximoYM);
+      const terminada = getUltimoResumenYM(c) < proximoYM;
+      let badge;
+      if(terminada){
+        badge = `<span class="badge" style="background:var(--surface2);color:var(--muted)">Terminada</span>`;
+      } else if(cuotaNum > 0){
+        badge = `<span class="badge badge-purple">${proximoLabel}</span>`;
+      } else {
+        let futLabel = '';
+        for(let off=1; off<=12; off++){
+          const ym = fmtYM(new Date(pry, prm-1+off, 1));
+          if(getCuotaNumParaResumen(c, ym)>0){ futLabel = nombreMesCorto(ym); break; }
+        }
+        badge = futLabel ? `<span class="badge badge-amber">desde ${futLabel}</span>` : `<span class="badge badge-blue">—</span>`;
+      }
+      const cuotaStr = c.cuotas===1
+        ? `<span style="color:var(--muted)">Único</span>`
+        : cuotaNum>0 ? `${cuotaNum}/${c.cuotas}` : `—/${c.cuotas}`;
+      return [
+        `<span style="color:${terminada?'var(--muted)':'var(--text)'};${terminada?'text-decoration:line-through':''}">` + c.desc + `</span>`,
+        new Date(c.fechaCompra+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
+        cuotaStr,
+        `<span style="font-family:'JetBrains Mono',monospace;color:${cuotaNum>0?'var(--amber)':'var(--muted)'}">${fmt(c.montoCuota)}</span>`,
+        badge,
+        `<button class="btn btn-danger btn-sm" onclick="eliminarCompra(${c.id})">×</button>`
+      ];
+    });
+    document.getElementById('tabla-gastos-tarjeta').innerHTML = mkTabla(
+      ['Descripción','Compra','Cuota','$/cuota','Resumen',''],
+      filas, [null,'center','center','right','center',null]
+    );
+  } else {
+    document.getElementById('tabla-gastos-tarjeta').innerHTML = `<div class="empty-state" style="padding:20px"><p>No hay compras cargadas</p></div>`;
+  }
 
-  // Proyección cuotas futuras
-  const meses = ['Junio/26','Julio/26','Agosto/26','Sep./26','Oct./26','Nov./26'];
+  // Proyección
   document.getElementById('tabla-proyeccion-tarjeta').innerHTML = mkTabla(
-    ['Mes','Fijos est.','Cuotas','Total est.','A separar'],
-    meses.map((m,i)=>{
-      const total = fijosTotal + cuotasFuturas[i];
+    ['Resumen','Fijos est.','Cuotas','Total est.','A separar'],
+    [0,1,2,3,4,5].map(i => {
+      const ym    = fmtYM(new Date(pry, prm-1+i, 1));
+      const total = fijosTotal + futuros[i];
       const sep   = Math.ceil(total/1000)*1000;
       const pct2  = Math.round(total/ingresoMensual*100);
       return [
-        m,
+        `<span style="font-weight:${i===0?600:400}">${nombreMesCorto(ym)}</span>`,
         `<span style="font-family:'JetBrains Mono',monospace">${fmt(Math.round(fijosTotal))}</span>`,
-        `<span style="font-family:'JetBrains Mono',monospace;color:var(--amber)">${fmt(cuotasFuturas[i])}</span>`,
+        `<span style="font-family:'JetBrains Mono',monospace;color:var(--amber)">${fmt(futuros[i])}</span>`,
         `<span style="font-family:'JetBrains Mono',monospace;color:var(--red)">${fmt(Math.round(total))}</span>`,
-        `<span style="font-family:'JetBrains Mono',monospace;color:var(--purple);font-weight:500">${fmt(sep)}</span> <span style="font-size:11px;color:${pct2>25?'var(--red)':'var(--muted)'}"> (${pct2}%)</span>`
+        `<span style="font-family:'JetBrains Mono',monospace;color:var(--purple);font-weight:500">${fmt(sep)}</span><span style="font-size:11px;color:${pct2>25?'var(--red)':'var(--muted)'}"> (${pct2}%)</span>`
       ];
     }),
     [null,'right','right','right','right']
@@ -3238,7 +3345,7 @@ function mkTabla(headers, rows, aligns){
   return `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
 }
 
-async function agregarGastoTarjeta(){
+async function agregarCompra(){
   const monto  = parseFloat(document.getElementById('gt-monto').value);
   const desc   = document.getElementById('gt-desc').value.trim();
   const cat    = document.getElementById('gt-cat').value;
@@ -3246,16 +3353,17 @@ async function agregarGastoTarjeta(){
   const fecha  = document.getElementById('gt-fecha').value;
   if(!monto||!desc||!fecha){ toast('Completá todos los campos', 'err'); return; }
   const montoCuota = Math.round(monto / cuotas);
-  gastosTarjeta.push({ id:Date.now(), monto, desc, cat, cuotas, montoCuota, fecha });
-  await S.set('gastosTarjeta', gastosTarjeta);
+  comprasTarjeta.push({ id:Date.now(), monto, desc, cat, cuotas, montoCuota, fechaCompra: fecha });
+  await S.set('comprasTarjeta', comprasTarjeta);
   document.getElementById('gt-monto').value = '';
   document.getElementById('gt-desc').value  = '';
   renderTarjeta();
+  toast(`✓ Compra agregada — cuota 1 en ${nombreMesCorto(getPrimerResumenYM(fecha))}`);
 }
 
-async function eliminarGastoTarjeta(id){
-  gastosTarjeta = gastosTarjeta.filter(g=>g.id!==id);
-  await S.set('gastosTarjeta', gastosTarjeta);
+async function eliminarCompra(id){
+  comprasTarjeta = comprasTarjeta.filter(c=>c.id!==id);
+  await S.set('comprasTarjeta', comprasTarjeta);
   renderTarjeta();
 }
 
@@ -3451,6 +3559,43 @@ async function guardarFijo(id, esUSD){
   const diff  = valor - anterior;
   const diffFmt = `${diff >= 0 ? '+' : ''}${esUSD ? diff.toFixed(2) : Math.round(diff).toLocaleString('es-AR')}`;
   toast(`✓ ${fijo.desc}: ${signo}${anterior} → ${signo}${valor} (${diffFmt})`);
+}
+
+async function toggleFijoActivo(id){
+  const fijo = FIJOS_TARJETA.find(f=>f.id===id);
+  if(!fijo) return;
+  fijo.activo = fijo.activo === false;
+  await S.set('fijos_tarjeta', FIJOS_TARJETA);
+  renderTarjeta();
+  toast(fijo.activo ? `✓ ${fijo.desc} reactivado` : `${fijo.desc} dado de baja — ya no cuenta para el total`);
+}
+
+async function agregarFijo(){
+  const desc   = document.getElementById('nf-desc').value.trim();
+  const monto  = parseFloat(document.getElementById('nf-monto').value);
+  const tipo   = document.getElementById('nf-tipo').value;
+  const moneda = document.getElementById('nf-moneda').value;
+  if(!desc || isNaN(monto) || monto <= 0){ toast('Completá descripción y monto', 'err'); return; }
+  const nuevoId = Math.max(...FIJOS_TARJETA.map(f=>f.id), 0) + 1;
+  FIJOS_TARJETA.push({ id:nuevoId, desc, monto: moneda==='ars'?monto:0, usd: moneda==='usd'?monto:0, tipo, activo:true });
+  await S.set('fijos_tarjeta', FIJOS_TARJETA);
+  document.getElementById('nf-desc').value  = '';
+  document.getElementById('nf-monto').value = '';
+  toggleFormAgregarFijo();
+  renderTarjeta();
+  toast(`✓ Fijo agregado: ${desc}`);
+}
+
+function toggleFormAgregarFijo(){
+  const form = document.getElementById('agregar-fijo-form');
+  if(form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleNFMoneda(){
+  const moneda = document.getElementById('nf-moneda').value;
+  const input  = document.getElementById('nf-monto');
+  input.placeholder = moneda === 'usd' ? '0.00' : '0';
+  input.step = moneda === 'usd' ? '0.01' : '1';
 }
 
 // ── CIERRE AUTOMÁTICO ─────────────────────────────────────
@@ -4183,6 +4328,7 @@ async function exportarDatos(){
     tareas,
     pagosTarjeta,
     gastosTarjeta,
+    comprasTarjeta,
     fijos_tarjeta: FIJOS_TARJETA,
     historial_meses: await S.get('historial_meses') || [],
     registrosDiarios,
@@ -4235,6 +4381,7 @@ async function importarDatos(event){
   tareas           = datos.tareas           || [];
   pagosTarjeta     = datos.pagosTarjeta     || [];
   gastosTarjeta    = datos.gastosTarjeta    || [];
+  if(datos.comprasTarjeta) comprasTarjeta = datos.comprasTarjeta;
   registrosDiarios = datos.registrosDiarios || [];
   pagosMatisa      = datos.pagosMatisa      || [];
   adelantosEmpresa = datos.adelantosEmpresa || [];
@@ -4245,9 +4392,10 @@ async function importarDatos(event){
   await S.set('historialUSD',  historialUSD);
   await S.set('separados',     separados);
   await S.set('tareas',        tareas);
-  await S.set('pagosTarjeta',  pagosTarjeta);
-  await S.set('gastosTarjeta', gastosTarjeta);
-  await S.set('fijos_tarjeta', FIJOS_TARJETA);
+  await S.set('pagosTarjeta',    pagosTarjeta);
+  await S.set('gastosTarjeta',   gastosTarjeta);
+  await S.set('comprasTarjeta',  comprasTarjeta);
+  await S.set('fijos_tarjeta',   FIJOS_TARJETA);
   await S.set('registrosDiarios', registrosDiarios);
   await S.set('pagosMatisa',      pagosMatisa);
   await S.set('adelantosEmpresa', adelantosEmpresa);
