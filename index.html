@@ -1935,22 +1935,33 @@ function _mostrarSliders(){
   const dist = _distData;
   const total = dist.total;
 
-  const slidersHtml = dist.asignaciones.map(a => {
-    const maxVal = Math.round(Math.min(a.falta, total));
-    const initVal = Math.round(a.monto);
+  // Mapa rápido de asignaciones recomendadas por key
+  const asigMap = Object.fromEntries(dist.asignaciones.map(a => [a.key, a.monto]));
+
+  // Mostrar TODOS los buckets de obligaciones, no solo los que tienen falta > 0
+  const allBuckets = dist.oblsDatos.filter(o => o.monto > 0);
+  const slidersHtml = allBuckets.map(o => {
+    const initVal = Math.round(asigMap[o.key] || 0);
+    const cubierto = o.cubierto || 0;
+    const target   = o.monto   || 0;
+    const falta    = o.falta   || 0;
+    const hintColor = falta === 0 ? 'var(--green)' : 'var(--muted)';
+    const hintText  = falta === 0
+      ? `✓ cubierto por el plan (${fmt(target)})`
+      : `plan: ${fmt(target)} · gastado: ${fmt(cubierto)} · falta: ${fmt(falta)}${o.vencLabel ? ' · '+o.vencLabel : ''}`;
     return `<div style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
-        <span style="font-size:13px;font-weight:500">${a.label}</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--blue)" id="dist-val-${a.key}">${fmt(initVal)}</span>
+        <span style="font-size:13px;font-weight:500">${o.label}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--blue)" id="dist-val-${o.key}">${fmt(initVal)}</span>
       </div>
-      <input type="range" id="dist-sl-${a.key}" min="0" max="${maxVal}" value="${initVal}" step="1000"
+      <input type="range" id="dist-sl-${o.key}" min="0" max="${total}" value="${initVal}" step="1000"
         oninput="_onDistSlider()"
         style="width:100%;height:6px;accent-color:var(--blue);cursor:pointer">
-      <div style="font-size:10px;color:var(--muted);margin-top:2px">máx ${fmt(a.falta)}${a.vencLabel ? ' · '+a.vencLabel : ''}</div>
+      <div style="font-size:10px;color:${hintColor};margin-top:2px">${hintText}</div>
     </div>`;
   }).join('');
 
-  const paraVidaInit = Math.max(0, total - dist.asignaciones.reduce((s,a) => s + Math.round(a.monto), 0));
+  const paraVidaInit = Math.max(0, total - allBuckets.reduce((s,o) => s + Math.round(asigMap[o.key] || 0), 0));
   const box = document.getElementById('instruccion-box');
   box.innerHTML = `
     <div class="instruccion blue" style="margin-top:0">
@@ -1974,18 +1985,18 @@ function _mostrarSliders(){
 function _onDistSlider(){
   if(!_distData) return;
   let asignados = 0;
-  for(const a of _distData.asignaciones){
-    const el = document.getElementById(`dist-sl-${a.key}`);
+  for(const o of _distData.oblsDatos.filter(o => o.monto > 0)){
+    const el = document.getElementById(`dist-sl-${o.key}`);
     if(!el) continue;
     const v = parseInt(el.value) || 0;
-    const valEl = document.getElementById(`dist-val-${a.key}`);
+    const valEl = document.getElementById(`dist-val-${o.key}`);
     if(valEl) valEl.textContent = fmt(v);
     asignados += v;
   }
-  const paraVida = Math.max(0, _distData.total - asignados);
+  const paraVida = _distData.total - asignados;
   const vidaEl = document.getElementById('dist-vida-val');
   if(vidaEl){
-    vidaEl.textContent = fmt(paraVida);
+    vidaEl.textContent = fmt(Math.abs(paraVida)) + (paraVida < 0 ? ' (excedido)' : '');
     vidaEl.style.color = paraVida < 0 ? 'var(--red)' : 'var(--green)';
   }
 }
@@ -2000,11 +2011,15 @@ async function _confirmarDistEditada(){
 
   const distribucion = {};
   let totalAsignado = 0;
-  for(const a of _distData.asignaciones){
-    const el = document.getElementById(`dist-sl-${a.key}`);
+  for(const o of _distData.oblsDatos.filter(o => o.monto > 0)){
+    const el = document.getElementById(`dist-sl-${o.key}`);
     const v = el ? (parseInt(el.value) || 0) : 0;
-    if(v > 0) distribucion[a.key] = v;
+    if(v > 0) distribucion[o.key] = v;
     totalAsignado += v;
+  }
+  if(totalAsignado > monto){
+    toast(`El total asignado (${fmt(totalAsignado)}) supera el cobro (${fmt(monto)}) — reducí algún slider`, 'err');
+    return;
   }
   distribucion.vida = Math.max(0, monto - totalAsignado);
 
