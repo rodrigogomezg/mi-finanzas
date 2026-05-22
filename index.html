@@ -1548,14 +1548,21 @@ function _getSaldoReservas(){
   const gob  = _gastosObligMes();
   const desde45 = new Date(Date.now() - 45*86400000);
   const VIDA_CATS = ['comida','transporte','personal','otro'];
-  const vidaBudget = movimientos
-    .filter(m => m.tipo === 'cobro' && new Date(m.fecha+'T12:00') >= desde45 && m.distribucion?.vida != null)
-    .reduce((s, m) => s + m.distribucion.vida, 0);
+  const cobrosConVida = movimientos.filter(m =>
+    m.tipo === 'cobro' && new Date(m.fecha+'T12:00') >= desde45 && m.distribucion?.vida != null
+  );
+  const vidaBudget = cobrosConVida.reduce((s, m) => s + m.distribucion.vida, 0);
+  // Gastos de vida solo desde la fecha del cobro con vida más antiguo en ventana.
+  // Así los gastos previos (cubiertos por cobros que ya salieron de la ventana) no
+  // reducen el saldo del cobro nuevo.
+  const desdeCobro = cobrosConVida.length > 0
+    ? new Date(Math.min(...cobrosConVida.map(m => new Date(m.fecha+'T12:00').getTime())))
+    : desde45;
   const vidaGast = movimientos
-    .filter(m => m.tipo === 'gasto' && VIDA_CATS.includes(m.categoria) && new Date(m.fecha+'T12:00') >= desde45)
+    .filter(m => m.tipo === 'gasto' && VIDA_CATS.includes(m.categoria) && new Date(m.fecha+'T12:00') >= desdeCobro)
     .reduce((s, m) => s + m.monto, 0);
   const vidaTransf = transferencias
-    .filter(t => new Date(t.fecha+'T12:00') >= desde45)
+    .filter(t => new Date(t.fecha+'T12:00') >= desdeCobro)
     .reduce((s, t) => s + (t.a === 'vida' ? t.monto : 0) - (t.de === 'vida' ? t.monto : 0), 0);
   return {
     vida:      Math.max(0, vidaBudget + vidaTransf - vidaGast),
