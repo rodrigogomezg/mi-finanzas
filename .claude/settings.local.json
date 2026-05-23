@@ -7,7 +7,11 @@
       "Bash(node -e ' *)",
       "Bash(cd /tmp)",
       "Bash(npm install *)",
-      "Bash(node \"C:\\\\Users\\\\Rodrigo\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\load-context.mjs\")"
+      "Bash(node \"C:\\\\Users\\\\Rodrigo\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\load-context.mjs\")",
+      "Bash(node --input-type=module)",
+      "Bash(node --check \"c:/Users/Rodrigo/AppData/Local/Temp/check.js\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
