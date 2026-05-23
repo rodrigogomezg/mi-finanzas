@@ -3016,12 +3016,12 @@ function renderHistorial(){
     </table>`;
 }
 
-function eliminar(id){
+async function eliminar(id){
   const m = movimientos.find(x => x.id === id);
   // Si el gasto completó una tarea, revertirla antes de borrar
   if(m?.tareaId){
     const t = tareas.find(t => t.id === m.tareaId);
-    if(t) { t.done = false; S.set('tareas', tareas); }
+    if(t) { t.done = false; await S.set('tareas', tareas); }
   }
   softDelete({
     arr: movimientos, id, setKey: 'movimientos',
@@ -3256,7 +3256,7 @@ function renderTarjeta(){
   const separar = Math.ceil(totalProximo / 1000) * 1000;
 
   const tareaTarjeta = tareas.find(t => t.cat === 'tarjeta' && !t.done);
-  if(tareaTarjeta && tareaTarjeta.monto !== separar){ tareaTarjeta.monto = separar; S.set('tareas', tareas); }
+  if(tareaTarjeta && tareaTarjeta.monto !== separar){ tareaTarjeta.monto = separar; S.set('tareas', tareas).catch(()=>{}); }
 
   const activasEnProximo = comprasTarjeta.filter(c => getCuotaNumParaResumen(c, proximoYM) > 0).length;
   document.getElementById('cards-tarjeta').innerHTML = `
@@ -3452,9 +3452,10 @@ async function registrarPagoTarjeta(){
   const fecha = document.getElementById('tarjeta-pago-fecha').value;
   const nota  = document.getElementById('tarjeta-pago-nota').value;
   if(!monto||!fecha){ toast('Completá monto y fecha', 'err'); return; }
-  pagosTarjeta.push({ id:Date.now(), monto, fecha, nota });
+  const _tsBase = Date.now();
+  pagosTarjeta.push({ id:_tsBase, monto, fecha, nota });
   await S.set('pagosTarjeta', pagosTarjeta);
-  movimientos.push({ id:Date.now()+1, tipo:'gasto', monto, categoria:'tarjeta', fecha, nota: nota||'Pago tarjeta Naranja X' });
+  movimientos.push({ id:_tsBase+1, tipo:'gasto', monto, categoria:'tarjeta', fecha, nota: nota||'Pago tarjeta Naranja X' });
   await S.set('movimientos', movimientos);
   document.getElementById('tarjeta-pago-monto').value = '';
   document.getElementById('tarjeta-pago-nota').value  = '';
@@ -4415,6 +4416,9 @@ async function exportarDatos(){
     pagosMatisa,
     adelantosEmpresa,
     tarifaHora,
+    planMensual,
+    inversiones,
+    transferencias,
   };
   const json     = JSON.stringify(datos, null, 2);
   const blob     = new Blob([json], { type:'application/json' });
@@ -4467,6 +4471,9 @@ async function importarDatos(event){
   adelantosEmpresa = datos.adelantosEmpresa || [];
   if(datos.tarifaHora)    tarifaHora = datos.tarifaHora;
   if(datos.fijos_tarjeta) FIJOS_TARJETA = datos.fijos_tarjeta;
+  if(datos.inversiones)   inversiones   = datos.inversiones;
+  if(datos.transferencias) transferencias = datos.transferencias;
+  if(datos.planMensual)   planMensual   = datos.planMensual;
 
   await S.set('movimientos',   movimientos);
   await S.set('historialUSD',  historialUSD);
@@ -4480,11 +4487,17 @@ async function importarDatos(event){
   await S.set('pagosMatisa',      pagosMatisa);
   await S.set('adelantosEmpresa', adelantosEmpresa);
   await S.set('tarifaHora',       tarifaHora);
+  await S.set('inversiones',      inversiones);
+  await S.set('transferencias',   transferencias);
+  await S.set('planMensual',      planMensual);
   if(datos.historial_meses) await S.set('historial_meses', datos.historial_meses);
+  renderResumen();
+  renderPresupuesto();
   renderHistorial();
   renderObjetivo();
   renderTareas();
   renderTarjeta();
+  renderConfig();
 
   event.target.value = ''; // reset input file
   toast('✓ Datos importados correctamente');
