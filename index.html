@@ -953,7 +953,7 @@
             <input type="number" id="cfg-ingreso-base" placeholder="1350000" min="1">
           </div>
           <div class="form-group">
-            <label>Presupuesto mensual para vivir ($)</label>
+            <label>Presupuesto mensual disponible ($)</label>
             <input type="number" id="cfg-vida" placeholder="300000" min="1">
           </div>
         </div>
@@ -1281,11 +1281,8 @@ const PLAN_DEFAULT = {
   ingresoBase: 1350000,
   vidaPresupuesto: 300000,
   obligaciones: [
-    { key:'alquiler',  label:'Alquiler',          monto:450000,  venceDia:10,  mesProximo:false, dinamico:false },
-    { key:'tarjeta',   label:'Tarjeta',  monto:0,       venceDia:10,  mesProximo:true,  dinamico:true  },
-    { key:'servicios', label:'Servicios + Mono',   monto:113000,  venceDia:15,  mesProximo:false, dinamico:false },
-    { key:'cedears',   label:'CEDEARs (inversión)',monto:150000,  venceDia:null, mesProximo:false, dinamico:false },
-    { key:'fci',       label:'FCI / colchón',      monto:50000,   venceDia:null, mesProximo:false, dinamico:false },
+    { key:'alquiler', label:'Alquiler', monto:450000, venceDia:10, mesProximo:false, dinamico:false },
+    { key:'tarjeta',  label:'Tarjeta',  monto:0,      venceDia:10, mesProximo:true,  dinamico:true  },
   ]
 };
 let planMensual = JSON.parse(JSON.stringify(PLAN_DEFAULT));
@@ -1460,22 +1457,14 @@ const fmtU = v => 'US$' + Number(v).toLocaleString('es-AR',{minimumFractionDigit
 const pct  = (v,t) => Math.min(100, Math.round(v/t*100));
 
 // ── PLAN — helpers ────────────────────────────────────────
+const RESERVA_KEYS = ['alquiler','tarjeta'];
+
 function getPlanObls(){
   const { totalProximo } = calcTarjeta();
   const tarjetaDin = Math.ceil(totalProximo / 1000) * 1000;
-  return planMensual.obligaciones.map(o => ({
-    ...o,
-    monto: o.dinamico ? tarjetaDin : o.monto
-  }));
-}
-
-function _svcGastadoMes(){
-  const hoy = new Date(), mes = hoy.getMonth(), anio = hoy.getFullYear();
-  return movimientos.filter(m => {
-    const d = new Date(m.fecha+'T12:00');
-    return m.tipo==='gasto' && ['servicios','monotributo'].includes(m.categoria)
-      && d.getMonth()===mes && d.getFullYear()===anio;
-  }).reduce((s,m) => s+m.monto, 0);
+  return planMensual.obligaciones
+    .filter(o => RESERVA_KEYS.includes(o.key))
+    .map(o => ({ ...o, monto: o.dinamico ? tarjetaDin : o.monto }));
 }
 
 function _gastosObligMes(){
@@ -1486,26 +1475,13 @@ function _gastosObligMes(){
     return m.tipo==='gasto' && d >= desde && d <= hoy;
   });
   const sum = cat => g.filter(m=>m.categoria===cat).reduce((s,m)=>s+m.monto,0);
-  // Inversiones confirmadas también cuentan como cobertura (sin límite futuro — si la confirmaste, cuenta)
-  const invConf = inversiones.filter(i => {
-    const d = new Date(i.fecha+'T12:00');
-    return d >= desde;
-  });
-  const sumInv = tipo => invConf.filter(i=>i.tipo===tipo).reduce((s,i)=>s+i.monto,0);
   // Alquiler: solo el pago real del alquiler (≥60% del plan). Gastos menores como gestoría quedan afuera.
   const planAlqMonto = planMensual.obligaciones?.find(o => o.key === 'alquiler')?.monto || 0;
   const umbralAlq = planAlqMonto * 0.6;
   const alquilerPagado = umbralAlq > 0
     ? g.filter(m => m.categoria === 'alquiler' && m.monto >= umbralAlq).reduce((s,m) => s+m.monto, 0)
     : sum('alquiler');
-
-  return {
-    alquiler:  alquilerPagado,
-    tarjeta:   sum('tarjeta'),
-    servicios: sum('servicios') + sum('monotributo'),
-    cedears:   sum('inversion') + sumInv('cedears'),
-    fci:       sum('fci')       + sumInv('fci'),
-  };
+  return { alquiler: alquilerPagado, tarjeta: sum('tarjeta') };
 }
 
 function _cobertura(){
@@ -1530,7 +1506,7 @@ function _getCobrosAsignados(){
         asig[k] = (asig[k] || 0) - v;
       }
     });
-  // Aplicar transferencias entre reservas (excluye 'vida' — se maneja en _getSaldoReservas)
+  // Aplicar transferencias entre reservas
   transferencias
     .filter(t => new Date(t.fecha + 'T12:00') >= desde)
     .forEach(t => {
@@ -1541,34 +1517,21 @@ function _getCobrosAsignados(){
 }
 
 const GASTO_A_RESERVA = {
-  comida: 'vida', transporte: 'vida', personal: 'vida', otro: 'vida',
-  alquiler: 'alquiler', tarjeta: 'tarjeta',
-  servicios: 'servicios', monotributo: 'servicios',
-  inversion: 'cedears', fci: 'fci',
+  alquiler: 'alquiler',
+  tarjeta:  'tarjeta',
 };
 
 const RESERVA_LABELS = {
-  vida: 'Para vivir', alquiler: 'Alquiler', tarjeta: 'Tarjeta',
-  servicios: 'Servicios', cedears: 'CEDEARs', fci: 'FCI / colchón',
+  disponible: 'Disponible', alquiler: 'Alquiler', tarjeta: 'Tarjeta',
 };
 
 function _getSaldoReservas(){
   const desde45 = new Date(Date.now() - 45*86400000);
 
-  // Categorías que corresponden a cada bucket de reserva
-  const RESERVA_CATS = {
-    vida:      ['comida','transporte','personal','otro'],
-    alquiler:  ['alquiler'],
-    tarjeta:   ['tarjeta'],
-    servicios: ['servicios','monotributo'],
-    cedears:   ['inversion'],
-    fci:       ['fci'],
-  };
-
   const result = {};
 
-  for(const [key, cats] of Object.entries(RESERVA_CATS)){
-    // Cobros que asignaron plata a este bucket en los últimos 45 días
+  // Reservas con seguimiento propio: alquiler y tarjeta
+  for(const key of RESERVA_KEYS){
     const cobrosConKey = movimientos.filter(m =>
       m.tipo === 'cobro' &&
       new Date(m.fecha+'T12:00') >= desde45 &&
@@ -1576,58 +1539,44 @@ function _getSaldoReservas(){
     );
     const income = cobrosConKey.reduce((s, m) => s + (m.distribucion[key] || 0), 0);
 
-    // Solo contar outflows desde la fecha del cobro más antiguo con este bucket.
-    // Gastos anteriores a cualquier cobro en ventana ya fueron cubiertos por cobros
-    // viejos que salieron de la ventana — no deben reducir el saldo nuevo.
+    // Outflows desde la fecha del primer cobro con este bucket en ventana
     const desdeCobro = cobrosConKey.length > 0
       ? new Date(Math.min(...cobrosConKey.map(m => new Date(m.fecha+'T12:00').getTime())))
       : desde45;
 
-    const gastosDesde = movimientos.filter(m =>
-      m.tipo === 'gasto' && new Date(m.fecha+'T12:00') >= desdeCobro
-    );
-
-    // Gastos naturales del bucket: solo lo que este bucket realmente pagó
-    // (monto del gasto menos lo que vino de reasignaciones de otras reservas)
-    const naturalOutgo = gastosDesde
-      .filter(m => cats.includes(m.categoria))
-      .reduce((s, m) => {
-        const reasigRecibida = m.reasignaciones
-          ? Object.values(m.reasignaciones).reduce((a,b) => a+b, 0)
-          : 0;
-        return s + Math.max(0, m.monto - reasigRecibida);
-      }, 0);
-
-    // Reasignaciones: dinero tomado DE este bucket para cubrir gastos de otro bucket
-    const reasigOutgo = gastosDesde
-      .filter(m => !cats.includes(m.categoria) && (m.reasignaciones?.[key] || 0) > 0)
-      .reduce((s, m) => s + m.reasignaciones[key], 0);
-
-    // Inversiones confirmadas (aplica a cedears y fci)
-    const invOutgo = (key === 'cedears' || key === 'fci')
-      ? inversiones
-          .filter(i => i.tipo === key && new Date(i.fecha+'T12:00') >= desdeCobro)
-          .reduce((s, i) => s + i.monto, 0)
-      : 0;
+    const naturalOutgo = movimientos
+      .filter(m => m.tipo === 'gasto' && new Date(m.fecha+'T12:00') >= desdeCobro && m.categoria === key)
+      .reduce((s, m) => s + m.monto, 0);
 
     const netTransf = transferencias
       .filter(t => new Date(t.fecha+'T12:00') >= desdeCobro)
       .reduce((s, t) => s + (t.a === key ? t.monto : 0) - (t.de === key ? t.monto : 0), 0);
 
-    result[key] = Math.max(0, income - naturalOutgo - reasigOutgo - invOutgo + netTransf);
+    result[key] = Math.max(0, income - naturalOutgo + netTransf);
   }
+
+  // Disponible = total cobros en ventana − lo asignado a reservas − todos los gastos no-reserva
+  const cobros45 = movimientos.filter(m => m.tipo === 'cobro' && new Date(m.fecha+'T12:00') >= desde45);
+  const totalCobros   = cobros45.reduce((s, m) => s + m.monto, 0);
+  const alquilerAsig  = cobros45.reduce((s, m) => s + (m.distribucion?.alquiler || 0), 0);
+  const tarjetaAsig   = cobros45.reduce((s, m) => s + (m.distribucion?.tarjeta  || 0), 0);
+  const primeraFecha  = cobros45.length > 0
+    ? new Date(Math.min(...cobros45.map(m => new Date(m.fecha+'T12:00').getTime())))
+    : desde45;
+  const gastosNoReserva = movimientos
+    .filter(m => m.tipo === 'gasto'
+      && new Date(m.fecha+'T12:00') >= primeraFecha
+      && !RESERVA_KEYS.includes(m.categoria))
+    .reduce((s, m) => s + m.monto, 0);
+  result.disponible = Math.max(0, totalCobros - alquilerAsig - tarjetaAsig - gastosNoReserva);
 
   return result;
 }
 
 // Mapeo de categoría de tarea → clave de obligación del plan
 const CAT_TO_PLAN = {
-  alquiler:    'alquiler',
-  tarjeta:     'tarjeta',
-  servicios:   'servicios',
-  monotributo: 'servicios',
-  inversion:   'cedears',
-  fci:         'fci',
+  alquiler: 'alquiler',
+  tarjeta:  'tarjeta',
 };
 
 // Devuelve las obligaciones del plan augmentadas con tareas pendientes agrupadas por categoría
@@ -1683,21 +1632,6 @@ function _oblsConDatos(){
       diasHastaVenc = Math.max(0, (due - hoy) / 86400000);
       const fechaFmt = new Date(o._tareaVenc+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});
       vencLabel = `vence ${fechaFmt} (${_dStr(diasHastaVenc)})`;
-    } else if(o.key === 'servicios'){
-      // Mostrar próximo servicio pendiente, no el venceDia genérico
-      const proxSvc = tareas
-        .filter(t => !t.done && ['servicios','monotributo'].includes(t.cat))
-        .sort((a,b) => new Date(a.venc) - new Date(b.venc))[0];
-      if(proxSvc){
-        const due = new Date(proxSvc.venc + 'T23:59');
-        diasHastaVenc = Math.max(0, (due - hoy) / 86400000);
-        vencLabel = `Próx vto: ${proxSvc.desc} — ${_dStr(diasHastaVenc)}`;
-      } else if(o.venceDia !== null){
-        let due = new Date(hoy.getFullYear(), hoy.getMonth(), o.venceDia, 23, 59);
-        if(due < hoy) due = new Date(hoy.getFullYear(), hoy.getMonth()+1, o.venceDia, 23, 59);
-        diasHastaVenc = Math.max(0, (due - hoy) / 86400000);
-        vencLabel = `vence día ${o.venceDia} (${_dStr(diasHastaVenc)})`;
-      }
     } else if(o.venceDia !== null){
       let due = new Date(hoy.getFullYear(),
         o.mesProximo ? hoy.getMonth()+1 : hoy.getMonth(),
@@ -1802,16 +1736,11 @@ function calcularDistribucion(){
   }
   _distData = dist;
 
-  const invKeys = ['cedears','fci'];
   const rowsHTML = dist.asignaciones.map(a => {
-    const isInv = invKeys.includes(a.key);
-    const cls   = isInv ? 'dist-inv' : 'dist-oblig';
-    const sub   = a.vencLabel
-      ? `${fmt(a.cubierto+a.monto)} / ${fmt(a.target)} cubierto${a.dinamico?' (calculado)':''}`
-      : `${fmt(a.cubierto+a.monto)} / ${fmt(a.target)} cubierto`;
+    const sub = `${fmt(a.cubierto+a.monto)} / ${fmt(a.target)} cubierto${a.dinamico?' (calculado)':''}`;
     return `<div class="dist-row">
       <div><div class="dist-label">${a.label}</div><div class="dist-sub">${sub}${a.vencLabel?` · ${a.vencLabel}`:''}</div></div>
-      <div class="dist-monto ${cls}">${fmt(a.monto)}</div>
+      <div class="dist-monto dist-oblig">${fmt(a.monto)}</div>
     </div>`;
   }).join('');
 
@@ -1823,7 +1752,7 @@ function calcularDistribucion(){
       <h3 style="color:var(--blue)">Distribución recomendada</h3>
       ${rowsHTML}
       <div class="dist-row" style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px">
-        <div><div class="dist-label">Para vivir esta semana</div><div class="dist-sub">guardalo en cuenta corriente</div></div>
+        <div><div class="dist-label">Disponible</div><div class="dist-sub">queda en tu cuenta</div></div>
         <div class="dist-monto ${vidaColor}">${fmt(dist.paraVida)}</div>
       </div>
       <div class="instruccion-total" style="margin-top:10px">
@@ -2025,11 +1954,11 @@ function _mostrarSliders(){
   box.innerHTML = `
     <div class="instruccion blue" style="margin-top:0">
       <h3 style="color:var(--blue);margin-bottom:4px">Editá la distribución</h3>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5">Lo que no asignés a los buckets va a Para vivir.</p>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5">Lo que no asignés a reservas queda disponible.</p>
       ${slidersHtml}
       <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid rgba(255,255,255,0.08);margin-top:4px">
         <div>
-          <div style="font-size:13px;font-weight:500">Para vivir</div>
+          <div style="font-size:13px;font-weight:500">Disponible</div>
           <div style="font-size:10px;color:var(--muted)">lo que no se asigna</div>
         </div>
         <span id="dist-vida-val" style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:var(--green)">${fmt(paraVidaInit)}</span>
@@ -2187,11 +2116,10 @@ function _refreshInvPlans(){
 // ── DETECCIÓN DE DESVÍO ───────────────────────────────────
 function _getDesvioInfo(cat, monto){
   const CAT_TO_DIST = {
-    alquiler: 'alquiler', tarjeta: 'tarjeta', servicios: 'servicios',
-    inversion: 'cedears', fci: 'fci',
+    alquiler: 'alquiler', tarjeta: 'tarjeta',
   };
   const distKey = CAT_TO_DIST[cat];
-  if(!distKey) return null; // 'otro' es gasto libre, no se controla
+  if(!distKey) return null; // gastos no-reserva son libres, no se controlan
 
   const desde = new Date(Date.now() - 45 * 86400000);
 
@@ -2200,25 +2128,23 @@ function _getDesvioInfo(cat, monto){
     .filter(m => m.tipo === 'cobro' && new Date(m.fecha + 'T12:00') >= desde && m.distribucion)
     .forEach(m => {
       for(const [k, v] of Object.entries(m.distribucion)){
-        if(k !== 'vida') pool[k] = (pool[k] || 0) + v;
+        if(RESERVA_KEYS.includes(k)) pool[k] = (pool[k] || 0) + v;
       }
     });
   if(Object.keys(pool).length === 0) return null;
 
-  const GASTO_TO_DIST = { alquiler:'alquiler', tarjeta:'tarjeta', servicios:'servicios', inversion:'cedears', fci:'fci' };
   const spent = {};
   movimientos
     .filter(m => m.tipo === 'gasto' && new Date(m.fecha + 'T12:00') >= desde)
     .forEach(m => {
-      const k = GASTO_TO_DIST[m.categoria];
-      if(k) spent[k] = (spent[k] || 0) + m.monto;
+      if(RESERVA_KEYS.includes(m.categoria)) spent[m.categoria] = (spent[m.categoria] || 0) + m.monto;
     });
 
   const allocated  = pool[distKey] || 0;
   const alreadySpent = spent[distKey] || 0;
   const remaining  = allocated - alreadySpent;
 
-  const LABELS = { alquiler:'Alquiler', tarjeta:'Tarjeta', servicios:'Servicios', cedears:'CEDEARs', fci:'FCI' };
+  const LABELS = { alquiler:'Alquiler', tarjeta:'Tarjeta' };
 
   const pendingOtros = Object.entries(pool)
     .filter(([k]) => k !== distKey)
@@ -2311,9 +2237,9 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId, reasig
     const b = calcPresupuesto();
     if(b.cobrado){
       if(b.vivirLibre < 0){
-        toast(`⚠ Gasto registrado${tareaMsg} · Libre para vivir: ${fmt(b.vivirLibre)} (excedido)`, 'err', 5000);
+        toast(`⚠ Gasto registrado${tareaMsg} · Disponible: ${fmt(b.vivirLibre)} (excedido)`, 'err', 5000);
       } else {
-        toast(`✓ Gasto registrado${tareaMsg} · Libre para vivir: ${fmt(b.vivirLibre)}`);
+        toast(`✓ Gasto registrado${tareaMsg} · Disponible: ${fmt(b.vivirLibre)}`);
       }
     } else {
       toast(`✓ Gasto registrado${tareaMsg}`);
@@ -2543,21 +2469,18 @@ function renderResumen(){
 
   // ── #6 Semáforo ───────────────────────────────────────
   const tareasMes     = tareas.filter(t=>{ const d=new Date(t.venc+'T12:00'); return d.getMonth()===mes&&d.getFullYear()===anio; });
-  const metaInvARS    = Math.round(135 * tcUSD);
-  const invAsig       = asignadosCobros.cedears || 0;
   const s1ok = tareasMes.length===0 || tareasMes.filter(t=>t.done).length/tareasMes.length >= 0.5;
-  const s2ok = invAsig >= metaInvARS * 0.8;
-  const bSem  = calcPresupuesto();
   const faltaTotalObl = _oblsConDatos().reduce((s,o) => s + o.falta, 0);
   const paraGastar    = totalCobrado - totalGastado - faltaTotalObl;
-  const s3ok  = paraGastar >= 0;
-  const s3sub = `Para gastar: ${fmt(paraGastar)}`;
+  const s2ok  = paraGastar >= 0;
+  const saldos = _getSaldoReservas();
+  const s3ok  = saldos.disponible > 0;
   document.getElementById('semaforo-resumen').innerHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
       ${[
         { ok:s1ok, label:'Gastos fijos',     sub:`${tareasMes.filter(t=>t.done).length}/${tareasMes.length} pagados este mes` },
-        { ok:s2ok, label:'Inversión USD',    sub:`${fmt(invAsig)} asignado · meta ~${fmt(metaInvARS)}` },
-        { ok:s3ok, label:'Flujo controlado', sub:s3sub },
+        { ok:s2ok, label:'Flujo controlado', sub:`Para gastar: ${fmt(paraGastar)}` },
+        { ok:s3ok, label:'Disponible',       sub:fmt(saldos.disponible) },
       ].map(s=>`
         <div style="flex:1;min-width:140px;background:var(--surface);border:1px solid ${s.ok?'var(--green-border)':'var(--red-border)'};border-radius:10px;padding:11px 14px;display:flex;align-items:flex-start;gap:9px">
           <div style="width:9px;height:9px;border-radius:50%;background:${s.ok?'var(--green)':'var(--red)'};flex-shrink:0;margin-top:3px"></div>
@@ -2566,29 +2489,24 @@ function renderResumen(){
     </div>`;
 
   // ── #2 Cards ──────────────────────────────────────────
-  const _cobRes   = _gastosObligMes();
-  const _oblsRes  = getPlanObls();
-  const _invT     = _oblsRes.find(o=>o.key==='cedears')?.monto || 150000;
-  const invGastRes= _cobRes.cedears;
-  const saldos    = _getSaldoReservas();
-  const totalRes  = Object.values(saldos).reduce((s,v)=>s+v,0);
+  const totalRes  = (saldos.alquiler||0) + (saldos.tarjeta||0);
   const cobrosN   = delMes.filter(m=>m.tipo==='cobro').length;
   document.getElementById('cards-resumen').innerHTML = `
     <div class="metric-hero">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em">Reservas totales</span>
+        <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em">Reservas (alquiler + tarjeta)</span>
         <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600">${fmt(totalRes)}</span>
       </div>
       <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:13px;font-weight:500;color:var(--green)">Para vivir</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;color:var(--green)">${fmt(saldos.vida)}</span>
+        <span style="font-size:13px;font-weight:500;color:var(--green)">Disponible</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;color:var(--green)">${fmt(saldos.disponible)}</span>
       </div>
     </div>
     <div class="secondary-cards">
       <div class="metric-sm"><div class="sm-label">Cobrado</div><div class="sm-value" style="color:var(--green)">${fmt(totalCobrado)}</div><div class="sm-sub">${cobrosN} cobro${cobrosN!==1?'s':''}</div></div>
       <div class="metric-sm"><div class="sm-label">Gastado</div><div class="sm-value" style="color:var(--red)">${fmt(totalGastado)}</div><div class="sm-sub">${pctGasto}% del ingreso</div></div>
-      <div class="metric-sm"><div class="sm-label">Para gastar</div><div class="sm-value" style="color:${paraGastar>=0?'var(--text)':'var(--red)'}">${fmt(paraGastar)}</div><div class="sm-sub">cobrado − gastado − pendientes</div></div>
-      <div class="metric-sm"><div class="sm-label">CEDEARs</div><div class="sm-value" style="color:${invGastRes>=_invT*0.8?'var(--purple)':'var(--amber)'}">${fmt(invGastRes)}</div><div class="sm-sub">de ${fmt(_invT)} meta</div></div>
+      <div class="metric-sm"><div class="sm-label">Alquiler</div><div class="sm-value" style="color:var(--blue)">${fmt(saldos.alquiler||0)}</div><div class="sm-sub">reserva</div></div>
+      <div class="metric-sm"><div class="sm-label">Tarjeta</div><div class="sm-value" style="color:var(--purple)">${fmt(saldos.tarjeta||0)}</div><div class="sm-sub">reserva</div></div>
     </div>
   `;
 
@@ -2667,37 +2585,25 @@ function calcPresupuesto(montoPreview=0, catPreview=''){
   const { totalProximo } = calcTarjeta();
   const tarjetaTarget = Math.ceil(totalProximo/1000)*1000;
 
-  const tareasSvc = tareas.filter(t=>{
-    const d=new Date(t.venc+'T12:00');
-    return d.getMonth()===mes&&d.getFullYear()===anio&&['servicios','monotributo'].includes(t.cat);
-  });
-  const svcTarget = tareasSvc.reduce((s,t)=>s+(t.monto||0),0);
-  const svcPagado = tareasSvc.filter(t=>t.done).reduce((s,t)=>s+(t.monto||0),0);
-
-  const oblsPlan = getPlanObls();
-  const ALQUILER_T = oblsPlan.find(o=>o.key==='alquiler')?.monto  || 450000;
-  const CED_T      = oblsPlan.find(o=>o.key==='cedears')?.monto   || 150000;
-  const FCI_T      = oblsPlan.find(o=>o.key==='fci')?.monto       || 50000;
-  const totalOblig = ALQUILER_T + tarjetaTarget + svcTarget + CED_T + FCI_T;
+  const oblsPlan   = getPlanObls();
+  const ALQUILER_T = oblsPlan.find(o=>o.key==='alquiler')?.monto || 450000;
+  const totalOblig = ALQUILER_T + tarjetaTarget;
 
   const _gob = _gastosObligMes();
   const obligaciones = [
-    { label:'Alquiler',          target:ALQUILER_T,    prog:_gob.alquiler  },
-    { label:'Tarjeta', target:tarjetaTarget, prog:_gob.tarjeta   },
-    { label:'Servicios + Mono',  target:svcTarget,     prog:_gob.servicios },
-    { label:'CEDEARs',           target:CED_T,         prog:_gob.cedears   },
-    { label:'FCI colchón',       target:FCI_T,         prog:_gob.fci       },
+    { label:'Alquiler', target:ALQUILER_T,    prog:_gob.alquiler },
+    { label:'Tarjeta',  target:tarjetaTarget, prog:_gob.tarjeta  },
   ];
 
-  const vivirCats = ['comida','transporte','personal','otro'];
-  const vivirGast = delMes.filter(m=>m.tipo==='gasto'&&vivirCats.includes(m.categoria)).reduce((s,m)=>s+m.monto,0);
-  const isVivir   = vivirCats.includes(catPreview);
+  const reserveCats  = ['alquiler','tarjeta'];
+  const dispGast = delMes.filter(m=>m.tipo==='gasto'&&!reserveCats.includes(m.categoria)).reduce((s,m)=>s+m.monto,0);
+  const isDisp   = !reserveCats.includes(catPreview);
   const paraVivir = cobrado - totalOblig;
-  const preview   = isVivir ? montoPreview : 0;
-  const vivirLibre= paraVivir - vivirGast - preview;
-  const pctVivir  = paraVivir>0 ? Math.min(100,Math.round((vivirGast+preview)/paraVivir*100)) : (vivirGast>0?100:0);
+  const preview   = isDisp ? montoPreview : 0;
+  const vivirLibre= paraVivir - dispGast - preview;
+  const pctVivir  = paraVivir>0 ? Math.min(100,Math.round((dispGast+preview)/paraVivir*100)) : (dispGast>0?100:0);
 
-  return { cobrado, obligaciones, totalOblig, paraVivir, vivirGast, vivirLibre, pctVivir, montoPreview, isVivir };
+  return { cobrado, obligaciones, totalOblig, paraVivir, vivirGast:dispGast, vivirLibre, pctVivir, montoPreview, isVivir:isDisp };
 }
 
 function renderPresupuesto(montoPreview=0, catPreview=''){
@@ -2734,7 +2640,7 @@ function renderPresupuesto(montoPreview=0, catPreview=''){
   const previewHTML = b.montoPreview>0 ? `
     <div style="margin-top:12px;padding:11px 14px;border-radius:8px;background:${vivirOk?'var(--surface2)':'var(--red-bg)'};border:1px solid ${vivirOk?'var(--border)':'var(--red-border)'}">
       <div style="font-size:12px;color:var(--muted);margin-bottom:4px">
-        ${b.isVivir ? `Si registrás ${fmt(b.montoPreview)} (presupuesto para vivir):` : `Este gasto es una obligación fija — no afecta el presupuesto para vivir.`}
+        ${b.isVivir ? `Si registrás ${fmt(b.montoPreview)} (gasto disponible):` : `Este gasto cubre una reserva fija — no reduce el disponible.`}
       </div>
       ${b.isVivir ? `<div style="font-size:14px;font-weight:600;color:${vivirColor}">
         ${vivirOk ? `Libre restante: ${fmt(b.vivirLibre)} (${b.pctVivir}% utilizado)` : `⚠ Te pasás por ${fmt(Math.abs(b.vivirLibre))}`}
@@ -2753,9 +2659,9 @@ function renderPresupuesto(montoPreview=0, catPreview=''){
       ${b.paraVivir<0?`<div style="font-size:12px;color:var(--red);margin-top:8px;padding:8px 12px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:6px">⚠ Los ingresos del mes no cubren todas las obligaciones fijas todavía</div>`:''}
 
       <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
-        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px">Para vivir · comida · transporte · personal</div>
+        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px">Disponible · todos tus gastos del día a día</div>
         <div class="progress-header" style="margin-bottom:6px">
-          <span class="progress-label">Presupuesto: ${fmt(Math.max(0,b.paraVivir))}</span>
+          <span class="progress-label">Disponible: ${fmt(Math.max(0,b.paraVivir))}</span>
           <span class="progress-amounts" style="color:${vivirColor}">${fmt(b.vivirGast+(b.isVivir?b.montoPreview:0))} usado (${b.pctVivir}%)</span>
         </div>
         <div class="progress-bar">
@@ -2796,27 +2702,14 @@ function renderPlanMes(elId){
       : o.diasHastaVenc <= 3 ? 'var(--red)'
       : o.diasHastaVenc <= 7 ? 'var(--amber)'
       : 'var(--blue)';
-    const esInv = o.key === 'cedears' || o.key === 'fci';
     const gastLine = gastPct >= 100
       ? `<span style="color:var(--green)">✓ cubierto</span>`
-      : `${esInv ? 'Cubierto' : 'Gastado'}: ${fmt(o.cubierto)} / ${fmt(o.monto)}${o.falta>0?` — falta <strong>${fmt(o.falta)}</strong>`:''}${o.vencLabel?` · ${o.vencLabel}`:''}`;
+      : `Gastado: ${fmt(o.cubierto)} / ${fmt(o.monto)}${o.falta>0?` — falta <strong>${fmt(o.falta)}</strong>`:''}${o.vencLabel?` · ${o.vencLabel}`:''}`;
     const asigLine = asignado > 0
       ? `<span style="color:var(--blue)">Asignado desde cobros: ${fmt(asignado)}</span>`
       : '';
 
-    // Botón para confirmar inversión (solo CEDEARs y FCI) — el detalle se ve en el historial
-    const desde45 = new Date(Date.now() - 45*86400000);
-    const invCount = esInv ? inversiones.filter(i =>
-      i.tipo === o.key && new Date(i.fecha+'T12:00') >= desde45
-    ).length : 0;
-    const invHTML = esInv ? `
-      <div style="margin-top:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <button onclick="abrirModalInversion('${o.key}', ${Math.max(0, asignado - o.cubierto)})"
-          style="font-size:11px;background:none;border:1px solid var(--border);border-radius:6px;padding:3px 10px;color:var(--blue);cursor:pointer;font-family:'Manrope',sans-serif">
-          + Confirmar inversión
-        </button>
-        ${invCount > 0 ? `<span style="font-size:11px;color:var(--muted)">${invCount} confirmada${invCount!==1?'s':''} · ver en historial</span>` : ''}
-      </div>` : '';
+    const invHTML = '';
 
     return `
       <div class="plan-obl-row">
@@ -2859,7 +2752,7 @@ function renderPlanMes(elId){
       <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px">Obligaciones y ahorro</div>
       ${oblRows}
       <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
-        <div class="plan-obl-label" style="margin-bottom:3px">Para vivir</div>
+        <div class="plan-obl-label" style="margin-bottom:3px">Disponible (gastos del día a día)</div>
         <div class="plan-obl-nums" style="margin-bottom:4px">${fmt(vidaGast)} / ${fmt(vidaBudget)} — queda ${fmt(Math.max(0,vidaBudget-vidaGast))}</div>
         <div class="plan-obl-bar"><div class="plan-obl-fill" style="width:${vidaPct}%;background:${vidaColor}"></div></div>
       </div>
