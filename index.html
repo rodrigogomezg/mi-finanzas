@@ -1229,27 +1229,33 @@ function toast(msg, type='ok', duration=3000){
 let _pendingUndo = null;
 let _distData = null;
 
-function softDelete({ arr, id, setKey, render, label }){
+async function softDelete({ arr, id, setKey, render, label }){
   if(_pendingUndo){
     clearTimeout(_pendingUndo.timer);
-    _pendingUndo.commit();
     _pendingUndo = null;
   }
   const idx = arr.findIndex(x => x.id === id);
   if(idx === -1) return;
   const item = arr[idx];
   arr.splice(idx, 1);
+  await S.set(setKey, arr); // persiste inmediatamente — no espera 4.5s
   render();
-  const commit = async () => { await S.set(setKey, arr); };
-  const timer = setTimeout(async () => { await commit(); _pendingUndo = null; }, 4500);
-  _pendingUndo = { timer, commit, restore(){ arr.splice(idx, 0, item); render(); } };
+  const timer = setTimeout(() => { _pendingUndo = null; }, 4500);
+  _pendingUndo = {
+    timer,
+    async restore(){
+      arr.splice(idx, 0, item);
+      await S.set(setKey, arr);
+      render();
+    }
+  };
   toast(`${label} eliminado · <button onclick="undoDelete()" style="background:none;border:none;color:var(--text);font-weight:600;cursor:pointer;text-decoration:underline;padding:0 0 0 6px;font-size:inherit;font-family:inherit">Deshacer</button>`, 'warn', 4800);
 }
 
 async function undoDelete(){
   if(!_pendingUndo) return;
   clearTimeout(_pendingUndo.timer);
-  _pendingUndo.restore();
+  await _pendingUndo.restore();
   _pendingUndo = null;
   toast('Recuperado', 'ok', 2000);
 }
