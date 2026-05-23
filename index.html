@@ -1544,34 +1544,71 @@ const RESERVA_LABELS = {
 };
 
 function _getSaldoReservas(){
-  const asig = _getCobrosAsignados();
-  const gob  = _gastosObligMes();
   const desde45 = new Date(Date.now() - 45*86400000);
-  const VIDA_CATS = ['comida','transporte','personal','otro'];
-  const cobrosConVida = movimientos.filter(m =>
-    m.tipo === 'cobro' && new Date(m.fecha+'T12:00') >= desde45 && m.distribucion?.vida != null
-  );
-  const vidaBudget = cobrosConVida.reduce((s, m) => s + m.distribucion.vida, 0);
-  // Gastos de vida solo desde la fecha del cobro con vida más antiguo en ventana.
-  // Así los gastos previos (cubiertos por cobros que ya salieron de la ventana) no
-  // reducen el saldo del cobro nuevo.
-  const desdeCobro = cobrosConVida.length > 0
-    ? new Date(Math.min(...cobrosConVida.map(m => new Date(m.fecha+'T12:00').getTime())))
-    : desde45;
-  const vidaGast = movimientos
-    .filter(m => m.tipo === 'gasto' && VIDA_CATS.includes(m.categoria) && new Date(m.fecha+'T12:00') >= desdeCobro)
-    .reduce((s, m) => s + m.monto, 0);
-  const vidaTransf = transferencias
-    .filter(t => new Date(t.fecha+'T12:00') >= desdeCobro)
-    .reduce((s, t) => s + (t.a === 'vida' ? t.monto : 0) - (t.de === 'vida' ? t.monto : 0), 0);
-  return {
-    vida:      Math.max(0, vidaBudget + vidaTransf - vidaGast),
-    alquiler:  Math.max(0, (asig.alquiler  || 0) - gob.alquiler),
-    tarjeta:   Math.max(0, (asig.tarjeta   || 0) - gob.tarjeta),
-    servicios: Math.max(0, (asig.servicios || 0) - gob.servicios),
-    cedears:   Math.max(0, (asig.cedears   || 0) - gob.cedears),
-    fci:       Math.max(0, (asig.fci       || 0) - gob.fci),
+
+  // Categorías que corresponden a cada bucket de reserva
+  const RESERVA_CATS = {
+    vida:      ['comida','transporte','personal','otro'],
+    alquiler:  ['alquiler'],
+    tarjeta:   ['tarjeta'],
+    servicios: ['servicios','monotributo'],
+    cedears:   ['inversion'],
+    fci:       ['fci'],
   };
+
+  const result = {};
+
+  for(const [key, cats] of Object.entries(RESERVA_CATS)){
+    // Cobros que asignaron plata a este bucket en los últimos 45 días
+    const cobrosConKey = movimientos.filter(m =>
+      m.tipo === 'cobro' &&
+      new Date(m.fecha+'T12:00') >= desde45 &&
+      (m.distribucion?.[key] || 0) > 0
+    );
+    const income = cobrosConKey.reduce((s, m) => s + (m.distribucion[key] || 0), 0);
+
+    // Solo contar outflows desde la fecha del cobro más antiguo con este bucket.
+    // Gastos anteriores a cualquier cobro en ventana ya fueron cubiertos por cobros
+    // viejos que salieron de la ventana — no deben reducir el saldo nuevo.
+    const desdeCobro = cobrosConKey.length > 0
+      ? new Date(Math.min(...cobrosConKey.map(m => new Date(m.fecha+'T12:00').getTime())))
+      : desde45;
+
+    const gastosDesde = movimientos.filter(m =>
+      m.tipo === 'gasto' && new Date(m.fecha+'T12:00') >= desdeCobro
+    );
+
+    // Gastos naturales del bucket: solo lo que este bucket realmente pagó
+    // (monto del gasto menos lo que vino de reasignaciones de otras reservas)
+    const naturalOutgo = gastosDesde
+      .filter(m => cats.includes(m.categoria))
+      .reduce((s, m) => {
+        const reasigRecibida = m.reasignaciones
+          ? Object.values(m.reasignaciones).reduce((a,b) => a+b, 0)
+          : 0;
+        return s + Math.max(0, m.monto - reasigRecibida);
+      }, 0);
+
+    // Reasignaciones: dinero tomado DE este bucket para cubrir gastos de otro bucket
+    const reasigOutgo = gastosDesde
+      .filter(m => !cats.includes(m.categoria) && (m.reasignaciones?.[key] || 0) > 0)
+      .reduce((s, m) => s + m.reasignaciones[key], 0);
+
+    // Inversiones confirmadas (aplica a cedears y fci)
+    const invOutgo = (key === 'cedears' || key === 'fci')
+      ? inversiones
+          .filter(i => i.tipo === key && new Date(i.fecha+'T12:00') >= desdeCobro)
+          .reduce((s, i) => s + i.monto, 0)
+      : 0;
+
+    const netTransf = transferencias
+      .filter(t => new Date(t.fecha+'T12:00') >= desdeCobro)
+      .reduce((s, t) => s + (t.a === key ? t.monto : 0) - (t.de === key ? t.monto : 0), 0);
+
+    result[key] = Math.max(0, income - naturalOutgo - reasigOutgo - invOutgo + netTransf);
+  }
+
+  return result;
 }
 
 // Mapeo de categoría de tarea → clave de obligación del plan
