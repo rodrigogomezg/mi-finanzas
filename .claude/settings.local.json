@@ -6,7 +6,8 @@
       "Bash(npx playwright *)",
       "Bash(node -e ' *)",
       "Bash(cd /tmp)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(node \"C:\\\\Users\\\\Rodrigo\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\load-context.mjs\")"
     ]
   }
 }

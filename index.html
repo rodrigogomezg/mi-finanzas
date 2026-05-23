@@ -747,7 +747,7 @@
           </div>
           <div class="form-group">
             <label>Monto total ($)</label>
-            <input type="number" id="gt-monto" placeholder="0">
+            <input type="number" id="gt-monto" placeholder="0" min="1">
           </div>
           <div class="form-group">
             <label>Categoría</label>
@@ -795,7 +795,7 @@
         <div class="form-grid">
           <div class="form-group">
             <label>Monto pagado ($)</label>
-            <input type="number" id="tarjeta-pago-monto" placeholder="388752">
+            <input type="number" id="tarjeta-pago-monto" placeholder="388752" min="1">
           </div>
           <div class="form-group">
             <label>Fecha de pago</label>
@@ -950,11 +950,11 @@
         <div class="form-grid">
           <div class="form-group">
             <label>Ingreso base mensual esperado ($)</label>
-            <input type="number" id="cfg-ingreso-base" placeholder="1350000">
+            <input type="number" id="cfg-ingreso-base" placeholder="1350000" min="1">
           </div>
           <div class="form-group">
             <label>Presupuesto mensual para vivir ($)</label>
-            <input type="number" id="cfg-vida" placeholder="300000">
+            <input type="number" id="cfg-vida" placeholder="300000" min="1">
           </div>
         </div>
       </div>
@@ -1121,7 +1121,7 @@
     <div style="display:flex;flex-direction:column;gap:12px">
       <div>
         <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Monto ($)</label>
-        <input type="number" id="modal-inv-monto" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif">
+        <input type="number" id="modal-inv-monto" min="1" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif">
       </div>
       <div>
         <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Fecha</label>
@@ -1166,7 +1166,7 @@
       <div id="transf-disponible" style="font-size:11px;color:var(--muted)"></div>
       <div>
         <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Monto ($)</label>
-        <input type="number" id="transf-monto" placeholder="0" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif">
+        <input type="number" id="transf-monto" placeholder="0" min="1" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif">
       </div>
       <div>
         <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Nota (opcional)</label>
@@ -1228,6 +1228,9 @@ function toast(msg, type='ok', duration=3000){
 
 let _pendingUndo = null;
 let _distData = null;
+let _saving = false;
+
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 async function softDelete({ arr, id, setKey, render, label }){
   if(_pendingUndo){
@@ -1950,33 +1953,39 @@ async function registrarCobro(conDistribucion = true){
   const tipo  = document.getElementById('cobro-tipo').value;
   const fecha = document.getElementById('cobro-fecha').value;
   const nota  = document.getElementById('cobro-nota').value;
-  if(!monto || !fecha){ toast('Completá monto y fecha', 'err'); return; }
-
-  if(conDistribucion){
-    const dist = calcDistribucion(monto);
-    if(dist){
-      const distribucion = Object.fromEntries(dist.asignaciones.map(a => [a.key, a.monto]));
-      distribucion.vida = dist.paraVida;
-      movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota, distribucion });
+  if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
+  if(!fecha){ toast('Elegí una fecha', 'err'); return; }
+  if(_saving) return;
+  _saving = true;
+  try {
+    if(conDistribucion){
+      const dist = calcDistribucion(monto);
+      if(dist){
+        const distribucion = Object.fromEntries(dist.asignaciones.map(a => [a.key, a.monto]));
+        distribucion.vida = dist.paraVida;
+        movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota, distribucion });
+      } else {
+        movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota });
+      }
+      toast('✓ Cobro registrado con distribución');
     } else {
       movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota });
+      toast('✓ Cobro registrado como libre disponible');
     }
-    toast('✓ Cobro registrado con distribución');
-  } else {
-    movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota });
-    toast('✓ Cobro registrado como libre disponible');
+
+    await S.set('movimientos', movimientos);
+
+    document.getElementById('cobro-monto').value = '';
+    document.getElementById('cobro-nota').value  = '';
+    const box = document.getElementById('instruccion-box');
+    box.style.display = 'none';
+    const btnDefault = document.getElementById('cobro-btn-default');
+    if(btnDefault) btnDefault.style.display = 'block';
+    renderResumen();
+    renderPlanMes('plan-mes-resumen');
+  } finally {
+    _saving = false;
   }
-
-  await S.set('movimientos', movimientos);
-
-  document.getElementById('cobro-monto').value = '';
-  document.getElementById('cobro-nota').value  = '';
-  const box = document.getElementById('instruccion-box');
-  box.style.display = 'none';
-  const btnDefault = document.getElementById('cobro-btn-default');
-  if(btnDefault) btnDefault.style.display = 'block';
-  renderResumen();
-  renderPlanMes('plan-mes-resumen');
 }
 
 // ── DISTRIBUCIÓN EDITABLE CON SLIDERS ────────────────────
@@ -2057,34 +2066,40 @@ async function _confirmarDistEditada(){
   const tipo  = document.getElementById('cobro-tipo').value;
   const fecha = document.getElementById('cobro-fecha').value;
   const nota  = document.getElementById('cobro-nota').value;
-  if(!monto || !fecha){ toast('Completá monto y fecha', 'err'); return; }
+  if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
+  if(!fecha){ toast('Elegí una fecha', 'err'); return; }
+  if(_saving) return;
+  _saving = true;
+  try {
+    const distribucion = {};
+    let totalAsignado = 0;
+    for(const o of _distData.oblsDatos.filter(o => o.monto > 0)){
+      const el = document.getElementById(`dist-sl-${o.key}`);
+      const v = el ? (parseInt(el.value) || 0) : 0;
+      if(v > 0) distribucion[o.key] = v;
+      totalAsignado += v;
+    }
+    if(totalAsignado > monto){
+      toast(`El total asignado (${fmt(totalAsignado)}) supera el cobro (${fmt(monto)}) — reducí algún slider`, 'err');
+      return;
+    }
+    distribucion.vida = Math.max(0, monto - totalAsignado);
 
-  const distribucion = {};
-  let totalAsignado = 0;
-  for(const o of _distData.oblsDatos.filter(o => o.monto > 0)){
-    const el = document.getElementById(`dist-sl-${o.key}`);
-    const v = el ? (parseInt(el.value) || 0) : 0;
-    if(v > 0) distribucion[o.key] = v;
-    totalAsignado += v;
+    movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota, distribucion });
+    await S.set('movimientos', movimientos);
+
+    document.getElementById('cobro-monto').value = '';
+    document.getElementById('cobro-nota').value  = '';
+    document.getElementById('instruccion-box').style.display = 'none';
+    const btnDefault = document.getElementById('cobro-btn-default');
+    if(btnDefault) btnDefault.style.display = 'flex';
+    _distData = null;
+    renderResumen();
+    renderPlanMes('plan-mes-resumen');
+    toast('✓ Cobro registrado con tu distribución');
+  } finally {
+    _saving = false;
   }
-  if(totalAsignado > monto){
-    toast(`El total asignado (${fmt(totalAsignado)}) supera el cobro (${fmt(monto)}) — reducí algún slider`, 'err');
-    return;
-  }
-  distribucion.vida = Math.max(0, monto - totalAsignado);
-
-  movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota, distribucion });
-  await S.set('movimientos', movimientos);
-
-  document.getElementById('cobro-monto').value = '';
-  document.getElementById('cobro-nota').value  = '';
-  document.getElementById('instruccion-box').style.display = 'none';
-  const btnDefault = document.getElementById('cobro-btn-default');
-  if(btnDefault) btnDefault.style.display = 'flex';
-  _distData = null;
-  renderResumen();
-  renderPlanMes('plan-mes-resumen');
-  toast('✓ Cobro registrado con tu distribución');
 }
 
 // ── SELECTOR DE TAREAS EN GASTO ──────────────────────────
@@ -2138,14 +2153,20 @@ async function guardarInversion(){
   const fecha   = document.getElementById('modal-inv-fecha').value;
   const estado  = document.getElementById('modal-inv-estado').value;
   const nota    = document.getElementById('modal-inv-nota').value;
-  if(!monto || !fecha){ toast('Completá monto y fecha', 'err'); return; }
-
-  inversiones.push({ id: Date.now(), tipo, monto, fecha, estado, nota });
-  await S.set('inversiones', inversiones);
-  cerrarModalInv();
-  const labels = { cedears:'CEDEARs', fci:'FCI' };
-  toast(`✓ ${labels[tipo]||tipo} confirmado — ${fmt(monto)}`);
-  _refreshInvPlans();
+  if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
+  if(!fecha){ toast('Elegí una fecha', 'err'); return; }
+  if(_saving) return;
+  _saving = true;
+  try {
+    inversiones.push({ id: Date.now(), tipo, monto, fecha, estado, nota });
+    await S.set('inversiones', inversiones);
+    cerrarModalInv();
+    const labels = { cedears:'CEDEARs', fci:'FCI' };
+    toast(`✓ ${labels[tipo]||tipo} confirmado — ${fmt(monto)}`);
+    _refreshInvPlans();
+  } finally {
+    _saving = false;
+  }
 }
 
 async function eliminarInversion(id){
@@ -2225,7 +2246,9 @@ async function registrarGasto(){
   const fecha   = document.getElementById('gasto-fecha').value;
   const desc    = document.getElementById('gasto-desc').value;
   const tareaId = parseInt(document.getElementById('gasto-tarea')?.value || '0');
-  if(!monto || !fecha){ toast('Completá monto y fecha', 'err'); return; }
+  if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
+  if(!fecha){ toast('Elegí una fecha', 'err'); return; }
+  if(_saving) return;
 
   const data = { monto, cat, fecha, desc, tareaId, reasignaciones: null };
 
@@ -2240,7 +2263,12 @@ async function registrarGasto(){
     }
   }
 
-  await _ejecutarRegistroGasto(data);
+  _saving = true;
+  try {
+    await _ejecutarRegistroGasto(data);
+  } finally {
+    _saving = false;
+  }
 }
 
 // Guarda el gasto y emite el toast correspondiente
@@ -2367,7 +2395,7 @@ function cerrarModalReasig(){
 }
 
 async function confirmarReasig(){
-  if(!_pendingReasig) return;
+  if(!_pendingReasig || _saving) return;
   const reasignaciones = {};
   document.querySelectorAll('[id^="reasig-in-"]').forEach(input => {
     const k = input.id.replace('reasig-in-', '');
@@ -2376,7 +2404,12 @@ async function confirmarReasig(){
   });
   const data = { ..._pendingReasig, reasignaciones: Object.keys(reasignaciones).length > 0 ? reasignaciones : null };
   cerrarModalReasig();
-  await _ejecutarRegistroGasto(data);
+  _saving = true;
+  try {
+    await _ejecutarRegistroGasto(data);
+  } finally {
+    _saving = false;
+  }
 }
 
 // ── TRANSFERENCIAS ENTRE RESERVAS ─────────────────────────
@@ -2418,21 +2451,27 @@ async function guardarTransferencia(){
   const a     = document.getElementById('transf-a').value;
   const monto = parseFloat(document.getElementById('transf-monto').value);
   const nota  = document.getElementById('transf-nota').value;
-  if(!monto || monto <= 0){ toast('Ingresá un monto válido', 'err'); return; }
+  if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
   if(de === a){ toast('Origen y destino no pueden ser iguales', 'err'); return; }
+  if(_saving) return;
 
   const saldos = _getSaldoReservas();
   if(monto > (saldos[de] || 0) + 50){
     if(!confirm(`El saldo de ${RESERVA_LABELS[de]} es ${fmt(saldos[de]||0)}, menor que ${fmt(monto)}. ¿Transferir igual?`)) return;
   }
 
-  const fecha = new Date().toISOString().slice(0,10);
-  transferencias.push({ id: Date.now(), fecha, de, a, monto, nota });
-  await S.set('transferencias', transferencias);
-  cerrarModalTransf();
-  renderResumen();
-  renderHistorial();
-  toast(`✓ ${fmt(monto)} de ${RESERVA_LABELS[de]} → ${RESERVA_LABELS[a]}`);
+  _saving = true;
+  try {
+    const fecha = new Date().toISOString().slice(0,10);
+    transferencias.push({ id: Date.now(), fecha, de, a, monto, nota });
+    await S.set('transferencias', transferencias);
+    cerrarModalTransf();
+    renderResumen();
+    renderHistorial();
+    toast(`✓ ${fmt(monto)} de ${RESERVA_LABELS[de]} → ${RESERVA_LABELS[a]}`);
+  } finally {
+    _saving = false;
+  }
 }
 
 async function eliminarTransferencia(id){
@@ -2975,7 +3014,7 @@ function renderHistorial(){
           <td><span class="badge badge-purple">Transferencia</span></td>
           <td style="color:var(--text);font-size:12px">${RESERVA_LABELS[m.de]||m.de} → ${RESERVA_LABELS[m.a]||m.a}</td>
           <td style="font-family:'JetBrains Mono',monospace;color:var(--purple)">${fmt(m.monto)}</td>
-          <td class="td-nota" style="color:var(--muted)">${m.nota||'—'}</td>
+          <td class="td-nota" style="color:var(--muted)">${esc(m.nota)||'—'}</td>
           <td><button class="btn btn-danger btn-sm" onclick="eliminarTransferencia(${m.id})">×</button></td>
         </tr>`;
     }
@@ -2989,7 +3028,7 @@ function renderHistorial(){
           <td><span class="badge badge-blue">Inversión</span></td>
           <td><span class="badge badge-blue">${invLabels[m.tipo]||m.tipo}</span>${estadoBadge}</td>
           <td style="font-family:'JetBrains Mono',monospace;color:var(--blue)">+${fmt(m.monto)}</td>
-          <td class="td-nota" style="color:var(--muted)">${m.nota||'—'}</td>
+          <td class="td-nota" style="color:var(--muted)">${esc(m.nota)||'—'}</td>
           <td><button class="btn btn-danger btn-sm" onclick="eliminarInversion(${m.id})">×</button></td>
         </tr>`;
     }
@@ -3004,7 +3043,7 @@ function renderHistorial(){
         <td style="font-family:'JetBrains Mono',monospace; color:${m.tipo==='cobro'?'var(--green)':'var(--red)'}">
           ${m.tipo==='cobro'?'+':'−'}${fmt(m.monto)}
         </td>
-        <td class="td-nota" style="color:var(--muted)">${reasigNota ? `<span style="font-size:10px;color:var(--amber)">↩ ${reasigNota}</span>${m.nota ? ' · '+m.nota : ''}` : (m.nota||'—')}</td>
+        <td class="td-nota" style="color:var(--muted)">${reasigNota ? `<span style="font-size:10px;color:var(--amber)">↩ ${reasigNota}</span>${m.nota ? ' · '+esc(m.nota) : ''}` : (esc(m.nota)||'—')}</td>
         <td><button class="btn btn-danger btn-sm" onclick="eliminar(${m.id})">×</button></td>
       </tr>`;
   }).join('');
@@ -3431,14 +3470,23 @@ async function agregarCompra(){
   const cat    = document.getElementById('gt-cat').value;
   const cuotas = parseInt(document.getElementById('gt-cuotas').value);
   const fecha  = document.getElementById('gt-fecha').value;
-  if(!monto||!desc||!fecha){ toast('Completá todos los campos', 'err'); return; }
-  const montoCuota = Math.round(monto / cuotas);
-  comprasTarjeta.push({ id:Date.now(), monto, desc, cat, cuotas, montoCuota, fechaCompra: fecha });
-  await S.set('comprasTarjeta', comprasTarjeta);
-  document.getElementById('gt-monto').value = '';
-  document.getElementById('gt-desc').value  = '';
-  renderTarjeta();
-  toast(`✓ Compra agregada — cuota 1 en ${nombreMesCorto(getPrimerResumenYM(fecha))}`);
+  if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
+  if(!desc){ toast('Completá la descripción', 'err'); return; }
+  if(!fecha){ toast('Elegí una fecha', 'err'); return; }
+  if(isNaN(cuotas) || cuotas < 1){ toast('Seleccioná la cantidad de cuotas', 'err'); return; }
+  if(_saving) return;
+  _saving = true;
+  try {
+    const montoCuota = Math.round(monto / cuotas);
+    comprasTarjeta.push({ id:Date.now(), monto, desc, cat, cuotas, montoCuota, fechaCompra: fecha });
+    await S.set('comprasTarjeta', comprasTarjeta);
+    document.getElementById('gt-monto').value = '';
+    document.getElementById('gt-desc').value  = '';
+    renderTarjeta();
+    toast(`✓ Compra agregada — cuota 1 en ${nombreMesCorto(getPrimerResumenYM(fecha))}`);
+  } finally {
+    _saving = false;
+  }
 }
 
 async function eliminarCompra(id){
@@ -3451,17 +3499,24 @@ async function registrarPagoTarjeta(){
   const monto = parseFloat(document.getElementById('tarjeta-pago-monto').value);
   const fecha = document.getElementById('tarjeta-pago-fecha').value;
   const nota  = document.getElementById('tarjeta-pago-nota').value;
-  if(!monto||!fecha){ toast('Completá monto y fecha', 'err'); return; }
-  const _tsBase = Date.now();
-  pagosTarjeta.push({ id:_tsBase, monto, fecha, nota });
-  await S.set('pagosTarjeta', pagosTarjeta);
-  movimientos.push({ id:_tsBase+1, tipo:'gasto', monto, categoria:'tarjeta', fecha, nota: nota||'Pago tarjeta Naranja X' });
-  await S.set('movimientos', movimientos);
-  document.getElementById('tarjeta-pago-monto').value = '';
-  document.getElementById('tarjeta-pago-nota').value  = '';
-  renderTarjeta();
-  renderResumen();
-  toast('✓ Pago registrado');
+  if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
+  if(!fecha){ toast('Elegí una fecha', 'err'); return; }
+  if(_saving) return;
+  _saving = true;
+  try {
+    const _tsBase = Date.now();
+    pagosTarjeta.push({ id:_tsBase, monto, fecha, nota });
+    await S.set('pagosTarjeta', pagosTarjeta);
+    movimientos.push({ id:_tsBase+1, tipo:'gasto', monto, categoria:'tarjeta', fecha, nota: nota||'Pago tarjeta Naranja X' });
+    await S.set('movimientos', movimientos);
+    document.getElementById('tarjeta-pago-monto').value = '';
+    document.getElementById('tarjeta-pago-nota').value  = '';
+    renderTarjeta();
+    renderResumen();
+    toast('✓ Pago registrado');
+  } finally {
+    _saving = false;
+  }
 }
 
 const catColorT = { servicios:'blue', monotributo:'blue', alquiler:'red', tarjeta:'red', inversion:'purple', fci:'blue', otro:'amber' };
@@ -3496,12 +3551,20 @@ async function agregarTarea(){
   const monto = parseFloat(document.getElementById('tarea-monto').value) || 0;
   const venc  = document.getElementById('tarea-venc').value;
   const cat   = document.getElementById('tarea-cat').value;
-  if(!desc || !venc){ toast('Completá descripción y fecha', 'err'); return; }
-  tareas.push({ id: Date.now(), desc, monto, venc, cat, done: false });
-  await S.set('tareas', tareas);
-  document.getElementById('tarea-desc').value  = '';
-  document.getElementById('tarea-monto').value = '';
-  renderTareas();
+  if(!desc){ toast('Completá la descripción', 'err'); return; }
+  if(!venc){ toast('Elegí una fecha de vencimiento', 'err'); return; }
+  if(monto < 0){ toast('El monto no puede ser negativo', 'err'); return; }
+  if(_saving) return;
+  _saving = true;
+  try {
+    tareas.push({ id: Date.now(), desc, monto, venc, cat, done: false });
+    await S.set('tareas', tareas);
+    document.getElementById('tarea-desc').value  = '';
+    document.getElementById('tarea-monto').value = '';
+    renderTareas();
+  } finally {
+    _saving = false;
+  }
 }
 
 async function toggleTarea(id){
@@ -3546,11 +3609,15 @@ function renderConfig(){
 }
 
 async function guardarConfig(){
-  planMensual.ingresoBase     = parseFloat(document.getElementById('cfg-ingreso-base').value) || PLAN_DEFAULT.ingresoBase;
-  planMensual.vidaPresupuesto = parseFloat(document.getElementById('cfg-vida').value)         || PLAN_DEFAULT.vidaPresupuesto;
+  const ingresoBase     = parseFloat(document.getElementById('cfg-ingreso-base').value);
+  const vidaPresupuesto = parseFloat(document.getElementById('cfg-vida').value);
+  if(!(ingresoBase > 0)){ toast('Ingresá un ingreso base mayor que cero', 'err'); return; }
+  if(!(vidaPresupuesto > 0)){ toast('Ingresá un presupuesto de vida mayor que cero', 'err'); return; }
+  planMensual.ingresoBase     = ingresoBase;
+  planMensual.vidaPresupuesto = vidaPresupuesto;
   planMensual.obligaciones    = planMensual.obligaciones.map((o,i) => ({
     ...o,
-    monto:      o.dinamico ? o.monto : (parseFloat(document.getElementById(`cfg-obl-monto-${i}`).value) || o.monto),
+    monto:      o.dinamico ? o.monto : (Math.max(0, parseFloat(document.getElementById(`cfg-obl-monto-${i}`).value) || o.monto)),
     venceDia:   document.getElementById(`cfg-obl-dia-${i}`).value !== ''
                   ? parseInt(document.getElementById(`cfg-obl-dia-${i}`).value)
                   : null,
@@ -3569,7 +3636,7 @@ function renderTareas(){
     <div class="tarea-item ${t.done?'completada':''}">
       <div class="tarea-check ${t.done?'done':''}" onclick="toggleTarea(${t.id})"></div>
       <div class="tarea-body">
-        <div class="tarea-desc">${t.desc}</div>
+        <div class="tarea-desc">${esc(t.desc)}</div>
         <div class="tarea-meta">
           ${t.monto ? `<span class="tarea-monto">${fmt(t.monto)}</span>` : ''}
           <span class="badge badge-${catColorT[t.cat]||'amber'}">${catLabelT[t.cat]||t.cat}</span>
