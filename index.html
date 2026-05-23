@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -502,8 +502,8 @@
       Movimientos
     </div>
     <div class="bnav-item" data-page="tarjeta" onclick="showPage('tarjeta')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-      Tarjeta
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      Inversiones
     </div>
     <div class="bnav-item" data-page="tareas" onclick="showPage('tareas')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
@@ -595,20 +595,16 @@
           <div class="form-grid">
             <div class="form-group">
               <label>Monto ($)</label>
-              <input type="number" id="gasto-monto" placeholder="0" min="1" oninput="actualizarPresupuesto()">
+              <input type="number" id="gasto-monto" placeholder="0" min="1">
             </div>
             <div class="form-group">
               <label>Categoría</label>
-              <select id="gasto-cat" onchange="actualizarPresupuesto()">
+              <select id="gasto-cat">
+                <option value="comida">Comida / supermercado</option>
                 <option value="servicios">Servicios (luz, gas, agua...)</option>
-                <option value="monotributo">Monotributo</option>
+                <option value="combustible">Combustible</option>
                 <option value="alquiler">Alquiler</option>
                 <option value="tarjeta">Tarjeta</option>
-                <option value="comida">Comida / supermercado</option>
-                <option value="transporte">Transporte</option>
-                <option value="personal">Gastos personales</option>
-                <option value="inversion">Inversión CEDEARs</option>
-                <option value="fci">FCI / colchón</option>
                 <option value="otro">Otro</option>
               </select>
             </div>
@@ -631,7 +627,6 @@
             <button class="btn btn-primary" onclick="registrarGasto()">Registrar gasto</button>
           </div>
         </div>
-        <div id="presupuesto-panel"></div>
       </div>
       </div><!-- /tg-mov -->
 
@@ -680,140 +675,54 @@
       </div>
     </div>
 
-    <!-- TARJETA NARANJA X -->
+    <!-- INVERSIONES -->
     <div id="page-tarjeta" class="page">
-      <div class="page-title">Tarjeta</div>
-      <div class="page-sub">Fijos siempre presentes y compras del ciclo — todo calculado para que el 10 no te agarre corto</div>
+      <div class="page-title">Inversiones</div>
+      <div class="page-sub">FCI Money Market y CEDEARs — tu plan de construcción de capital</div>
 
       <div style="display:flex;align-items:center;gap:10px;background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:13px;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span id="tc-indicador" style="color:var(--blue);flex:1;min-width:0">Obteniendo tipo de cambio...</span>
+        <span id="tc-indicador" style="color:var(--blue);flex:1;min-width:0">Obteniendo tipo de cambio MEP...</span>
         <button class="btn btn-sm" style="margin-left:auto;font-size:11px;padding:3px 10px;flex-shrink:0;white-space:nowrap" onclick="fetchTC()">↻ Actualizar</button>
       </div>
 
-      <div class="cards-grid" id="cards-tarjeta"></div>
+      <!-- Panel dinámico FCI + CEDEARs -->
+      <div id="inv-panel"></div>
 
-      <div id="tarjeta-separar-box"></div>
-
-      <div class="progress-section">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:10px">
-          <h3 style="margin-bottom:0">Gastos fijos mensuales</h3>
-          <button class="btn btn-sm" style="font-size:11px;background:var(--surface2);border:1px solid var(--border)" onclick="toggleFormAgregarFijo()">+ Agregar</button>
-        </div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Débitos automáticos recurrentes · cierre el 27 · vence el 10</div>
-        <div id="agregar-fijo-form" style="display:none;background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:14px">
-          <div class="form-grid" style="margin-bottom:10px">
-            <div class="form-group">
-              <label>Descripción</label>
-              <input type="text" id="nf-desc" placeholder="Ej: Spotify, OSDE...">
-            </div>
-            <div class="form-group">
-              <label>Moneda</label>
-              <select id="nf-moneda" onchange="toggleNFMoneda()">
-                <option value="ars">Pesos ($)</option>
-                <option value="usd">Dólares (US$)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Monto</label>
-              <input type="number" id="nf-monto" placeholder="0" step="1">
-            </div>
-            <div class="form-group">
-              <label>Tipo</label>
-              <select id="nf-tipo">
-                <option value="Débito automático">Débito automático</option>
-                <option value="Mantenimiento">Mantenimiento</option>
-                <option value="Mensual">Mensual</option>
-              </select>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary btn-sm" onclick="agregarFijo()">Guardar</button>
-            <button class="btn btn-sm" style="background:transparent;border:1px solid var(--border)" onclick="toggleFormAgregarFijo()">Cancelar</button>
-          </div>
-        </div>
-        <div id="tabla-fijos-tarjeta"></div>
-        <div id="tabla-fijos-footer"></div>
-      </div>
-
-      <div class="progress-section">
-        <h3>Compras y cuotas en tarjeta</h3>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Compras antes del 27 → próximo resumen &nbsp;·&nbsp; Del 27 en adelante → resumen siguiente</div>
-
-        <div class="form-grid" style="margin-bottom:14px">
-          <div class="form-group">
-            <label>Descripción</label>
-            <input type="text" id="gt-desc" placeholder="Ej: ropa, electrónica...">
-          </div>
-          <div class="form-group">
-            <label>Monto total ($)</label>
-            <input type="number" id="gt-monto" placeholder="0" min="1">
-          </div>
-          <div class="form-group">
-            <label>Categoría</label>
-            <select id="gt-cat">
-              <option value="Ropa">Ropa</option>
-              <option value="Electrónica">Electrónica</option>
-              <option value="Hogar">Hogar</option>
-              <option value="Salud">Salud</option>
-              <option value="Entretenimiento">Entretenimiento</option>
-              <option value="Comida">Comida</option>
-              <option value="Suscripción">Suscripción</option>
-              <option value="Otro">Otro</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Cuotas</label>
-            <select id="gt-cuotas">
-              <option value="1">1 cuota (pago único)</option>
-              <option value="3">3 cuotas</option>
-              <option value="6">6 cuotas</option>
-              <option value="9">9 cuotas</option>
-              <option value="12">12 cuotas</option>
-              <option value="18">18 cuotas</option>
-              <option value="24">24 cuotas</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Fecha de compra</label>
-            <input type="date" id="gt-fecha">
-          </div>
-        </div>
-        <button class="btn btn-primary" onclick="agregarCompra()">Agregar compra</button>
-
-        <div style="margin-top:16px" id="tabla-gastos-tarjeta"></div>
-      </div>
-
-      <div class="progress-section">
-        <h3>Proyección próximos resúmenes</h3>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Basado en fijos + cuotas en curso. No incluye compras futuras.</div>
-        <div id="tabla-proyeccion-tarjeta"></div>
-      </div>
-
-      <div class="form-card">
-        <h3>Registrar pago del resumen</h3>
+      <!-- Formulario nueva operación -->
+      <div class="form-card" style="margin-top:20px">
+        <h3>Registrar operación</h3>
         <div class="form-grid">
           <div class="form-group">
-            <label>Monto pagado ($)</label>
-            <input type="number" id="tarjeta-pago-monto" placeholder="388752" min="1">
+            <label>Tipo</label>
+            <select id="inv-tipo" onchange="toggleInvTipo()">
+              <option value="fci">Depósito FCI (ARS)</option>
+              <option value="fci_saldo">Ajuste saldo FCI (ARS)</option>
+              <option value="cedears">Compra CEDEARs (USD)</option>
+            </select>
           </div>
           <div class="form-group">
-            <label>Fecha de pago</label>
-            <input type="date" id="tarjeta-pago-fecha">
+            <label id="inv-monto-label">Monto (ARS)</label>
+            <input type="number" id="inv-monto" placeholder="0" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" id="inv-fecha">
           </div>
           <div class="form-group full">
             <label>Nota (opcional)</label>
-            <input type="text" id="tarjeta-pago-nota" placeholder="Ej: Pago total mayo">
+            <input type="text" id="inv-nota" placeholder="Ej: Rendimiento mayo, compra GGAL...">
           </div>
         </div>
-        <div style="margin-top:14px;">
-          <button class="btn btn-primary" onclick="registrarPagoTarjeta()">Registrar pago</button>
+        <div style="margin-top:14px">
+          <button class="btn btn-primary" onclick="guardarInversion()">Confirmar</button>
         </div>
       </div>
 
-      <div class="table-wrap">
-        <div class="table-header"><h3>Historial de pagos</h3></div>
-        <div id="tabla-pagos-tarjeta"></div>
+      <!-- Historial -->
+      <div class="table-wrap" style="margin-top:20px">
+        <div class="table-header"><h3>Historial de operaciones</h3></div>
+        <div id="inv-historial"></div>
       </div>
     </div>
 
@@ -946,22 +855,25 @@
       <div class="page-sub">Ajustá los montos y fechas de vencimiento de tu presupuesto mensual</div>
 
       <div class="form-card">
-        <h3>Ingresos y vida</h3>
+        <h3>Plan económico</h3>
         <div class="form-grid">
           <div class="form-group">
-            <label>Ingreso base mensual esperado ($)</label>
-            <input type="number" id="cfg-ingreso-base" placeholder="1350000" min="1">
+            <label>Ingreso mensual base ($)</label>
+            <input type="number" id="cfg-ingreso-base" placeholder="1550000" min="1">
           </div>
           <div class="form-group">
-            <label>Presupuesto mensual disponible ($)</label>
-            <input type="number" id="cfg-vida" placeholder="300000" min="1">
+            <label>Separar por cobro semanal a Obligaciones ($)</label>
+            <input type="number" id="cfg-cobro-semanal" placeholder="200000" min="0">
+          </div>
+          <div class="form-group">
+            <label>Alquiler mensual ($)</label>
+            <input type="number" id="cfg-alquiler" placeholder="450000" min="0">
           </div>
         </div>
-      </div>
-
-      <div class="form-card">
-        <h3>Obligaciones fijas</h3>
-        <div id="cfg-obligs-form"></div>
+        <div style="margin-top:14px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em">Clientes mensuales fijos</div>
+          <div id="cfg-clientes-form"></div>
+        </div>
         <div style="margin-top:16px">
           <button class="btn btn-primary" onclick="guardarConfig()">Guardar configuración</button>
         </div>
@@ -1277,13 +1189,16 @@ let tarifaHora       = 8440;
 let trabajoMetricMode = 'year';
 
 // ── PLAN MENSUAL ─────────────────────────────────────────
+const FCI_META_1  = 650000;   // Fase 1→2: hasta este saldo todo va al FCI
+const FCI_META_2  = 2400000;  // Fase 2→3: colchón completo, todo pasa a CEDEARs
+
 const PLAN_DEFAULT = {
-  ingresoBase: 1350000,
-  vidaPresupuesto: 300000,
-  obligaciones: [
-    { key:'alquiler', label:'Alquiler', monto:450000, venceDia:10, mesProximo:false, dinamico:false },
-    { key:'tarjeta',  label:'Tarjeta',  monto:0,      venceDia:10, mesProximo:true,  dinamico:true  },
-  ]
+  ingresoBase:       1550000,
+  cobroSemanalOblig: 200000,  // cuánto separar para obligaciones en cada cobro semanal
+  alquilerMonto:     450000,  // componente fijo de la meta de obligaciones (día 10)
+  clientesMensuales: [
+    { id:1, label:'Cliente mensual', monto:200000 },
+  ],
 };
 let planMensual = JSON.parse(JSON.stringify(PLAN_DEFAULT));
 
@@ -1292,9 +1207,10 @@ async function init(){
   const hoy = new Date().toISOString().split('T')[0];
   document.getElementById('cobro-fecha').value = hoy;
   document.getElementById('gasto-fecha').value = hoy;
-  document.getElementById('obj-fecha').value   = hoy;
   document.getElementById('tarea-venc').value  = hoy;
-  document.getElementById('gt-fecha').value     = hoy;
+  document.getElementById('inv-fecha').value   = hoy;
+  const elObjFecha = document.getElementById('obj-fecha');
+  if(elObjFecha) elObjFecha.value = hoy;
 
   movimientos   = await S.get('movimientos')   || [];
   historialUSD  = await S.get('historialUSD')  || [{fecha:'2026-05-11', valor:4244.48, nota:'Cartera inicial'}];
@@ -1303,6 +1219,19 @@ async function init(){
   inversiones    = await S.get('inversiones')    || [];
   transferencias = await S.get('transferencias') || [];
   planMensual   = await S.get('planMensual')   || JSON.parse(JSON.stringify(PLAN_DEFAULT));
+  // Migrar: asegurar campos del nuevo modelo
+  if(!planMensual.cobroSemanalOblig) planMensual.cobroSemanalOblig = PLAN_DEFAULT.cobroSemanalOblig;
+  if(!planMensual.alquilerMonto)     planMensual.alquilerMonto     = PLAN_DEFAULT.alquilerMonto;
+  if(!planMensual.clientesMensuales) planMensual.clientesMensuales = JSON.parse(JSON.stringify(PLAN_DEFAULT.clientesMensuales));
+
+  // Seed inicial de inversiones con saldos reales si aún no hay registros
+  const invSeedVer = await S.get('invSeedVersion') || 0;
+  if(invSeedVer < 1 && inversiones.length === 0){
+    inversiones.push({ id: Date.now(),     tipo:'fci_saldo',  monto:8014,    fecha:'2026-05-23', nota:'Saldo inicial FCI' });
+    inversiones.push({ id: Date.now() + 1, tipo:'cedears',    monto:4296.60, fecha:'2026-05-23', nota:'Saldo inicial CEDEARs' });
+    await S.set('inversiones', inversiones);
+    await S.set('invSeedVersion', 1);
+  }
   pagosTarjeta  = await S.get('pagosTarjeta')  || [];
   gastosTarjeta = await S.get('gastosTarjeta') || [];
   const fijosGuardados = await S.get('fijos_tarjeta');
@@ -1410,43 +1339,44 @@ function switchTab(page, tab, btn){
   btn.classList.add('active');
   document.getElementById(`tab-${page}-${tab}`).classList.add('active');
   if(page==='movimientos' && tab==='cobro')    calcularDistribucion();
-  if(page==='movimientos' && tab==='gasto')  { renderPresupuesto(); renderTareasSelect(); }
+  if(page==='movimientos' && tab==='gasto')  { renderTareasSelect(); }
   if(page==='historial'   && tab==='flujo')    renderFlujo();
   if(page==='historial'   && tab==='lista')    renderHistorial();
   if(page==='progreso'    && tab==='objetivo') renderObjetivo();
   if(page==='progreso'    && tab==='analisis') renderAnalisis();
 }
 
-// ── TIPO DE CAMBIO ────────────────────────────────────────
-let tcUSD = 1440; // fallback si no hay internet
+// ── TIPO DE CAMBIO MEP ────────────────────────────────────
+let tcUSD = 1200; // fallback si no hay internet
 
 async function fetchTC(){
   const indicador = document.getElementById('tc-indicador');
-  if(indicador) indicador.textContent = 'Actualizando TC...';
+  if(indicador) indicador.textContent = 'Actualizando TC MEP...';
+  let tc = null, fuente = '';
   try {
-    const r = await fetch('https://api.bluelytics.com.ar/v2/latest');
-    if(!r.ok) throw new Error();
-    const d = await r.json();
-    // Usamos MEP (oficial bolsa) — el más relevante para CEDEARs y tarjeta
-    const mep = d.oficial_euro ? d.blue.value_sell : null;
-    // La API devuelve: oficial, blue, oficial_euro, blue_euro
-    // Para tarjeta lo más representativo es el tipo oficial venta
-    const tc = d.oficial?.value_sell || d.blue?.value_sell;
-    if(tc) {
-      tcUSD = Math.round(tc);
-      await S.set('tcUSD_cache', { valor: tcUSD, fecha: new Date().toISOString() });
-      if(indicador) indicador.innerHTML = `TC oficial venta: <strong>$${tcUSD}</strong> · <span style="color:var(--muted)">actualizado ahora</span>`;
+    const r = await fetch('https://dolarapi.com/v1/dolares/bolsa', { signal: AbortSignal.timeout(6000) });
+    if(r.ok){ const d = await r.json(); tc = d.venta; fuente = 'MEP bolsa'; }
+  } catch(_){}
+  if(!tc){
+    try {
+      const r = await fetch('https://api.bluelytics.com.ar/v2/latest', { signal: AbortSignal.timeout(6000) });
+      if(r.ok){ const d = await r.json(); tc = d.blue?.value_sell; fuente = 'Blue'; }
+    } catch(_){}
+  }
+  if(tc){
+    tcUSD = Math.round(tc);
+    const hoy = new Date().toISOString().split('T')[0];
+    if(!historialUSD.some(h => h.fecha === hoy)){
+      historialUSD.push({ fecha: hoy, valor: tcUSD, nota: `Auto ${fuente}` });
+      await S.set('historialUSD', historialUSD);
     }
-  } catch(e) {
-    // Sin internet — usar cache o fallback
+    await S.set('tcUSD_cache', { valor: tcUSD, fecha: new Date().toISOString() });
+    if(indicador) indicador.innerHTML = `TC ${fuente}: <strong>$${tcUSD.toLocaleString('es-AR')}</strong> · <span style="color:var(--muted)">actualizado ahora</span>`;
+  } else {
     const cache = await S.get('tcUSD_cache');
-    if(cache) {
-      tcUSD = cache.valor;
-      const fecha = new Date(cache.fecha).toLocaleDateString('es-AR');
-      if(indicador) indicador.innerHTML = `TC: <strong>$${tcUSD}</strong> · <span style="color:var(--muted)">sin internet, último: ${fecha}</span>`;
-    } else {
-      if(indicador) indicador.innerHTML = `TC: <strong>$${tcUSD}</strong> · <span style="color:var(--muted)">sin internet, valor estimado</span>`;
-    }
+    if(cache) tcUSD = cache.valor;
+    const fechaStr = cache ? new Date(cache.fecha).toLocaleDateString('es-AR') : '—';
+    if(indicador) indicador.innerHTML = `TC MEP: <strong>$${tcUSD.toLocaleString('es-AR')}</strong> · <span style="color:var(--muted)">sin conexión · último ${fechaStr}</span>`;
   }
   renderTarjeta();
 }
@@ -1457,36 +1387,10 @@ const fmtU = v => 'US$' + Number(v).toLocaleString('es-AR',{minimumFractionDigit
 const pct  = (v,t) => Math.min(100, Math.round(v/t*100));
 
 // ── PLAN — helpers ────────────────────────────────────────
-const RESERVA_KEYS = ['alquiler','tarjeta'];
-
-function getPlanObls(){
-  const { totalProximo } = calcTarjeta();
-  const tarjetaDin = Math.ceil(totalProximo / 1000) * 1000;
-  return planMensual.obligaciones
-    .filter(o => RESERVA_KEYS.includes(o.key))
-    .map(o => ({ ...o, monto: o.dinamico ? tarjetaDin : o.monto }));
-}
-
-function _gastosObligMes(){
-  const hoy = new Date();
-  const desde = new Date(hoy); desde.setDate(desde.getDate() - 45);
-  const g = movimientos.filter(m => {
-    const d = new Date(m.fecha+'T12:00');
-    return m.tipo==='gasto' && d >= desde && d <= hoy;
-  });
-  const sum = cat => g.filter(m=>m.categoria===cat).reduce((s,m)=>s+m.monto,0);
-  // Alquiler: solo el pago real del alquiler (≥60% del plan). Gastos menores como gestoría quedan afuera.
-  const planAlqMonto = planMensual.obligaciones?.find(o => o.key === 'alquiler')?.monto || 0;
-  const umbralAlq = planAlqMonto * 0.6;
-  const alquilerPagado = umbralAlq > 0
-    ? g.filter(m => m.categoria === 'alquiler' && m.monto >= umbralAlq).reduce((s,m) => s+m.monto, 0)
-    : sum('alquiler');
-  return { alquiler: alquilerPagado, tarjeta: sum('tarjeta') };
-}
-
-function _cobertura(){
-  return _gastosObligMes();
-}
+const RESERVA_KEYS   = ['obligaciones'];
+const RESERVA_LABELS = { disponible:'Disponible', obligaciones:'Obligaciones' };
+const GASTO_A_RESERVA = { alquiler:'obligaciones', tarjeta:'obligaciones' };
+const CAT_TO_PLAN     = {};  // no hay mapeo tareas→plan en el nuevo modelo
 
 function _getCobrosAsignados(){
   const desde = new Date(Date.now() - 45 * 86400000);
@@ -1516,206 +1420,97 @@ function _getCobrosAsignados(){
   return asig;
 }
 
-const GASTO_A_RESERVA = {
-  alquiler: 'alquiler',
-  tarjeta:  'tarjeta',
-};
-
-const RESERVA_LABELS = {
-  disponible: 'Disponible', alquiler: 'Alquiler', tarjeta: 'Tarjeta',
-};
-
+// ── SALDO RESERVAS ────────────────────────────────────────
 function _getSaldoReservas(){
   const desde45 = new Date(Date.now() - 45*86400000);
-
-  const result = {};
-
-  // Reservas con seguimiento propio: alquiler y tarjeta
-  for(const key of RESERVA_KEYS){
-    const cobrosConKey = movimientos.filter(m =>
-      m.tipo === 'cobro' &&
-      new Date(m.fecha+'T12:00') >= desde45 &&
-      (m.distribucion?.[key] || 0) > 0
-    );
-    const income = cobrosConKey.reduce((s, m) => s + (m.distribucion[key] || 0), 0);
-
-    // Outflows desde la fecha del primer cobro con este bucket en ventana
-    const desdeCobro = cobrosConKey.length > 0
-      ? new Date(Math.min(...cobrosConKey.map(m => new Date(m.fecha+'T12:00').getTime())))
-      : desde45;
-
-    const naturalOutgo = movimientos
-      .filter(m => m.tipo === 'gasto' && new Date(m.fecha+'T12:00') >= desdeCobro && m.categoria === key)
-      .reduce((s, m) => s + m.monto, 0);
-
-    const netTransf = transferencias
-      .filter(t => new Date(t.fecha+'T12:00') >= desdeCobro)
-      .reduce((s, t) => s + (t.a === key ? t.monto : 0) - (t.de === key ? t.monto : 0), 0);
-
-    result[key] = Math.max(0, income - naturalOutgo + netTransf);
-  }
-
-  // Disponible = total cobros en ventana − lo asignado a reservas − todos los gastos no-reserva
   const cobros45 = movimientos.filter(m => m.tipo === 'cobro' && new Date(m.fecha+'T12:00') >= desde45);
-  const totalCobros   = cobros45.reduce((s, m) => s + m.monto, 0);
-  const alquilerAsig  = cobros45.reduce((s, m) => s + (m.distribucion?.alquiler || 0), 0);
-  const tarjetaAsig   = cobros45.reduce((s, m) => s + (m.distribucion?.tarjeta  || 0), 0);
-  const primeraFecha  = cobros45.length > 0
+  const totalCobros  = cobros45.reduce((s, m) => s + m.monto, 0);
+  const obligAsig    = cobros45.reduce((s, m) => s + (m.distribucion?.obligaciones || 0), 0);
+  const fciAsig      = cobros45.reduce((s, m) => s + (m.distribucion?.fci || 0), 0);
+  const cedAsig      = cobros45.reduce((s, m) => s + (m.distribucion?.cedears || 0), 0);
+  const primeraFecha = cobros45.length > 0
     ? new Date(Math.min(...cobros45.map(m => new Date(m.fecha+'T12:00').getTime())))
     : desde45;
-  const gastosNoReserva = movimientos
-    .filter(m => m.tipo === 'gasto'
-      && new Date(m.fecha+'T12:00') >= primeraFecha
-      && !RESERVA_KEYS.includes(m.categoria))
+  const gastosOblig = movimientos
+    .filter(m => m.tipo === 'gasto' && new Date(m.fecha+'T12:00') >= primeraFecha && ['alquiler','tarjeta'].includes(m.categoria))
     .reduce((s, m) => s + m.monto, 0);
-  result.disponible = Math.max(0, totalCobros - alquilerAsig - tarjetaAsig - gastosNoReserva);
-
-  return result;
+  const gastosLibres = movimientos
+    .filter(m => m.tipo === 'gasto' && new Date(m.fecha+'T12:00') >= primeraFecha && !['alquiler','tarjeta'].includes(m.categoria))
+    .reduce((s, m) => s + m.monto, 0);
+  const netTransfOblig = transferencias
+    .filter(t => new Date(t.fecha+'T12:00') >= primeraFecha)
+    .reduce((s, t) => s + (t.a === 'obligaciones' ? t.monto : 0) - (t.de === 'obligaciones' ? t.monto : 0), 0);
+  return {
+    obligaciones: Math.max(0, obligAsig - gastosOblig + netTransfOblig),
+    disponible:   Math.max(0, totalCobros - obligAsig - fciAsig - cedAsig - gastosLibres),
+  };
 }
 
-// Mapeo de categoría de tarea → clave de obligación del plan
-const CAT_TO_PLAN = {
-  alquiler: 'alquiler',
-  tarjeta:  'tarjeta',
-};
-
-// Devuelve las obligaciones del plan augmentadas con tareas pendientes agrupadas por categoría
-function _getOblsAugmented(){
-  const base       = getPlanObls();
-  const pendTareas = tareas.filter(t => !t.done && t.monto > 0);
-
-  const augmented = base.map(o => {
-    const matching  = pendTareas.filter(t => CAT_TO_PLAN[t.cat] === o.key);
-    if(!matching.length) return o;
-
-    const tareasSum = matching.reduce((s,t) => s + t.monto, 0);
-    const exceso    = tareasSum - o.monto; // lo que supera lo ya planeado
-
-    // Solo augmentar si hay un exceso real (> $1.000 para ignorar diferencias de redondeo).
-    // Las tareas que ya están contempladas en el plan (ej: "Alquiler próx. mes" = $450k)
-    // no suman encima — solo aportan su vencimiento para acelerar la urgencia.
-    const earliest = matching.reduce((min, t) => {
-      const d = new Date(t.venc + 'T23:59');
-      return d < min ? d : min;
-    }, new Date(9999, 0));
-
-    if(exceso < 1000) return { ...o, _earliestVenc: earliest };
-    return { ...o, monto: o.monto + exceso, _earliestVenc: earliest };
-  });
-
-  // Tareas sin categoría mapeada al plan → filas nuevas
-  const orphans = pendTareas.filter(t => !CAT_TO_PLAN[t.cat]);
-  for(const t of orphans){
-    augmented.push({
-      key: `tarea_${t.id}`, label: t.desc, monto: t.monto,
-      venceDia: null, mesProximo: false, dinamico: false,
-      _tareaVenc: t.venc,
-    });
+// ── FCI / CEDEARs ─────────────────────────────────────────
+function _getFCISaldo(){
+  const ajustes = inversiones.filter(i => i.tipo === 'fci_saldo').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+  let base = 0, desdeDate = new Date(0);
+  if(ajustes.length > 0){
+    const last = ajustes[ajustes.length-1];
+    base = last.monto;
+    desdeDate = new Date(last.fecha+'T12:00');
   }
-  return augmented;
+  const depositos = inversiones
+    .filter(i => i.tipo === 'fci' && new Date(i.fecha+'T12:00') > desdeDate)
+    .reduce((s, i) => s + i.monto, 0);
+  return base + depositos;
 }
 
-// Devuelve los datos enriquecidos de cada obligación (monto, falta, días al venc, urgencia)
-function _oblsConDatos(){
-  const hoy   = new Date();
-  const cob   = _cobertura();
-  return _getOblsAugmented().map(o => {
-    const cubierto = cob[o.key] || 0;
-    const falta    = Math.max(0, o.monto - cubierto);
-    let diasHastaVenc = 999;
-    let vencLabel     = null;
-
-    const _dStr = d => d < 1 ? 'hoy' : `${Math.ceil(d)} días`;
-
-    if(o._tareaVenc){
-      const due = new Date(o._tareaVenc + 'T23:59');
-      diasHastaVenc = Math.max(0, (due - hoy) / 86400000);
-      const fechaFmt = new Date(o._tareaVenc+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});
-      vencLabel = `vence ${fechaFmt} (${_dStr(diasHastaVenc)})`;
-    } else if(o.venceDia !== null){
-      let due = new Date(hoy.getFullYear(),
-        o.mesProximo ? hoy.getMonth()+1 : hoy.getMonth(),
-        o.venceDia, 23, 59);
-      if(due < hoy && !o.mesProximo){
-        due = new Date(hoy.getFullYear(), hoy.getMonth()+1, o.venceDia, 23, 59);
-      }
-      diasHastaVenc = Math.max(0, (due - hoy) / 86400000);
-      if(o._earliestVenc && o._earliestVenc < due){
-        const tDias = Math.max(0, (o._earliestVenc - hoy) / 86400000);
-        if(tDias < diasHastaVenc) diasHastaVenc = tDias;
-      }
-      vencLabel = `vence día ${o.venceDia} (${diasHastaVenc <= 30 ? _dStr(diasHastaVenc) : 'próx. mes'})`;
-    }
-
-    const urgencia = o.monto > 0 && falta > 0
-      ? (diasHastaVenc <= 0 ? 9999 : Math.pow(30 / Math.max(0.5, diasHastaVenc), 1.8))
-      : 0;
-    return { ...o, cubierto, falta, diasHastaVenc, vencLabel, urgencia };
-  });
+function _getCedearsSaldoUSD(){
+  return inversiones.filter(i => i.tipo === 'cedears').reduce((s, i) => s + i.monto, 0);
 }
 
-// ── DISTRIBUCIÓN INTELIGENTE ──────────────────────────────
+function _getCurrentPhase(){
+  const fci = _getFCISaldo();
+  if(fci >= FCI_META_2) return 3;
+  if(fci >= FCI_META_1) return 2;
+  return 1;
+}
+
+function _getTCActual(){
+  if(!historialUSD || historialUSD.length === 0) return 1200;
+  return historialUSD.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha))[0].valor;
+}
+
+// ── DISTRIBUCIÓN POR TIPO DE COBRO ────────────────────────
 function calcDistribucion(montoCobro){
   if(!montoCobro) return null;
-  const hoy       = new Date();
-  const oblsDatos = _oblsConDatos();
+  const tipo = document.getElementById('cobro-tipo')?.value || 'semanal';
 
-  // Calcular porcentaje base de cada obligación sobre el plan total
-  // para distribuir proporcionalmente aunque no haya urgencia
-  const totalPlan = oblsDatos.reduce((s,o) => s + (o.monto||0), 0)
-                  + planMensual.vidaPresupuesto;
-
-  // Reservar mínimo semanal para vivir ANTES de asignar obligaciones
-  // (siempre garantizar al menos 1/4 del presupuesto de vida)
-  // Excepción: obligaciones en fase "crítico" (≤3 días) tienen precedencia total
-  const hayCritico = oblsDatos.some(o => o.falta > 0 && o.diasHastaVenc <= 3);
-  const vidaWeekly = hayCritico ? 0 : Math.round(planMensual.vidaPresupuesto / 4);
-  let resto = Math.max(0, montoCobro - vidaWeekly);
-  let vidaExtra = montoCobro - resto; // porción reservada para vida
-
-  // Fases de urgencia: crítico ≤3d, urgente ≤7d, planificar ≤21d, ahorro >21d
-  const fases = [
-    { max: 3    },
-    { max: 7    },
-    { max: 21   },
-    { max: 9999 },
-  ];
-
-  const asignaciones = [];
-  let prevMax = -1;
-
-  for(const fase of fases){
-    const enFase = oblsDatos.filter(o => o.falta > 0
-      && o.diasHastaVenc > prevMax && o.diasHastaVenc <= fase.max);
-    prevMax = fase.max;
-    if(!enFase.length || resto <= 0) continue;
-
-    // Proporción proporcional a lo que falta dentro de la fase
-    const totalFaltaFase = enFase.reduce((s,o) => s+o.falta, 0);
-    // Pero no tomar más de lo que la fase "merece" por plan (evitar sobreasignación)
-    const pctFase = totalPlan > 0
-      ? enFase.reduce((s,o) => s + o.monto/totalPlan, 0)
-      : 1;
-    const maxFase = Math.min(totalFaltaFase, Math.round(montoCobro * pctFase * 1.5));
-    const disponible = Math.min(resto, maxFase);
-
-    for(const o of enFase){
-      if(disponible <= 0 || resto <= 0) break;
-      const pct     = totalFaltaFase > 0 ? o.falta / totalFaltaFase : 1/enFase.length;
-      const asignar = Math.min(o.falta, Math.round(disponible * pct));
-      if(asignar > 0){
-        asignaciones.push({ key:o.key, label:o.label, monto:asignar,
-          falta:o.falta, target:o.monto, cubierto:o.cubierto,
-          vencLabel:o.vencLabel, dinamico:o.dinamico });
-        resto -= asignar;
-      }
-    }
+  if(tipo === 'semanal'){
+    const metaOblig = planMensual.cobroSemanalOblig || 200000;
+    const aOblig    = Math.min(montoCobro, metaOblig);
+    const aDisp     = Math.max(0, montoCobro - aOblig);
+    return {
+      tipo,
+      total: montoCobro,
+      paraVida: aDisp,
+      asignaciones: aOblig > 0
+        ? [{ key:'obligaciones', label:'Obligaciones (alquiler + tarjeta)', monto:aOblig, target:metaOblig }]
+        : [],
+    };
   }
 
-  // Resto adicional también va a vida (clamp: redondeos pueden dejar resto en -1)
-  const paraVida = Math.max(0, vidaExtra + resto);
-
-  return { asignaciones, paraVida, total: montoCobro, oblsDatos };
+  // mensual_fijo y extra: fase automática
+  const fase = _getCurrentPhase();
+  const asignaciones = [];
+  if(fase === 1){
+    asignaciones.push({ key:'fci', label:'FCI Money Market', monto:montoCobro, target:montoCobro });
+  } else if(fase === 2){
+    const aCedears = Math.round(montoCobro * 0.75 / 1000) * 1000;
+    const aFCI     = montoCobro - aCedears;
+    if(aCedears > 0) asignaciones.push({ key:'cedears', label:'CEDEARs', monto:aCedears, target:aCedears });
+    if(aFCI     > 0) asignaciones.push({ key:'fci',    label:'FCI Money Market', monto:aFCI, target:aFCI });
+  } else {
+    asignaciones.push({ key:'cedears', label:'CEDEARs', monto:montoCobro, target:montoCobro });
+  }
+  const faseLabel = ['', 'Fase 1 — todo al FCI', 'Fase 2 — 75% CEDEARs + 25% FCI', 'Fase 3 — todo a CEDEARs'][fase];
+  return { tipo, total: montoCobro, paraVida: 0, asignaciones, faseLabel };
 }
 
 function calcularDistribucion(){
@@ -1736,25 +1531,26 @@ function calcularDistribucion(){
   }
   _distData = dist;
 
-  const rowsHTML = dist.asignaciones.map(a => {
-    const sub = `${fmt(a.cubierto+a.monto)} / ${fmt(a.target)} cubierto${a.dinamico?' (calculado)':''}`;
-    return `<div class="dist-row">
-      <div><div class="dist-label">${a.label}</div><div class="dist-sub">${sub}${a.vencLabel?` · ${a.vencLabel}`:''}</div></div>
+  const rowsHTML = dist.asignaciones.map(a => `
+    <div class="dist-row">
+      <div><div class="dist-label">${a.label}</div></div>
       <div class="dist-monto dist-oblig">${fmt(a.monto)}</div>
-    </div>`;
-  }).join('');
+    </div>`).join('');
 
   const vidaColor = dist.paraVida > 0 ? 'dist-vida' : 'color:var(--muted)';
+  const phaseNote = dist.faseLabel ? `<div style="font-size:11px;color:var(--blue);margin-bottom:10px">📊 ${dist.faseLabel}</div>` : '';
   box.style.display = 'block';
   if(btnDefault) btnDefault.style.display = 'none';
   box.innerHTML = `
     <div class="instruccion blue" style="margin-top:0">
       <h3 style="color:var(--blue)">Distribución recomendada</h3>
+      ${phaseNote}
       ${rowsHTML}
+      ${dist.paraVida > 0 ? `
       <div class="dist-row" style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px">
-        <div><div class="dist-label">Disponible</div><div class="dist-sub">queda en tu cuenta</div></div>
+        <div><div class="dist-label">Disponible</div><div class="dist-sub">queda en tu cuenta para gastar</div></div>
         <div class="dist-monto ${vidaColor}">${fmt(dist.paraVida)}</div>
-      </div>
+      </div>` : ''}
       <div class="instruccion-total" style="margin-top:10px">
         <span>Total recibido</span>
         <span style="font-family:'JetBrains Mono',monospace">${fmt(monto)}</span>
@@ -1891,7 +1687,6 @@ async function registrarCobro(conDistribucion = true){
       const dist = calcDistribucion(monto);
       if(dist){
         const distribucion = Object.fromEntries(dist.asignaciones.map(a => [a.key, a.monto]));
-        distribucion.vida = dist.paraVida;
         movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota, distribucion });
       } else {
         movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota });
@@ -1926,17 +1721,10 @@ function _mostrarSliders(){
   // Mapa rápido de asignaciones recomendadas por key
   const asigMap = Object.fromEntries(dist.asignaciones.map(a => [a.key, a.monto]));
 
-  // Mostrar TODOS los buckets de obligaciones, no solo los que tienen falta > 0
-  const allBuckets = dist.oblsDatos.filter(o => o.monto > 0);
+  const allBuckets = dist.asignaciones;
   const slidersHtml = allBuckets.map(o => {
     const initVal = Math.round(asigMap[o.key] || 0);
-    const cubierto = o.cubierto || 0;
-    const target   = o.monto   || 0;
-    const falta    = o.falta   || 0;
-    const hintColor = falta === 0 ? 'var(--green)' : 'var(--muted)';
-    const hintText  = falta === 0
-      ? `✓ cubierto por el plan (${fmt(target)})`
-      : `plan: ${fmt(target)} · gastado: ${fmt(cubierto)} · falta: ${fmt(falta)}${o.vencLabel ? ' · '+o.vencLabel : ''}`;
+    const hintText = `Sugerido: ${fmt(o.monto)}`;
     return `<div style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
         <span style="font-size:13px;font-weight:500">${o.label}</span>
@@ -1945,7 +1733,7 @@ function _mostrarSliders(){
       <input type="range" id="dist-sl-${o.key}" min="0" max="${total}" value="${initVal}" step="1000"
         oninput="_onDistSlider()"
         style="width:100%;height:6px;accent-color:var(--blue);cursor:pointer">
-      <div style="font-size:10px;color:${hintColor};margin-top:2px">${hintText}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${hintText}</div>
     </div>`;
   }).join('');
 
@@ -1973,7 +1761,7 @@ function _mostrarSliders(){
 function _onDistSlider(){
   if(!_distData) return;
   let asignados = 0;
-  for(const o of _distData.oblsDatos.filter(o => o.monto > 0)){
+  for(const o of _distData.asignaciones){
     const el = document.getElementById(`dist-sl-${o.key}`);
     if(!el) continue;
     const v = parseInt(el.value) || 0;
@@ -2002,7 +1790,7 @@ async function _confirmarDistEditada(){
   try {
     const distribucion = {};
     let totalAsignado = 0;
-    for(const o of _distData.oblsDatos.filter(o => o.monto > 0)){
+    for(const o of _distData.asignaciones){
       const el = document.getElementById(`dist-sl-${o.key}`);
       const v = el ? (parseInt(el.value) || 0) : 0;
       if(v > 0) distribucion[o.key] = v;
@@ -2012,10 +1800,23 @@ async function _confirmarDistEditada(){
       toast(`El total asignado (${fmt(totalAsignado)}) supera el cobro (${fmt(monto)}) — reducí algún slider`, 'err');
       return;
     }
-    distribucion.vida = Math.max(0, monto - totalAsignado);
 
     movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota, distribucion });
     await S.set('movimientos', movimientos);
+
+    // Auto-crear entradas en inversiones para FCI y CEDEARs
+    let invChanged = false;
+    if(distribucion.fci > 0){
+      inversiones.push({ id: Date.now() + 1, tipo:'fci', monto: distribucion.fci, fecha, nota: `De cobro ${tipo}` });
+      invChanged = true;
+    }
+    if(distribucion.cedears > 0){
+      const tc = _getTCActual();
+      const montoUSD = Math.round((distribucion.cedears / tc) * 100) / 100;
+      inversiones.push({ id: Date.now() + 2, tipo:'cedears', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(distribucion.cedears)} ARS @ $${tc})` });
+      invChanged = true;
+    }
+    if(invChanged) await S.set('inversiones', inversiones);
 
     document.getElementById('cobro-monto').value = '';
     document.getElementById('cobro-nota').value  = '';
@@ -2077,24 +1878,38 @@ function cerrarModalInv(){
 }
 
 async function guardarInversion(){
-  const tipo    = document.getElementById('modal-inv-tipo').value;
-  const monto   = parseFloat(document.getElementById('modal-inv-monto').value);
-  const fecha   = document.getElementById('modal-inv-fecha').value;
-  const estado  = document.getElementById('modal-inv-estado').value;
-  const nota    = document.getElementById('modal-inv-nota').value;
+  const tipo  = document.getElementById('inv-tipo').value;
+  const monto = parseFloat(document.getElementById('inv-monto').value);
+  const fecha = document.getElementById('inv-fecha').value;
+  const nota  = document.getElementById('inv-nota').value;
   if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
   if(!fecha){ toast('Elegí una fecha', 'err'); return; }
   if(_saving) return;
   _saving = true;
   try {
-    inversiones.push({ id: Date.now(), tipo, monto, fecha, estado, nota });
+    inversiones.push({ id: Date.now(), tipo, monto, fecha, nota });
     await S.set('inversiones', inversiones);
-    cerrarModalInv();
-    const labels = { cedears:'CEDEARs', fci:'FCI' };
-    toast(`✓ ${labels[tipo]||tipo} confirmado — ${fmt(monto)}`);
+    document.getElementById('inv-monto').value = '';
+    document.getElementById('inv-nota').value  = '';
+    const labels = { cedears:'CEDEARs', fci:'Depósito FCI', fci_saldo:'Saldo FCI actualizado' };
+    toast(`✓ ${labels[tipo]||tipo} — ${tipo==='cedears'?'US$'+monto.toFixed(2):fmt(monto)}`);
     _refreshInvPlans();
   } finally {
     _saving = false;
+  }
+}
+
+function toggleInvTipo(){
+  const tipo  = document.getElementById('inv-tipo').value;
+  const label = document.getElementById('inv-monto-label');
+  if(tipo === 'cedears'){
+    label.textContent = 'Monto (USD)';
+    document.getElementById('inv-monto').step = '0.01';
+    document.getElementById('inv-monto').placeholder = '0.00';
+  } else {
+    label.textContent = tipo === 'fci_saldo' ? 'Nuevo saldo real (ARS)' : 'Monto (ARS)';
+    document.getElementById('inv-monto').step = '1';
+    document.getElementById('inv-monto').placeholder = '0';
   }
 }
 
@@ -2108,6 +1923,7 @@ function _refreshInvPlans(){
   renderResumen();
   renderPlanMes('plan-mes-resumen');
   renderHistorial();
+  renderTarjeta();
   if(document.getElementById('tab-progreso-objetivo')?.classList.contains('active')){
     renderObjetivo();
   }
@@ -2234,20 +2050,15 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId, reasig
     const otros = desvio.pendingOtros.map(x => `${desvio.LABELS[x.k]} ${fmt(x.falta)}`).join(', ');
     toast(`⚠ Desvío${tareaMsg} · ${desvioMsg}${otros ? ` — pendiente: ${otros}` : ''}`, 'warn', 7000);
   } else {
-    const b = calcPresupuesto();
-    if(b.cobrado){
-      if(b.vivirLibre < 0){
-        toast(`⚠ Gasto registrado${tareaMsg} · Disponible: ${fmt(b.vivirLibre)} (excedido)`, 'err', 5000);
-      } else {
-        toast(`✓ Gasto registrado${tareaMsg} · Disponible: ${fmt(b.vivirLibre)}`);
-      }
+    const sDisp = _getSaldoReservas().disponible;
+    if(sDisp < 0){
+      toast(`⚠ Gasto registrado${tareaMsg} · Disponible: ${fmt(sDisp)} (excedido)`, 'err', 5000);
     } else {
-      toast(`✓ Gasto registrado${tareaMsg}`);
+      toast(`✓ Gasto registrado${tareaMsg} · Disponible: ${fmt(sDisp)}`);
     }
   }
 
   renderTareasSelect();
-  renderPresupuesto();
   renderResumen();
   renderHistorial();
   if(tareaCompletada) renderTareas();
@@ -2415,26 +2226,8 @@ function renderResumen(){
   const mesNombre = hoy.toLocaleString('es-AR',{month:'long', year:'numeric'});
   document.getElementById('resumen-fecha').textContent = mesNombre.charAt(0).toUpperCase()+mesNombre.slice(1)+' · actualizá cada vez que cobrás o gastás';
 
-  // ── Alerta desequilibrio tarjeta ──
-  const { totalProximo: totalEstTarjeta } = calcTarjeta();
-  const asignadosCobros = _getCobrosAsignados();
-  const separadoTarjeta = asignadosCobros.tarjeta || 0;
-  const diff = Math.round(totalEstTarjeta - separadoTarjeta);
   const alertBox = document.getElementById('resumen-alerta-tarjeta');
-  if(alertBox){
-    if(diff > 0){
-      alertBox.innerHTML = `
-        <div style="background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:var(--amber);line-height:1.6">
-          <strong>⚠ Desequilibrio tarjeta:</strong> el estimado del próximo resumen es <strong>${fmt(Math.round(totalEstTarjeta))}</strong>
-          pero solo tenés asignado desde cobros <strong>${fmt(separadoTarjeta)}</strong>.
-          Te faltan <strong>${fmt(diff)}</strong> — asegurate de incluirlo en los próximos cobros.
-        </div>`;
-    } else {
-      alertBox.innerHTML = diff < -10000
-        ? `<div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:10px;padding:10px 16px;margin-bottom:16px;font-size:13px;color:var(--green)">✓ Tarjeta cubierta — tenés <strong>${fmt(Math.abs(diff))}</strong> de colchón extra sobre el estimado.</div>`
-        : '';
-    }
-  }
+  if(alertBox) alertBox.innerHTML = '';
 
   // ── Tareas urgentes ──
   const urgentes = tareas.filter(t=>!t.done && diasHasta(t.venc)<=5).sort((a,b)=>new Date(a.venc)-new Date(b.venc));
@@ -2467,20 +2260,21 @@ function renderResumen(){
   const totalGastado = delMes.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0);
   const pctGasto     = totalCobrado > 0 ? Math.round(totalGastado/totalCobrado*100) : 0;
 
-  // ── #6 Semáforo ───────────────────────────────────────
-  const tareasMes     = tareas.filter(t=>{ const d=new Date(t.venc+'T12:00'); return d.getMonth()===mes&&d.getFullYear()===anio; });
-  const s1ok = tareasMes.length===0 || tareasMes.filter(t=>t.done).length/tareasMes.length >= 0.5;
-  const faltaTotalObl = _oblsConDatos().reduce((s,o) => s + o.falta, 0);
-  const paraGastar    = totalCobrado - totalGastado - faltaTotalObl;
-  const s2ok  = paraGastar >= 0;
+  // ── Saldos + semáforo ─────────────────────────────────
   const saldos = _getSaldoReservas();
-  const s3ok  = saldos.disponible > 0;
+  const tareasMes = tareas.filter(t=>{ const d=new Date(t.venc+'T12:00'); return d.getMonth()===mes&&d.getFullYear()===anio; });
+  const tarjetaTask  = tareas.find(t => t.cat === 'tarjeta');
+  const metaOblig    = (planMensual.alquilerMonto || 450000) + (tarjetaTask?.monto || 0);
+  const pctOblig     = metaOblig > 0 ? Math.min(100, Math.round(saldos.obligaciones / metaOblig * 100)) : 0;
+  const s1ok = tareasMes.length === 0 || tareasMes.filter(t=>t.done).length / tareasMes.length >= 0.5;
+  const s2ok = saldos.obligaciones > 0;
+  const s3ok = saldos.disponible   > 0;
   document.getElementById('semaforo-resumen').innerHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
       ${[
-        { ok:s1ok, label:'Gastos fijos',     sub:`${tareasMes.filter(t=>t.done).length}/${tareasMes.length} pagados este mes` },
-        { ok:s2ok, label:'Flujo controlado', sub:`Para gastar: ${fmt(paraGastar)}` },
-        { ok:s3ok, label:'Disponible',       sub:fmt(saldos.disponible) },
+        { ok:s1ok, label:'Vencimientos', sub:`${tareasMes.filter(t=>t.done).length}/${tareasMes.length} pagados este mes` },
+        { ok:s2ok, label:'Obligaciones', sub:`Acumulado: ${fmt(saldos.obligaciones)} / ${fmt(metaOblig)}` },
+        { ok:s3ok, label:'Disponible',   sub:fmt(saldos.disponible) },
       ].map(s=>`
         <div style="flex:1;min-width:140px;background:var(--surface);border:1px solid ${s.ok?'var(--green-border)':'var(--red-border)'};border-radius:10px;padding:11px 14px;display:flex;align-items:flex-start;gap:9px">
           <div style="width:9px;height:9px;border-radius:50%;background:${s.ok?'var(--green)':'var(--red)'};flex-shrink:0;margin-top:3px"></div>
@@ -2488,25 +2282,30 @@ function renderResumen(){
         </div>`).join('')}
     </div>`;
 
-  // ── #2 Cards ──────────────────────────────────────────
-  const totalRes  = (saldos.alquiler||0) + (saldos.tarjeta||0);
-  const cobrosN   = delMes.filter(m=>m.tipo==='cobro').length;
+  // ── Cards ─────────────────────────────────────────────
+  const cobrosN = delMes.filter(m=>m.tipo==='cobro').length;
   document.getElementById('cards-resumen').innerHTML = `
     <div class="metric-hero">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em">Reservas (alquiler + tarjeta)</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600">${fmt(totalRes)}</span>
-      </div>
-      <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center">
+      <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
         <span style="font-size:13px;font-weight:500;color:var(--green)">Disponible</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:600;color:var(--green)">${fmt(saldos.disponible)}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--green)">${fmt(saldos.disponible)}</span>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:12px;color:var(--muted)">Obligaciones (alquiler + tarjeta)</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--blue)">${fmt(saldos.obligaciones)}</span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
+          <div style="height:100%;width:${pctOblig}%;background:var(--blue);border-radius:4px;transition:width 0.3s"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px">${pctOblig}% de la meta ${fmt(metaOblig)}</div>
       </div>
     </div>
     <div class="secondary-cards">
       <div class="metric-sm"><div class="sm-label">Cobrado</div><div class="sm-value" style="color:var(--green)">${fmt(totalCobrado)}</div><div class="sm-sub">${cobrosN} cobro${cobrosN!==1?'s':''}</div></div>
       <div class="metric-sm"><div class="sm-label">Gastado</div><div class="sm-value" style="color:var(--red)">${fmt(totalGastado)}</div><div class="sm-sub">${pctGasto}% del ingreso</div></div>
-      <div class="metric-sm"><div class="sm-label">Alquiler</div><div class="sm-value" style="color:var(--blue)">${fmt(saldos.alquiler||0)}</div><div class="sm-sub">reserva</div></div>
-      <div class="metric-sm"><div class="sm-label">Tarjeta</div><div class="sm-value" style="color:var(--purple)">${fmt(saldos.tarjeta||0)}</div><div class="sm-sub">reserva</div></div>
+      <div class="metric-sm"><div class="sm-label">FCI</div><div class="sm-value" style="color:var(--purple)">${fmt(_getFCISaldo())}</div><div class="sm-sub">fase ${_getCurrentPhase()}</div></div>
+      <div class="metric-sm"><div class="sm-label">CEDEARs</div><div class="sm-value" style="color:var(--blue)">US$${_getCedearsSaldoUSD().toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="sm-sub">inversión</div></div>
     </div>
   `;
 
@@ -2520,27 +2319,21 @@ function renderResumen(){
   ];
   const semRows = semDefs.map(s=>{
     const enSem = m=>{ const d=new Date(m.fecha+'T12:00').getDate(); return d>=s.desde&&d<=s.hasta; };
-    const VIDA_CATS = ['comida','transporte','personal','otro'];
+    const LIBRE_CATS = ['comida','servicios','combustible','otro'];
     const cob   = delMes.filter(m=>m.tipo==='cobro'&&enSem(m));
     const gas   = delMes.filter(m=>m.tipo==='gasto'&&enSem(m));
     const totalC = cob.reduce((sum,m)=>sum+m.monto,0);
     const totalG = gas.reduce((sum,m)=>sum+m.monto,0);
-    const gastVida = gas.filter(m=>VIDA_CATS.includes(m.categoria)).reduce((sum,m)=>sum+m.monto,0);
-    const presup = Math.max(0, cob.reduce((sum,c)=>{
-      if(c.distribucion?.vida != null) return sum + c.distribucion.vida;
-      if(c.categoria.startsWith('semanal_')) return sum + calcDelta(c.categoria,c.monto).libre;
-      return sum;
-    },0));
+    const gastLibre = gas.filter(m=>LIBRE_CATS.includes(m.categoria)).reduce((sum,m)=>sum+m.monto,0);
     const separado = cob.reduce((sum,c)=>{
-      if(!c.distribucion) return sum;
-      return sum + Object.entries(c.distribucion)
-        .filter(([k])=>k!=='vida')
-        .reduce((s,[,v])=>s+Math.max(0,v),0);
+      const dist = c.distribucion || {};
+      return sum + (dist.obligaciones||0) + (dist.fci||0) + (dist.cedears||0);
     },0);
+    const presup = Math.max(0, totalC - separado);
     const esActual = hoyDia>=s.desde && hoyDia<=s.hasta;
     if(!totalC&&!totalG&&!esActual) return null;
-    const desvio = presup > 0 && gastVida > presup;
-    return {...s, totalC, totalG, gastVida, presup, separado, desvio, balance:totalC-totalG, esActual};
+    const desvio = presup > 0 && gastLibre > presup;
+    return {...s, totalC, totalG, gastLibre, presup, separado, desvio, balance:totalC-totalG, esActual};
   }).filter(Boolean);
 
   document.getElementById('resumen-semanas').innerHTML = semRows.length ? `
@@ -2549,7 +2342,7 @@ function renderResumen(){
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
       <table style="width:100%;min-width:480px;border-collapse:collapse;font-size:13px;margin-top:10px">
         <thead><tr>
-          ${['Semana','Cobrado','Separado','Gastado','Pres. vivir','Balance'].map(h=>`<th style="text-align:${h==='Semana'?'left':'right'};padding:5px 0 8px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">${h}</th>`).join('')}
+          ${['Semana','Cobrado','Separado','Gastado','Disponible','Balance'].map(h=>`<th style="text-align:${h==='Semana'?'left':'right'};padding:5px 0 8px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">${h}</th>`).join('')}
         </tr></thead>
         <tbody>${semRows.map(s=>`
           <tr style="${s.esActual?'background:rgba(255,255,255,0.03)':''}">
@@ -2561,13 +2354,13 @@ function renderResumen(){
             <td style="text-align:right;padding:9px 0;border-bottom:0.5px solid var(--border);font-family:'JetBrains Mono',monospace;color:${s.totalG?'var(--red)':'var(--muted)'}">
               ${s.totalG?fmt(s.totalG):'—'}${s.desvio?' <span style="font-size:11px;color:var(--red)">⚠</span>':''}
             </td>
-            <td style="text-align:right;padding:9px 0;border-bottom:0.5px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--muted)">${s.presup?`${fmt(s.presup)}<div style="font-size:10px;color:var(--muted);margin-top:1px">vivir: ${fmt(s.gastVida)}</div>`:'—'}</td>
+            <td style="text-align:right;padding:9px 0;border-bottom:0.5px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--muted)">${s.presup?`${fmt(s.presup)}<div style="font-size:10px;color:var(--muted);margin-top:1px">libre: ${fmt(s.gastLibre)}</div>`:'—'}</td>
             <td style="text-align:right;padding:9px 0;border-bottom:0.5px solid var(--border);font-family:'JetBrains Mono',monospace;font-weight:500;color:${s.balance>=0?'var(--blue)':'var(--red)'}">${s.totalC?fmt(s.balance):'—'}</td>
           </tr>`).join('')}
         </tbody>
       </table>
       </div>
-      ${semRows.some(s=>s.desvio)?`<div style="font-size:11px;color:var(--muted);margin-top:8px">⚠ lo gastado superó el presupuesto para vivir de esa semana</div>`:''}
+      ${semRows.some(s=>s.desvio)?`<div style="font-size:11px;color:var(--muted);margin-top:8px">⚠ lo gastado superó el disponible estimado de esa semana</div>`:''}
     </div>` : '';
 
   renderPlanMes('plan-mes-resumen');
@@ -2580,30 +2373,20 @@ function calcPresupuesto(montoPreview=0, catPreview=''){
   const delMes = movimientos.filter(m=>{
     const d=new Date(m.fecha+'T12:00'); return d.getMonth()===mes&&d.getFullYear()===anio;
   });
-  const cobrado = delMes.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
-
-  const { totalProximo } = calcTarjeta();
-  const tarjetaTarget = Math.ceil(totalProximo/1000)*1000;
-
-  const oblsPlan   = getPlanObls();
-  const ALQUILER_T = oblsPlan.find(o=>o.key==='alquiler')?.monto || 450000;
-  const totalOblig = ALQUILER_T + tarjetaTarget;
-
-  const _gob = _gastosObligMes();
-  const obligaciones = [
-    { label:'Alquiler', target:ALQUILER_T,    prog:_gob.alquiler },
-    { label:'Tarjeta',  target:tarjetaTarget, prog:_gob.tarjeta  },
-  ];
-
+  const cobrado  = delMes.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
+  const saldos   = _getSaldoReservas();
+  const tarjTask = tareas.find(t => t.cat === 'tarjeta');
+  const meta     = (planMensual.alquilerMonto || 450000) + (tarjTask?.monto || 0);
+  const obligaciones = [{ label:'Obligaciones', target:meta, prog:saldos.obligaciones }];
   const reserveCats  = ['alquiler','tarjeta'];
   const dispGast = delMes.filter(m=>m.tipo==='gasto'&&!reserveCats.includes(m.categoria)).reduce((s,m)=>s+m.monto,0);
   const isDisp   = !reserveCats.includes(catPreview);
-  const paraVivir = cobrado - totalOblig;
-  const preview   = isDisp ? montoPreview : 0;
-  const vivirLibre= paraVivir - dispGast - preview;
-  const pctVivir  = paraVivir>0 ? Math.min(100,Math.round((dispGast+preview)/paraVivir*100)) : (dispGast>0?100:0);
-
-  return { cobrado, obligaciones, totalOblig, paraVivir, vivirGast:dispGast, vivirLibre, pctVivir, montoPreview, isVivir:isDisp };
+  const preview  = isDisp ? montoPreview : 0;
+  const vivirLibre = saldos.disponible - preview;
+  const pctVivir   = saldos.disponible > 0
+    ? Math.min(100, Math.round((dispGast + preview) / saldos.disponible * 100))
+    : (dispGast > 0 ? 100 : 0);
+  return { cobrado, obligaciones, totalOblig:meta, paraVivir:saldos.disponible, vivirGast:dispGast, vivirLibre, pctVivir, montoPreview, isVivir:isDisp };
 }
 
 function renderPresupuesto(montoPreview=0, catPreview=''){
@@ -2684,77 +2467,48 @@ function renderPlanMes(elId){
   const el = document.getElementById(elId);
   if(!el) return;
 
-  const oblsDatos  = _oblsConDatos();
-  const asignadosCobros = _getCobrosAsignados();
-  const hoy = new Date(), dia = hoy.getDate();
+  const saldos = _getSaldoReservas();
+  const tarjetaTask = tareas.find(t => t.cat === 'tarjeta');
+  const alquilerMonto = planMensual.alquilerMonto || 450000;
+  const tarjetaMonto  = tarjetaTask?.monto || 0;
+  const meta = alquilerMonto + tarjetaMonto;
+  const acumulado = saldos.obligaciones;
+  const pct = meta > 0 ? Math.min(100, Math.round(acumulado / meta * 100)) : 0;
+  const falta = Math.max(0, meta - acumulado);
 
-  const oblRows = oblsDatos.map(o => {
-    if(!o.monto) return '';
-    const gastPct  = Math.min(100, Math.round(o.cubierto / o.monto * 100));
-    const asignado = asignadosCobros[o.key] || 0;
-    const asigPct  = Math.min(100, Math.round(asignado / o.monto * 100));
-    let urgBadge = '';
-    if(o.falta > 0 && o.venceDia !== null){
-      if(o.diasHastaVenc <= 3)       urgBadge = `<span class="urg-badge urg-critico">URGENTE</span>`;
-      else if(o.diasHastaVenc <= 7)  urgBadge = `<span class="urg-badge urg-urgente">${Math.ceil(o.diasHastaVenc)} días</span>`;
-    }
-    const fillColor = gastPct >= 100 ? 'var(--green)'
-      : o.diasHastaVenc <= 3 ? 'var(--red)'
-      : o.diasHastaVenc <= 7 ? 'var(--amber)'
-      : 'var(--blue)';
-    const gastLine = gastPct >= 100
-      ? `<span style="color:var(--green)">✓ cubierto</span>`
-      : `Gastado: ${fmt(o.cubierto)} / ${fmt(o.monto)}${o.falta>0?` — falta <strong>${fmt(o.falta)}</strong>`:''}${o.vencLabel?` · ${o.vencLabel}`:''}`;
-    const asigLine = asignado > 0
-      ? `<span style="color:var(--blue)">Asignado desde cobros: ${fmt(asignado)}</span>`
-      : '';
+  const alqVenc = tareas.find(t => t.cat === 'alquiler');
+  const alqLabel = alqVenc ? `vence ${vencLabel(alqVenc.venc, false)}` : `$${(alquilerMonto/1000).toFixed(0)}k fijo`;
+  const tarjLabel = tarjetaTask ? (tarjetaMonto > 0 ? `${fmt(tarjetaMonto)} · vence ${vencLabel(tarjetaTask.venc, false)}` : 'monto pendiente') : 'sin configurar';
 
-    const invHTML = '';
-
-    return `
-      <div class="plan-obl-row">
-        <div class="plan-obl-info">
-          <div class="plan-obl-label">${o.label} ${urgBadge}</div>
-          <div class="plan-obl-nums">${gastLine}${o.dinamico?' (calculado)':''}</div>
-          ${asigLine ? `<div class="plan-obl-nums" style="margin-top:2px">${asigLine}</div>` : ''}
-          <div style="display:flex;gap:3px;margin-top:5px">
-            <div class="plan-obl-bar" style="flex:1"><div class="plan-obl-fill" style="width:${gastPct}%;background:${fillColor}"></div></div>
-          </div>
-          <div style="height:4px;background:var(--surface2);border-radius:99px;margin-top:3px;overflow:hidden;border:1px solid var(--border)">
-            <div style="height:100%;border-radius:99px;width:${asigPct}%;background:var(--blue);opacity:0.6"></div>
-          </div>
-          ${invHTML}
-        </div>
-        <div style="font-size:12px;color:var(--muted);min-width:36px;text-align:right">${gastPct}%</div>
-      </div>`;
-  }).join('');
-
-  // Vida del mes
-  const mesG = movimientos.filter(m => {
-    const d = new Date(m.fecha+'T12:00');
-    return m.tipo==='gasto' && d.getMonth()===hoy.getMonth() && d.getFullYear()===hoy.getFullYear();
-  });
-  const vidaCats   = ['comida','transporte','personal','otro'];
-  const vidaGast   = mesG.filter(m=>vidaCats.includes(m.categoria)).reduce((s,m)=>s+m.monto,0);
-  const vidaBudget = planMensual.vidaPresupuesto;
-  const vidaPct    = vidaBudget > 0 ? Math.min(100, Math.round(vidaGast/vidaBudget*100)) : 0;
-  const vidaColor  = vidaPct >= 100 ? 'var(--red)' : vidaPct >= 80 ? 'var(--amber)' : 'var(--green)';
+  const fillColor = pct >= 100 ? 'var(--green)' : falta > acumulado ? 'var(--amber)' : 'var(--blue)';
+  const statusLabel = pct >= 100
+    ? `<span style="color:var(--green)">✓ cubierto</span>`
+    : `Acumulado ${fmt(acumulado)} · falta <strong>${fmt(falta)}</strong>`;
 
   el.innerHTML = `
     <div class="plan-section">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px">
-        <h3 style="margin:0">Plan del mes</h3>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <button onclick="abrirModalTransferencia()" style="font-size:11px;background:none;border:1px solid var(--border);border-radius:6px;padding:3px 10px;color:var(--blue);cursor:pointer;font-family:'Manrope',sans-serif;white-space:nowrap">⇄ Transferir reservas</button>
-          <span style="font-size:11px;color:var(--muted);white-space:nowrap">Ingreso base: <strong style="color:var(--text);font-family:'JetBrains Mono',monospace">${fmt(planMensual.ingresoBase)}</strong></span>
-        </div>
+        <h3 style="margin:0">Obligaciones del mes</h3>
       </div>
-      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px">Obligaciones y ahorro</div>
-      ${oblRows}
-      <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:14px">
-        <div class="plan-obl-label" style="margin-bottom:3px">Disponible (gastos del día a día)</div>
-        <div class="plan-obl-nums" style="margin-bottom:4px">${fmt(vidaGast)} / ${fmt(vidaBudget)} — queda ${fmt(Math.max(0,vidaBudget-vidaGast))}</div>
-        <div class="plan-obl-bar"><div class="plan-obl-fill" style="width:${vidaPct}%;background:${vidaColor}"></div></div>
+      <div class="plan-obl-row">
+        <div class="plan-obl-info" style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+            <span class="plan-obl-label">Alquiler + tarjeta</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${fillColor}">${fmt(acumulado)} / ${fmt(meta)}</span>
+          </div>
+          <div class="plan-obl-bar" style="margin-bottom:6px"><div class="plan-obl-fill" style="width:${pct}%;background:${fillColor}"></div></div>
+          <div class="plan-obl-nums">${statusLabel}</div>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
+            <div style="display:flex;justify-content:space-between;font-size:12px">
+              <span style="color:var(--muted)">Alquiler</span>
+              <span style="color:var(--text)">${fmt(alquilerMonto)} · ${alqLabel}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px">
+              <span style="color:var(--muted)">Tarjeta</span>
+              <span style="color:var(--text)">${tarjLabel}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>`;
 }
@@ -2957,7 +2711,7 @@ async function eliminar(id){
   }
   softDelete({
     arr: movimientos, id, setKey: 'movimientos',
-    render: ()=>{ renderHistorial(); renderResumen(); renderPresupuesto(); renderTareasSelect(); },
+    render: ()=>{ renderHistorial(); renderResumen(); renderTareasSelect(); },
     label: 'Movimiento'
   });
 }
@@ -3177,177 +2931,148 @@ function calcTarjeta(){
 }
 
 function renderTarjeta(){
-  const { fijosARS, fijosUSD, fijosTotal, cuotasTotal, totalProximo, futuros, proximoYM } = calcTarjeta();
-  const [pry, prm] = proximoYM.split('-').map(Number);
-  const proximoLabel = nombreMesCorto(proximoYM);
-  const _hoy = new Date();
-  const ingresoMensual = movimientos
-    .filter(m => m.tipo==='cobro' && new Date(m.fecha).getMonth()===_hoy.getMonth() && new Date(m.fecha).getFullYear()===_hoy.getFullYear())
-    .reduce((s,m) => s+m.monto, 0) || 1679200;
-  const pctIngreso = Math.round(totalProximo / ingresoMensual * 100);
-  const separar = Math.ceil(totalProximo / 1000) * 1000;
+  const panel = document.getElementById('inv-panel');
+  const hist  = document.getElementById('inv-historial');
+  if(!panel) return;
 
-  const tareaTarjeta = tareas.find(t => t.cat === 'tarjeta' && !t.done);
-  if(tareaTarjeta && tareaTarjeta.monto !== separar){ tareaTarjeta.monto = separar; S.set('tareas', tareas).catch(()=>{}); }
+  const tc       = _getTCActual();
+  const fciSaldo = _getFCISaldo();
+  const cedUSD   = _getCedearsSaldoUSD();
+  const cedARS   = Math.round(cedUSD * tc);
+  const fase     = _getCurrentPhase();
 
-  const activasEnProximo = comprasTarjeta.filter(c => getCuotaNumParaResumen(c, proximoYM) > 0).length;
-  document.getElementById('cards-tarjeta').innerHTML = `
-    <div class="metric-card red"><div class="label">Fijos mensuales</div><div class="value">${fmt(Math.round(fijosTotal))}</div><div class="sub">pesos + USD pesificados</div></div>
-    <div class="metric-card amber"><div class="label">Cuotas resumen ${proximoLabel}</div><div class="value">${fmt(cuotasTotal)}</div><div class="sub">${activasEnProximo} compras activas</div></div>
-    <div class="metric-card purple"><div class="label">Total resumen ${proximoLabel}</div><div class="value">${fmt(Math.round(totalProximo))}</div><div class="sub">fijos + cuotas</div></div>
-    <div class="metric-card ${pctIngreso>25?'red':'green'}"><div class="label">% del ingreso mensual</div><div class="value">${pctIngreso}%</div><div class="sub">${pctIngreso>25?'⚠ alto':'✓ razonable'}</div></div>
-  `;
+  // Aportes de referencia (últimos 30 días)
+  const hace30 = new Date(Date.now() - 30*86400000);
+  const fciAporteRef = inversiones
+    .filter(i => i.tipo === 'fci' && new Date(i.fecha+'T12:00') >= hace30)
+    .reduce((s,i) => s+i.monto, 0);
+  const cedAporteRef = inversiones
+    .filter(i => i.tipo === 'cedears' && new Date(i.fecha+'T12:00') >= hace30)
+    .reduce((s,i) => s+i.monto, 0);
 
-  const separadoActual = _getCobrosAsignados().tarjeta || 0;
-  const progPct = Math.min(100, Math.round(separadoActual / separar * 100));
-  document.getElementById('tarjeta-separar-box').innerHTML = `
-    <div style="background:var(--surface2);border-radius:10px;padding:16px 18px;margin-bottom:20px;border:1px solid var(--border)">
-      <div style="font-size:13px;font-weight:500;margin-bottom:4px">A separar para el resumen de ${proximoLabel.toUpperCase()}</div>
-      <div style="font-size:28px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--purple);margin-bottom:8px">${fmt(separar)}</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
-        fijos <strong style="color:var(--text)">${fmt(Math.round(fijosTotal))}</strong>
-        + cuotas activas <strong style="color:var(--text)">${fmt(cuotasTotal)}</strong>
-        = <strong style="color:var(--text)">${fmt(Math.round(totalProximo))}</strong> · redondeado al millar
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px">
-        <span>Separado hasta ahora</span>
-        <span style="font-family:'JetBrains Mono',monospace">${fmt(separadoActual)} de ${fmt(separar)} (${progPct}%)</span>
-      </div>
-      <div class="progress-bar"><div class="progress-fill fill-purple" style="width:${progPct}%"></div></div>
-      <div style="margin-top:10px;font-size:12px;color:var(--muted)">
-        Representa el <strong style="color:${pctIngreso>25?'var(--red)':'var(--green)'}">${pctIngreso}%</strong> de tu ingreso mensual de ${fmt(ingresoMensual)}.
-        ${pctIngreso>25?'⚠ La tarjeta está consumiendo más del 25% de tus ingresos.':''}
-      </div>
-    </div>`;
-
-  // Tabla fijos — editable inline + dar de baja
-  const filasFijos = FIJOS_TARJETA.map(f => {
-    const inactivo = f.activo === false;
-    return `
-    <tr id="fijo-row-${f.id}" style="${inactivo?'opacity:0.45':''}">
-      <td style="padding:8px 4px 8px 0;border-bottom:0.5px solid var(--border)">
-        ${inactivo?`<span style="text-decoration:line-through;color:var(--muted)">${f.desc}</span><span class="badge badge-red" style="margin-left:6px;font-size:9px">BAJA</span>`:f.desc}
-      </td>
-      <td style="padding:8px 4px;border-bottom:0.5px solid var(--border);text-align:right">
-        ${f.usd>0
-          ?`<span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">US$${f.usd.toFixed(2)}</span>`
-          :`<span style="font-family:'JetBrains Mono',monospace;color:${inactivo?'var(--muted)':'var(--red)'}">${fmt(f.monto)}</span>`
-        }
-      </td>
-      <td style="padding:8px 0 8px 4px;border-bottom:0.5px solid var(--border);text-align:right">
-        <div style="display:flex;gap:4px;justify-content:flex-end">
-          <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;background:var(--surface2);border:1px solid var(--border)" onclick="abrirEditorFijo(${f.id})">Editar</button>
-          <button class="btn btn-sm" style="font-size:11px;padding:3px 8px;${inactivo?'background:var(--green-bg);border:1px solid var(--green-border);color:var(--green)':'background:var(--red-bg);border:1px solid var(--red-border);color:var(--red)'}" onclick="toggleFijoActivo(${f.id})">${inactivo?'Reactivar':'Dar de baja'}</button>
-        </div>
-      </td>
-    </tr>
-    <tr id="fijo-edit-${f.id}" style="display:none">
-      <td colspan="3" style="padding:10px 0;border-bottom:1px solid var(--border)">
-        <div style="background:var(--surface2);border-radius:8px;padding:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
-          <div class="form-group" style="flex:1;min-width:120px">
-            <label>${f.usd>0?'Monto (US$)':'Monto ($)'}</label>
-            <input type="number" id="fijo-val-${f.id}" value="${f.usd>0?f.usd:f.monto}" step="${f.usd>0?'0.01':'1'}">
-          </div>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-primary btn-sm" onclick="guardarFijo(${f.id},${f.usd>0})">Guardar</button>
-            <button class="btn btn-sm" style="background:var(--surface2);border:1px solid var(--border)" onclick="cerrarEditorFijo(${f.id})">Cancelar</button>
-          </div>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-
-  const fijosUSDtot = FIJOS_TARJETA.filter(f=>f.activo!==false&&f.usd>0).reduce((s,f)=>s+f.usd,0);
-  document.getElementById('tabla-fijos-tarjeta').innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead><tr>
-        <th style="text-align:left;padding:6px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Concepto</th>
-        <th style="text-align:right;padding:6px 4px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Monto</th>
-        <th style="text-align:right;padding:6px 0 10px;border-bottom:1px solid var(--border)"></th>
-      </tr></thead>
-      <tbody>${filasFijos}</tbody>
-    </table>`;
-  document.getElementById('tabla-fijos-footer').innerHTML = `
-    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;flex-wrap:wrap;gap:6px">
-      <span>Total fijos activos</span>
-      <div style="display:flex;gap:12px;align-items:center">
-        ${fijosUSDtot>0?`<span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">US$${fijosUSDtot.toFixed(2)}</span>`:''}
-        <span style="font-family:'JetBrains Mono',monospace;color:var(--red)">${fmt(Math.round(fijosARS))} en $</span>
-        <span style="font-family:'JetBrains Mono',monospace;color:var(--purple)">${fmt(Math.round(fijosTotal))} total</span>
-      </div>
-    </div>`;
-
-  // Tabla compras y cuotas
-  if(comprasTarjeta.length){
-    const ordenadas = [...comprasTarjeta].sort((a,b) => new Date(b.fechaCompra)-new Date(a.fechaCompra));
-    const filas = ordenadas.map(c => {
-      const cuotaNum  = getCuotaNumParaResumen(c, proximoYM);
-      const terminada = getUltimoResumenYM(c) < proximoYM;
-      let badge;
-      if(terminada){
-        badge = `<span class="badge" style="background:var(--surface2);color:var(--muted)">Terminada</span>`;
-      } else if(cuotaNum > 0){
-        badge = `<span class="badge badge-purple">${proximoLabel}</span>`;
-      } else {
-        let futLabel = '';
-        for(let off=1; off<=12; off++){
-          const ym = fmtYM(new Date(pry, prm-1+off, 1));
-          if(getCuotaNumParaResumen(c, ym)>0){ futLabel = nombreMesCorto(ym); break; }
-        }
-        badge = futLabel ? `<span class="badge badge-amber">desde ${futLabel}</span>` : `<span class="badge badge-blue">—</span>`;
-      }
-      const cuotaStr = c.cuotas===1
-        ? `<span style="color:var(--muted)">Único</span>`
-        : cuotaNum>0 ? `${cuotaNum}/${c.cuotas}` : `—/${c.cuotas}`;
-      return [
-        `<span style="color:${terminada?'var(--muted)':'var(--text)'};${terminada?'text-decoration:line-through':''}">` + c.desc + `</span>`,
-        new Date(c.fechaCompra+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}),
-        cuotaStr,
-        `<span style="font-family:'JetBrains Mono',monospace;color:${cuotaNum>0?'var(--amber)':'var(--muted)'}">${fmt(c.montoCuota)}</span>`,
-        badge,
-        `<button class="btn btn-danger btn-sm" onclick="eliminarCompra(${c.id})">×</button>`
-      ];
-    });
-    document.getElementById('tabla-gastos-tarjeta').innerHTML = mkTabla(
-      ['Descripción','Compra','Cuota','$/cuota','Resumen',''],
-      filas, [null,'center','center','right','center',null]
-    );
-  } else {
-    document.getElementById('tabla-gastos-tarjeta').innerHTML = `<div class="empty-state" style="padding:20px"><p>No hay compras cargadas</p></div>`;
+  function mesesFCI(meta){
+    if(fciSaldo >= meta) return 0;
+    if(fciAporteRef <= 0) return null;
+    return Math.ceil((meta - fciSaldo) / fciAporteRef);
+  }
+  function mesesCEDEARs(metaUSD){
+    if(cedUSD >= metaUSD) return 0;
+    const r = 0.10 / 12;
+    if(cedAporteRef <= 0){
+      if(cedUSD <= 0) return null;
+      return Math.ceil(Math.log(metaUSD / cedUSD) / Math.log(1+r));
+    }
+    const logArg = (metaUSD*r + cedAporteRef) / (cedUSD*r + cedAporteRef);
+    if(logArg <= 1) return null;
+    return Math.ceil(Math.log(logArg) / Math.log(1+r));
+  }
+  function labelMeses(m){
+    if(m === null) return 'sin datos';
+    if(m === 0) return '✓ alcanzado';
+    if(m < 12) return `~${m} mes${m!==1?'es':''}`;
+    const y = Math.floor(m/12), mo = m%12;
+    return `~${y} año${y!==1?'s':''}${mo>0?' '+mo+'m':''}`;
   }
 
-  // Proyección
-  document.getElementById('tabla-proyeccion-tarjeta').innerHTML = mkTabla(
-    ['Resumen','Fijos est.','Cuotas','Total est.','A separar'],
-    [0,1,2,3,4,5].map(i => {
-      const ym    = fmtYM(new Date(pry, prm-1+i, 1));
-      const total = fijosTotal + futuros[i];
-      const sep   = Math.ceil(total/1000)*1000;
-      const pct2  = Math.round(total/ingresoMensual*100);
-      return [
-        `<span style="font-weight:${i===0?600:400}">${nombreMesCorto(ym)}</span>`,
-        `<span style="font-family:'JetBrains Mono',monospace">${fmt(Math.round(fijosTotal))}</span>`,
-        `<span style="font-family:'JetBrains Mono',monospace;color:var(--amber)">${fmt(futuros[i])}</span>`,
-        `<span style="font-family:'JetBrains Mono',monospace;color:var(--red)">${fmt(Math.round(total))}</span>`,
-        `<span style="font-family:'JetBrains Mono',monospace;color:var(--purple);font-weight:500">${fmt(sep)}</span><span style="font-size:11px;color:${pct2>25?'var(--red)':'var(--muted)'}"> (${pct2}%)</span>`
-      ];
-    }),
-    [null,'right','right','right','right']
-  );
+  const pct1   = Math.min(100, Math.round(fciSaldo / FCI_META_1 * 100));
+  const pct2   = Math.min(100, Math.round(fciSaldo / FCI_META_2 * 100));
+  const pct30  = Math.min(100, Math.round(cedUSD / 30000 * 100));
+  const pct100 = Math.min(100, Math.round(cedUSD / 100000 * 100));
 
-  // Historial pagos
-  const pagos = [...pagosTarjeta].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
-  document.getElementById('tabla-pagos-tarjeta').innerHTML = pagos.length
-    ? mkTabla(
-        ['Fecha','Monto','Nota'],
-        pagos.map(p=>[
-          new Date(p.fecha+'T12:00').toLocaleDateString('es-AR'),
-          `<span style="font-family:'JetBrains Mono',monospace;color:var(--green);font-weight:500">${fmt(p.monto)}</span>`,
-          `<span style="color:var(--muted)">${p.nota||'—'}</span>`
-        ]),
-        [null,'right',null]
-      )
-    : `<div class="empty-state" style="padding:30px"><p>Sin pagos registrados aún</p></div>`;
+  const faseInfo = {
+    1: { label:'Fase 1 · Construcción del colchón FCI', color:'var(--purple)', desc:'Todo lo que cobrás de clientes y extras va al FCI hasta alcanzar $650.000.' },
+    2: { label:'Fase 2 · Acumulación CEDEARs', color:'var(--blue)', desc:'75% a CEDEARs + 25% a FCI en cada cobro mensual/extra.' },
+    3: { label:'Fase 3 · Inversión máxima', color:'var(--green)', desc:'Todo a CEDEARs. El colchón FCI está completo.' },
+  }[fase];
+
+  panel.innerHTML = `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">Fase actual</div>
+      <div style="font-size:15px;font-weight:600;color:${faseInfo.color};margin-bottom:4px">${faseInfo.label}</div>
+      <div style="font-size:12px;color:var(--muted)">${faseInfo.desc}</div>
+    </div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:600">FCI Money Market</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--purple)">${fmt(fciSaldo)}</span>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+          <span>Meta Fase 1: ${fmt(FCI_META_1)}</span>
+          <span>${pct1}% · ${labelMeses(mesesFCI(FCI_META_1))}</span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
+          <div style="height:100%;width:${pct1}%;background:${pct1>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:width 0.3s"></div>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+          <span>Meta Fase 2: ${fmt(FCI_META_2)}</span>
+          <span>${pct2}% · ${labelMeses(mesesFCI(FCI_META_2))}</span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
+          <div style="height:100%;width:${pct2}%;background:${pct2>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:width 0.3s"></div>
+        </div>
+      </div>
+      ${fciAporteRef>0?`<div style="font-size:11px;color:var(--muted);margin-top:8px">Referencia: ${fmt(fciAporteRef)} aportado en los últimos 30 días</div>`:''}
+    </div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+        <span style="font-size:13px;font-weight:600">CEDEARs</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--blue)">US$${cedUSD.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">≈ ${fmt(cedARS)} ARS · TC MEP: $${tc.toLocaleString('es-AR')}</div>
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+          <span>Hito 1: US$30.000</span>
+          <span>${pct30}% · ${labelMeses(mesesCEDEARs(30000))}</span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
+          <div style="height:100%;width:${pct30}%;background:${pct30>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:width 0.3s"></div>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+          <span>Hito 2: US$100.000</span>
+          <span>${pct100}% · ${labelMeses(mesesCEDEARs(100000))}</span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
+          <div style="height:100%;width:${pct100}%;background:${pct100>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:width 0.3s"></div>
+        </div>
+      </div>
+      ${cedAporteRef>0?`<div style="font-size:11px;color:var(--muted);margin-top:8px">Referencia: US$${cedAporteRef.toFixed(2)} aportado en últimos 30 días · proyección compuesta 10% anual</div>`:''}
+    </div>`;
+
+  const tipoLabel = { fci:'Depósito FCI', fci_saldo:'Ajuste saldo FCI', cedears:'Compra CEDEARs' };
+  const tipoColor = { fci:'var(--purple)', fci_saldo:'var(--amber)', cedears:'var(--blue)' };
+  const sorted = [...inversiones].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  if(!sorted.length){
+    hist.innerHTML = '<div class="empty-state" style="padding:30px"><p>Sin operaciones registradas aún</p></div>';
+    return;
+  }
+  const rows = sorted.map(i => {
+    const montoStr = i.tipo==='cedears'
+      ? `<span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">US$${i.monto.toFixed(2)}</span>`
+      : `<span style="font-family:'JetBrains Mono',monospace;color:${tipoColor[i.tipo]}">${fmt(i.monto)}</span>`;
+    const nota = i.nota ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(i.nota)}</div>` : '';
+    return `<tr>
+      <td style="padding:9px 0;border-bottom:0.5px solid var(--border);white-space:nowrap">${new Date(i.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
+      <td style="padding:9px 4px;border-bottom:0.5px solid var(--border)"><span style="font-size:12px;font-weight:500;color:${tipoColor[i.tipo]}">${tipoLabel[i.tipo]||i.tipo}</span>${nota}</td>
+      <td style="padding:9px 0;border-bottom:0.5px solid var(--border);text-align:right">${montoStr}</td>
+      <td style="padding:9px 0 9px 8px;border-bottom:0.5px solid var(--border);text-align:right"><button class="btn btn-danger btn-sm" onclick="eliminarInversion(${i.id})">×</button></td>
+    </tr>`;
+  }).join('');
+  hist.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead><tr>
+      <th style="text-align:left;padding:6px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Fecha</th>
+      <th style="text-align:left;padding:6px 4px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Tipo</th>
+      <th style="text-align:right;padding:6px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Monto</th>
+      <th style="border-bottom:1px solid var(--border)"></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
 }
 
 // helper tabla genérica
@@ -3357,60 +3082,6 @@ function mkTabla(headers, rows, aligns){
   return `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
 }
 
-async function agregarCompra(){
-  const monto  = parseFloat(document.getElementById('gt-monto').value);
-  const desc   = document.getElementById('gt-desc').value.trim();
-  const cat    = document.getElementById('gt-cat').value;
-  const cuotas = parseInt(document.getElementById('gt-cuotas').value);
-  const fecha  = document.getElementById('gt-fecha').value;
-  if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
-  if(!desc){ toast('Completá la descripción', 'err'); return; }
-  if(!fecha){ toast('Elegí una fecha', 'err'); return; }
-  if(isNaN(cuotas) || cuotas < 1){ toast('Seleccioná la cantidad de cuotas', 'err'); return; }
-  if(_saving) return;
-  _saving = true;
-  try {
-    const montoCuota = Math.round(monto / cuotas);
-    comprasTarjeta.push({ id:Date.now(), monto, desc, cat, cuotas, montoCuota, fechaCompra: fecha });
-    await S.set('comprasTarjeta', comprasTarjeta);
-    document.getElementById('gt-monto').value = '';
-    document.getElementById('gt-desc').value  = '';
-    renderTarjeta();
-    toast(`✓ Compra agregada — cuota 1 en ${nombreMesCorto(getPrimerResumenYM(fecha))}`);
-  } finally {
-    _saving = false;
-  }
-}
-
-async function eliminarCompra(id){
-  comprasTarjeta = comprasTarjeta.filter(c=>c.id!==id);
-  await S.set('comprasTarjeta', comprasTarjeta);
-  renderTarjeta();
-}
-
-async function registrarPagoTarjeta(){
-  const monto = parseFloat(document.getElementById('tarjeta-pago-monto').value);
-  const fecha = document.getElementById('tarjeta-pago-fecha').value;
-  const nota  = document.getElementById('tarjeta-pago-nota').value;
-  if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
-  if(!fecha){ toast('Elegí una fecha', 'err'); return; }
-  if(_saving) return;
-  _saving = true;
-  try {
-    const _tsBase = Date.now();
-    pagosTarjeta.push({ id:_tsBase, monto, fecha, nota });
-    await S.set('pagosTarjeta', pagosTarjeta);
-    movimientos.push({ id:_tsBase+1, tipo:'gasto', monto, categoria:'tarjeta', fecha, nota: nota||'Pago tarjeta Naranja X' });
-    await S.set('movimientos', movimientos);
-    document.getElementById('tarjeta-pago-monto').value = '';
-    document.getElementById('tarjeta-pago-nota').value  = '';
-    renderTarjeta();
-    renderResumen();
-    toast('✓ Pago registrado');
-  } finally {
-    _saving = false;
-  }
-}
 
 const catColorT = { servicios:'blue', monotributo:'blue', alquiler:'red', tarjeta:'red', inversion:'purple', fci:'blue', otro:'amber' };
 const catLabelT = { servicios:'Servicios', monotributo:'Monotributo', alquiler:'Alquiler', tarjeta:'Tarjeta', inversion:'CEDEARs', fci:'FCI', otro:'Otro' };
@@ -3462,10 +3133,46 @@ async function agregarTarea(){
 
 async function toggleTarea(id){
   const t = tareas.find(t=>t.id===id);
-  if(t) t.done = !t.done;
+  if(!t) return;
+  const completando = !t.done; // true = está siendo marcada como hecha
+  t.done = !t.done;
   await S.set('tareas', tareas);
+
+  if(completando && t.monto > 0){
+    _mostrarConfirmGasto(t);
+  }
+
   renderTareas();
   renderResumen();
+}
+
+function _mostrarConfirmGasto(t){
+  const catLabel = { alquiler:'Alquiler', tarjeta:'Tarjeta', servicios:'Servicios', monotributo:'Monotributo', otro:'Otro' };
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content" style="width:320px;text-align:center">
+      <h3 style="font-size:15px;font-weight:600;margin-bottom:8px">${esc(t.desc)}</h3>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:18px">¿Registrar gasto de <strong style="color:var(--text)">${fmt(t.monto)}</strong> en <strong style="color:var(--text)">${catLabel[t.cat]||t.cat}</strong>?</p>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-primary" id="_cgasto-si">Sí, registrar</button>
+        <button class="btn" style="background:var(--surface2);border:1px solid var(--border)" id="_cgasto-no">No</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const cerrar = () => { overlay.classList.add('closing'); setTimeout(()=>overlay.remove(), 250); };
+  document.getElementById('_cgasto-si').onclick = async () => {
+    cerrar();
+    const hoy = new Date().toISOString().split('T')[0];
+    const gasto = { id: Date.now(), tipo:'gasto', monto: t.monto, categoria: t.cat, fecha: hoy, nota: t.desc, tareaId: t.id };
+    movimientos.push(gasto);
+    await S.set('movimientos', movimientos);
+    renderHistorial();
+    renderResumen();
+    toast(`✓ Gasto de ${fmt(t.monto)} registrado · ${esc(t.desc)}`);
+  };
+  document.getElementById('_cgasto-no').onclick = cerrar;
+  overlay.addEventListener('click', e => { if(e.target === overlay) cerrar(); });
 }
 
 async function eliminarTarea(id){
@@ -3476,49 +3183,42 @@ async function eliminarTarea(id){
 
 // ── CONFIGURACIÓN DEL PLAN ────────────────────────────────
 function renderConfig(){
-  const el = document.getElementById('cfg-obligs-form');
-  if(!el) return;
-  document.getElementById('cfg-ingreso-base').value = planMensual.ingresoBase || '';
-  document.getElementById('cfg-vida').value         = planMensual.vidaPresupuesto || '';
+  if(!document.getElementById('cfg-ingreso-base')) return;
+  document.getElementById('cfg-ingreso-base').value  = planMensual.ingresoBase || '';
+  document.getElementById('cfg-cobro-semanal').value = planMensual.cobroSemanalOblig || '';
+  document.getElementById('cfg-alquiler').value      = planMensual.alquilerMonto || '';
 
-  el.innerHTML = planMensual.obligaciones.map((o,i) => `
-    <div style="display:grid;grid-template-columns:1fr 120px 100px;gap:10px;align-items:end;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+  const clientes = planMensual.clientesMensuales || [];
+  document.getElementById('cfg-clientes-form').innerHTML = clientes.map((c,i) => `
+    <div style="display:grid;grid-template-columns:1fr 140px;gap:10px;align-items:end;margin-bottom:10px">
       <div class="form-group" style="margin:0">
-        <label>${o.label}</label>
-        <input type="number" id="cfg-obl-monto-${i}" value="${o.monto}" ${o.dinamico?'disabled placeholder="Calculado automáticamente"':''} style="${o.dinamico?'opacity:0.5':''}">
+        <label>${esc(c.label)}</label>
+        <input type="number" id="cfg-cliente-monto-${i}" value="${c.monto}" min="0">
       </div>
-      <div class="form-group" style="margin:0">
-        <label>Vence día</label>
-        <input type="number" id="cfg-obl-dia-${i}" min="1" max="31" value="${o.venceDia??''}" placeholder="—">
-      </div>
-      <div class="form-group" style="margin:0">
-        <label>¿Mes próximo?</label>
-        <select id="cfg-obl-prox-${i}">
-          <option value="false" ${!o.mesProximo?'selected':''}>No</option>
-          <option value="true"  ${o.mesProximo?'selected':''}>Sí</option>
-        </select>
-      </div>
-    </div>`).join('');
+      <div style="padding-bottom:4px;font-size:12px;color:var(--muted)">Cliente mensual #${i+1}</div>
+    </div>`).join('') || '<div style="font-size:12px;color:var(--muted)">Sin clientes mensuales configurados</div>';
 }
 
 async function guardarConfig(){
   const ingresoBase     = parseFloat(document.getElementById('cfg-ingreso-base').value);
-  const vidaPresupuesto = parseFloat(document.getElementById('cfg-vida').value);
-  if(!(ingresoBase > 0)){ toast('Ingresá un ingreso base mayor que cero', 'err'); return; }
-  if(!(vidaPresupuesto > 0)){ toast('Ingresá un presupuesto de vida mayor que cero', 'err'); return; }
-  planMensual.ingresoBase     = ingresoBase;
-  planMensual.vidaPresupuesto = vidaPresupuesto;
-  planMensual.obligaciones    = planMensual.obligaciones.map((o,i) => ({
-    ...o,
-    monto:      o.dinamico ? o.monto : (Math.max(0, parseFloat(document.getElementById(`cfg-obl-monto-${i}`).value) || o.monto)),
-    venceDia:   document.getElementById(`cfg-obl-dia-${i}`).value !== ''
-                  ? parseInt(document.getElementById(`cfg-obl-dia-${i}`).value)
-                  : null,
-    mesProximo: document.getElementById(`cfg-obl-prox-${i}`).value === 'true',
-  }));
+  const cobroSemanal    = parseFloat(document.getElementById('cfg-cobro-semanal').value);
+  const alquilerMonto   = parseFloat(document.getElementById('cfg-alquiler').value);
+  if(!(ingresoBase > 0))   { toast('Ingresá un ingreso base mayor que cero', 'err'); return; }
+  if(!(cobroSemanal >= 0)) { toast('El monto semanal no puede ser negativo', 'err'); return; }
+  if(!(alquilerMonto >= 0)){ toast('El alquiler no puede ser negativo', 'err'); return; }
+  planMensual.ingresoBase       = ingresoBase;
+  planMensual.cobroSemanalOblig = cobroSemanal;
+  planMensual.alquilerMonto     = alquilerMonto;
+  const clientes = planMensual.clientesMensuales || [];
+  clientes.forEach((c,i) => {
+    const el = document.getElementById(`cfg-cliente-monto-${i}`);
+    if(el) c.monto = Math.max(0, parseFloat(el.value) || 0);
+  });
+  planMensual.clientesMensuales = clientes;
   await S.set('planMensual', planMensual);
   toast('✓ Configuración guardada');
   renderResumen();
+  renderPlanMes('plan-mes-resumen');
 }
 
 function renderTareas(){
@@ -3564,80 +3264,6 @@ function renderTareas(){
   if(badge) badge.textContent = urgentes > 0 ? urgentes : '';
 }
 
-// ── EDICIÓN DE FIJOS ─────────────────────────────────────
-function abrirEditorFijo(id){
-  // Cerrar cualquier otro editor abierto
-  FIJOS_TARJETA.forEach(f=>{
-    const row = document.getElementById(`fijo-edit-${f.id}`);
-    if(row) row.style.display = 'none';
-  });
-  const row = document.getElementById(`fijo-edit-${id}`);
-  if(row) row.style.display = 'table-row';
-}
-
-function cerrarEditorFijo(id){
-  const row = document.getElementById(`fijo-edit-${id}`);
-  if(row) row.style.display = 'none';
-}
-
-async function guardarFijo(id, esUSD){
-  const input = document.getElementById(`fijo-val-${id}`);
-  const valor = parseFloat(input.value);
-  if(isNaN(valor) || valor < 0){ toast('Ingresá un monto válido', 'err'); return; }
-
-  const fijo = FIJOS_TARJETA.find(f=>f.id===id);
-  if(!fijo) return;
-
-  const anterior = esUSD ? fijo.usd : fijo.monto;
-  if(esUSD) fijo.usd   = valor;
-  else       fijo.monto = valor;
-
-  await S.set('fijos_tarjeta', FIJOS_TARJETA);
-  renderTarjeta();
-
-  // Mostrar confirmación con el cambio
-  const signo = esUSD ? 'US$' : '$';
-  const diff  = valor - anterior;
-  const diffFmt = `${diff >= 0 ? '+' : ''}${esUSD ? diff.toFixed(2) : Math.round(diff).toLocaleString('es-AR')}`;
-  toast(`✓ ${fijo.desc}: ${signo}${anterior} → ${signo}${valor} (${diffFmt})`);
-}
-
-async function toggleFijoActivo(id){
-  const fijo = FIJOS_TARJETA.find(f=>f.id===id);
-  if(!fijo) return;
-  fijo.activo = fijo.activo === false;
-  await S.set('fijos_tarjeta', FIJOS_TARJETA);
-  renderTarjeta();
-  toast(fijo.activo ? `✓ ${fijo.desc} reactivado` : `${fijo.desc} dado de baja — ya no cuenta para el total`);
-}
-
-async function agregarFijo(){
-  const desc   = document.getElementById('nf-desc').value.trim();
-  const monto  = parseFloat(document.getElementById('nf-monto').value);
-  const tipo   = document.getElementById('nf-tipo').value;
-  const moneda = document.getElementById('nf-moneda').value;
-  if(!desc || isNaN(monto) || monto <= 0){ toast('Completá descripción y monto', 'err'); return; }
-  const nuevoId = Math.max(...FIJOS_TARJETA.map(f=>f.id), 0) + 1;
-  FIJOS_TARJETA.push({ id:nuevoId, desc, monto: moneda==='ars'?monto:0, usd: moneda==='usd'?monto:0, tipo, activo:true });
-  await S.set('fijos_tarjeta', FIJOS_TARJETA);
-  document.getElementById('nf-desc').value  = '';
-  document.getElementById('nf-monto').value = '';
-  toggleFormAgregarFijo();
-  renderTarjeta();
-  toast(`✓ Fijo agregado: ${desc}`);
-}
-
-function toggleFormAgregarFijo(){
-  const form = document.getElementById('agregar-fijo-form');
-  if(form) form.style.display = form.style.display === 'none' ? 'block' : 'none';
-}
-
-function toggleNFMoneda(){
-  const moneda = document.getElementById('nf-moneda').value;
-  const input  = document.getElementById('nf-monto');
-  input.placeholder = moneda === 'usd' ? '0.00' : '0';
-  input.step = moneda === 'usd' ? '0.01' : '1';
-}
 
 // ── CIERRE AUTOMÁTICO ─────────────────────────────────────
 async function autoArchivarMesesViejos(){
@@ -4452,7 +4078,6 @@ async function importarDatos(event){
   await S.set('planMensual',      planMensual);
   if(datos.historial_meses) await S.set('historial_meses', datos.historial_meses);
   renderResumen();
-  renderPresupuesto();
   renderHistorial();
   renderObjetivo();
   renderTareas();
