@@ -2244,14 +2244,19 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId, reasig
   const gasto = { id: Date.now(), tipo:'gasto', monto, categoria: cat, fecha, nota: desc };
   if(reasignaciones && Object.keys(reasignaciones).length > 0) gasto.reasignaciones = reasignaciones;
 
-  movimientos.push(gasto);
-  await S.set('movimientos', movimientos);
-
   let tareaCompletada = null;
   if(tareaId){
     const t = tareas.find(t => t.id === tareaId);
-    if(t && !t.done){ t.done = true; tareaCompletada = t; await S.set('tareas', tareas); }
+    if(t && !t.done){
+      t.done = true;
+      tareaCompletada = t;
+      gasto.tareaId = tareaId; // guardamos la referencia para poder revertirla si se borra el gasto
+      await S.set('tareas', tareas);
+    }
   }
+
+  movimientos.push(gasto);
+  await S.set('movimientos', movimientos);
 
   document.getElementById('gasto-monto').value = '';
   document.getElementById('gasto-desc').value  = '';
@@ -3006,7 +3011,17 @@ function renderHistorial(){
 }
 
 function eliminar(id){
-  softDelete({ arr: movimientos, id, setKey: 'movimientos', render: ()=>{ renderHistorial(); renderResumen(); }, label: 'Movimiento' });
+  const m = movimientos.find(x => x.id === id);
+  // Si el gasto completó una tarea, revertirla antes de borrar
+  if(m?.tareaId){
+    const t = tareas.find(t => t.id === m.tareaId);
+    if(t) { t.done = false; S.set('tareas', tareas); }
+  }
+  softDelete({
+    arr: movimientos, id, setKey: 'movimientos',
+    render: ()=>{ renderHistorial(); renderResumen(); renderPresupuesto(); renderTareasSelect(); },
+    label: 'Movimiento'
+  });
 }
 
 async function confirmarLimpiar(){
