@@ -120,14 +120,18 @@
   .fill-purple { background:var(--purple); }
 
   /* FORM */
-  .form-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
-  .form-card h3 { font-size:14px; font-weight:600; margin-bottom:16px; }
-  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .form-group { display:flex; flex-direction:column; gap:5px; }
+  .form-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+  .form-card h3 { font-size:13px; font-weight:600; margin-bottom:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .form-group { display:flex; flex-direction:column; gap:3px; }
   .form-group.full { grid-column:1/-1; }
-  .form-group label { font-size:12px; color:var(--muted); font-weight:500; }
+  .form-group label { font-size:11px; color:var(--muted); font-weight:500; }
+  /* inline-action: nota + botón en la misma fila */
+  .form-group.inline-action { flex-direction:row; align-items:flex-end; gap:8px; }
+  .form-group.inline-action > div { flex:1; display:flex; flex-direction:column; gap:3px; }
+  .form-group.inline-action > button { flex-shrink:0; }
   .form-group input, .form-group select, .form-group textarea {
-    border:1px solid var(--border); border-radius:8px; padding:9px 12px;
+    border:1px solid var(--border); border-radius:8px; padding:7px 10px;
     font-size:13px; font-family:'Manrope',sans-serif; background:var(--surface2);
     color:var(--text); outline:none;
     transition:border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
@@ -573,18 +577,17 @@
               <label>Fecha</label>
               <input type="date" id="cobro-fecha">
             </div>
-            <div class="form-group">
-              <label>Nota (opcional)</label>
-              <input type="text" id="cobro-nota" placeholder="Ej: cliente Matisa">
+            <div class="form-group inline-action full">
+              <div>
+                <label>Nota (opcional)</label>
+                <input type="text" id="cobro-nota" placeholder="Ej: cliente Matisa">
+              </div>
+              <button class="btn btn-primary" id="cobro-btn-default" onclick="registrarCobro(true)">Registrar</button>
             </div>
           </div>
         </div>
 
         <div id="instruccion-box" style="display:none"></div>
-
-        <div id="cobro-btn-default" style="display:flex; gap:10px; margin-top:4px;">
-          <button class="btn btn-primary" onclick="registrarCobro(true)">Registrar cobro</button>
-        </div>
       </div>
 
       <div id="tab-movimientos-gasto" class="tab-pane">
@@ -615,14 +618,14 @@
               <input type="text" id="gasto-desc" placeholder="Ej: Gas mayo">
             </div>
             <div class="form-group full">
-              <label>Vincular a tarea pendiente <span style="color:var(--muted);font-weight:400">(opcional · autocompleta monto y categoría)</span></label>
+              <label>Vincular a tarea <span style="color:var(--muted);font-weight:400">(opcional · autocompleta monto y cat.)</span></label>
               <select id="gasto-tarea" onchange="seleccionarTareaGasto()">
                 <option value="">— Sin vincular —</option>
               </select>
             </div>
-          </div>
-          <div style="margin-top:14px;">
-            <button class="btn btn-primary" onclick="registrarGasto()">Registrar gasto</button>
+            <div class="form-group full" style="margin-top:2px">
+              <button class="btn btn-primary" onclick="registrarGasto()">Registrar gasto</button>
+            </div>
           </div>
         </div>
       </div>
@@ -693,31 +696,31 @@
       <!-- Formulario nueva operación -->
       <div class="form-card" style="margin-top:20px">
         <h3>Registrar operación</h3>
-        <div class="form-grid">
+        <div class="form-grid" style="grid-template-columns:2fr 1fr 1fr">
           <div class="form-group">
             <label>Tipo</label>
             <select id="inv-tipo" onchange="toggleInvTipo()">
               <option value="fci">Depósito FCI (ARS)</option>
               <option value="fci_saldo">Actualizar saldo FCI (ARS)</option>
               <option value="cedears">Compra CEDEARs (USD)</option>
-              <option value="ced_saldo">Actualizar valor cartera CEDEARs (USD)</option>
+              <option value="ced_saldo">Actualizar cartera CEDEARs (USD)</option>
             </select>
           </div>
           <div class="form-group">
-            <label id="inv-monto-label">Monto (ARS)</label>
+            <label id="inv-monto-label">Monto</label>
             <input type="number" id="inv-monto" placeholder="0" min="0" step="0.01">
           </div>
           <div class="form-group">
             <label>Fecha</label>
             <input type="date" id="inv-fecha">
           </div>
-          <div class="form-group full">
-            <label>Nota (opcional)</label>
-            <input type="text" id="inv-nota" placeholder="Ej: Rendimiento mayo, compra GGAL...">
+          <div class="form-group inline-action full">
+            <div>
+              <label>Nota (opcional)</label>
+              <input type="text" id="inv-nota" placeholder="Ej: Rendimiento mayo, compra GGAL...">
+            </div>
+            <button class="btn btn-primary" onclick="guardarInversion()">Confirmar</button>
           </div>
-        </div>
-        <div style="margin-top:14px">
-          <button class="btn btn-primary" onclick="guardarInversion()">Confirmar</button>
         </div>
       </div>
 
@@ -867,12 +870,12 @@
                 <label>Fecha</label>
                 <input type="date" id="trab-fecha">
               </div>
-              <div class="form-group">
-                <label>Tarifa ($/h) — actual: <span id="trab-tarifa-label" style="font-family:'JetBrains Mono',monospace;color:var(--text)">$8.440</span></label>
-                <div style="display:flex;gap:8px">
-                  <input type="number" id="trab-tarifa-input" placeholder="8440" style="flex:1">
-                  <button class="btn btn-sm" style="background:var(--surface2);border:1px solid var(--border);color:var(--text)" onclick="actualizarTarifaHora()">Actualizar</button>
+              <div class="form-group inline-action">
+                <div>
+                  <label>Tarifa ($/h) — actual: <span id="trab-tarifa-label" style="font-family:'JetBrains Mono',monospace;color:var(--text)">$8.440</span></label>
+                  <input type="number" id="trab-tarifa-input" placeholder="8440">
                 </div>
+                <button class="btn btn-sm" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap" onclick="actualizarTarifaHora()">↻</button>
               </div>
               <div class="form-group">
                 <label>Hora entrada</label>
@@ -883,23 +886,21 @@
                 <input type="number" id="trab-salida" placeholder="17" step="0.5" min="0" max="24" oninput="calcHorasTrab()">
               </div>
               <div class="form-group full">
-                <div id="trab-calc-preview" style="font-size:13px;color:var(--muted);padding:9px 12px;background:var(--surface2);border-radius:8px;font-family:'JetBrains Mono',monospace">
-                  — hs × $0 = $0
+                <p id="trab-calc-preview" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:2px 0">— hs × $0 = $0</p>
+              </div>
+              <div class="form-group inline-action full">
+                <div>
+                  <label>Nota (opcional)</label>
+                  <input type="text" id="trab-nota" placeholder="Ej: reunión, medio día, etc.">
                 </div>
+                <button class="btn btn-primary" onclick="agregarRegistroDia()">Registrar</button>
               </div>
-              <div class="form-group full">
-                <label>Nota (opcional)</label>
-                <input type="text" id="trab-nota" placeholder="Ej: reunión, medio día, etc.">
-              </div>
-            </div>
-            <div style="margin-top:14px">
-              <button class="btn btn-primary" onclick="agregarRegistroDia()">Registrar</button>
             </div>
           </div>
 
           <!-- Modo: ingreso especial -->
           <div id="dia-form-ingreso" style="display:none">
-            <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5">Reembolsos y gastos pagados de tu bolsillo que la empresa te debe devolver. Se suman al saldo adeudado.</p>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Reembolsos y gastos pagados de tu bolsillo que la empresa te debe devolver. Se suman al saldo adeudado.</p>
             <div class="form-grid">
               <div class="form-group">
                 <label>Monto ($)</label>
@@ -909,13 +910,13 @@
                 <label>Fecha</label>
                 <input type="date" id="trab-adel-fecha">
               </div>
-              <div class="form-group full">
-                <label>Descripción</label>
-                <input type="text" id="trab-adel-desc" placeholder="Ej: Monotributo mayo, Hostinger, envío">
+              <div class="form-group inline-action full">
+                <div>
+                  <label>Descripción</label>
+                  <input type="text" id="trab-adel-desc" placeholder="Ej: Monotributo mayo, Hostinger, envío">
+                </div>
+                <button class="btn btn-primary" onclick="agregarAdelantoEmpresa()">Registrar</button>
               </div>
-            </div>
-            <div style="margin-top:14px">
-              <button class="btn btn-primary" onclick="agregarAdelantoEmpresa()">Registrar ingreso</button>
             </div>
           </div>
         </div>
