@@ -396,8 +396,6 @@
     .trab-month-body { overflow-x:auto; -webkit-overflow-scrolling:touch; }
     .trab-month-body table { min-width:400px; }
 
-    /* Progreso análisis: torta apilada verticalmente */
-    .dist-chart-grid { grid-template-columns:1fr !important; }
 
     /* Tarjeta: tablas de proyección y gastos con scroll horizontal */
     #tabla-proyeccion-tarjeta, #tabla-gastos-tarjeta { overflow-x:auto; -webkit-overflow-scrolling:touch; }
@@ -450,16 +448,12 @@
         Movimientos
       </div>
       <div class="nav-item" onclick="showPage('tarjeta')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-        Tarjeta
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        Inversiones
       </div>
       <div class="nav-item" onclick="showPage('tareas')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
         Tareas / Vencimientos
-      </div>
-      <div class="nav-item" onclick="showPage('progreso')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-        Progreso
       </div>
       <div class="nav-item" onclick="showPage('trabajo')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
@@ -509,10 +503,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
       Tareas
     </div>
-    <div class="bnav-item" data-page="progreso" onclick="showPage('progreso')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-      Análisis
-    </div>
+
     <div class="bnav-item" data-page="trabajo" onclick="showPage('trabajo')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
       Sueldo
@@ -771,29 +762,6 @@
       <div id="tareas-completadas-wrap"></div>
     </div>
 
-    <!-- ANÁLISIS -->
-    <div id="page-progreso" class="page">
-      <div class="page-title">Análisis</div>
-      <div class="page-sub">Ingresos vs gastos y distribución del gasto</div>
-
-      <div class="cards-grid" id="cards-analisis"></div>
-      <div class="progress-section" style="margin-bottom:20px">
-        <h3>Ingresos vs gastos por mes</h3>
-        <div style="position:relative;height:260px;margin-top:8px">
-          <canvas id="chart-evolucion" role="img" aria-label="Gráfico de barras de ingresos y gastos mensuales"></canvas>
-        </div>
-        <div id="legend-evolucion" style="display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--muted);flex-wrap:wrap"></div>
-      </div>
-      <div class="progress-section">
-        <h3>Distribución del gasto este mes</h3>
-        <div class="dist-chart-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center">
-          <div style="position:relative;height:200px">
-            <canvas id="chart-distribucion" role="img" aria-label="Gráfico de torta de distribución de gastos"></canvas>
-          </div>
-          <div id="legend-distribucion" style="font-size:12px"></div>
-        </div>
-      </div>
-    </div>
 
     <!-- CONFIGURACIÓN DEL PLAN -->
     <div id="page-config" class="page">
@@ -1261,7 +1229,6 @@ function showPage(id){
   window.scrollTo(0, 0);
   if(id==='resumen')    renderResumen();
   if(id==='movimientos'){ activateTab('movimientos','cobro','tg-mov'); activateTab('historial','lista','tg-hist'); calcularDistribucion(); renderHistorial(); }
-  if(id==='progreso')   renderAnalisis();
   if(id==='tareas')     renderTareas();
   if(id==='tarjeta')    renderTarjeta();
   if(id==='config')   { renderConfig(); }
@@ -1287,7 +1254,6 @@ function switchTab(page, tab, btn){
   if(page==='movimientos' && tab==='gasto')  { renderTareasSelect(); }
   if(page==='historial'   && tab==='flujo')    renderFlujo();
   if(page==='historial'   && tab==='lista')    renderHistorial();
-  if(page==='progreso') renderAnalisis();
 }
 
 // ── TIPO DE CAMBIO MEP ────────────────────────────────────
@@ -2663,6 +2629,19 @@ async function confirmarLimpiar(){
 }
 
 // ── OBJETIVO USD ─────────────────────────────────────────
+async function actualizarSaldoFCI(){
+  const monto = parseFloat(document.getElementById('fci-upd-valor').value);
+  const fecha = document.getElementById('fci-upd-fecha').value;
+  const nota  = document.getElementById('fci-upd-nota').value;
+  if(!monto || !fecha){ toast('Completá monto y fecha', 'err'); return; }
+  inversiones.push({ id: Date.now(), tipo:'fci_saldo', monto, fecha, nota: nota || 'Saldo FCI actualizado' });
+  await S.set('inversiones', inversiones);
+  document.getElementById('fci-upd-valor').value = '';
+  document.getElementById('fci-upd-nota').value  = '';
+  renderTarjeta();
+  toast('✓ Saldo FCI actualizado');
+}
+
 async function actualizarObjetivo(){
   const valor = parseFloat(document.getElementById('obj-valor').value);
   const fecha = document.getElementById('obj-fecha').value;
@@ -2920,7 +2899,28 @@ function renderTarjeta(){
 
     cartera.innerHTML = `
       <div class="form-card" style="margin-top:20px">
-        <h3>Actualizar valor cartera</h3>
+        <h3>Actualizar saldo FCI</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Saldo actual ($)</label>
+            <input type="number" id="fci-upd-valor" placeholder="0" min="0" step="1">
+          </div>
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" id="fci-upd-fecha" value="${hoy}">
+          </div>
+          <div class="form-group full">
+            <label>Nota (opcional)</label>
+            <input type="text" id="fci-upd-nota" placeholder="Ej: rendimiento mayo">
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <button class="btn btn-primary" onclick="actualizarSaldoFCI()">Guardar</button>
+        </div>
+      </div>
+
+      <div class="form-card" style="margin-top:16px">
+        <h3>Actualizar valor cartera CEDEARs</h3>
         <div class="form-grid">
           <div class="form-group">
             <label>Valor actual (US$)</label>
@@ -3380,114 +3380,7 @@ async function ejecutarCierre(){
   renderResumen();
 }
 
-// ── ANÁLISIS ─────────────────────────────────────────────
-let chartEvol = null;
-let chartDist = null;
-let chartUSD  = null;
-
-async function renderAnalisis(){
-  const historialMeses = await S.get('historial_meses') || [];
-
-  // Agregar mes actual como punto provisional
-  const hoy = new Date();
-  const mesActual = {
-    mesNombre: hoy.toLocaleString('es-AR',{month:'short'}),
-    cobrado:   movimientos.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0),
-    gastado:   movimientos.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0),
-    invertido: separados.inversion,
-    provisional: true
-  };
-  const todos = [...historialMeses.slice(-5), mesActual];
-
-  // Cards analisis
-  const promedioAhorro = todos.length > 1
-    ? Math.round(todos.slice(0,-1).reduce((s,m)=>s+(m.cobrado-m.gastado),0) / (todos.length-1))
-    : 0;
-  const mejorMes = [...todos].sort((a,b)=>(b.cobrado-b.gastado)-(a.cobrado-a.gastado))[0];
-  document.getElementById('cards-analisis').innerHTML = `
-    <div class="metric-card green"><div class="label">Promedio ahorro mensual</div><div class="value">${fmt(promedioAhorro)}</div><div class="sub">últimos meses cerrados</div></div>
-    <div class="metric-card blue"><div class="label">Mejor mes</div><div class="value">${mejorMes?.mesNombre||'—'}</div><div class="sub">${mejorMes?fmt(mejorMes.cobrado-mejorMes.gastado)+' de saldo':''}</div></div>
-    <div class="metric-card purple"><div class="label">Total invertido acumulado</div><div class="value">${fmt(todos.reduce((s,m)=>s+m.invertido,0))}</div><div class="sub">todos los meses</div></div>
-  `;
-
-  // Gráfico evolución
-  const labels  = todos.map(m=>m.mesNombre+(m.provisional?' *':''));
-  const cobData = todos.map(m=>Math.round(m.cobrado/1000));
-  const gasData = todos.map(m=>Math.round(m.gastado/1000));
-  const invData = todos.map(m=>Math.round(m.invertido/1000));
-
-  if(typeof Chart === 'undefined'){
-    document.getElementById('chart-evolucion').parentElement.innerHTML =
-      '<p style="text-align:center;color:var(--muted);padding:40px;font-size:13px">Necesitás internet para ver los gráficos (Chart.js)</p>';
-    return;
-  }
-
-  if(chartEvol) chartEvol.destroy();
-  chartEvol = new Chart(document.getElementById('chart-evolucion'),{
-    type:'bar',
-    data:{
-      labels,
-      datasets:[
-        { label:'Cobrado', data:cobData, backgroundColor:'#2d7a4f', borderRadius:4 },
-        { label:'Gastado', data:gasData, backgroundColor:'#c0392b', borderRadius:4 },
-        { label:'Invertido',data:invData,backgroundColor:'#5b3fa8', borderRadius:4 },
-      ]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:false } },
-      scales:{
-        x:{ grid:{ display:false }, ticks:{ font:{ size:11 }, color:'#666660' } },
-        y:{ grid:{ color:'rgba(255,255,255,0.06)' }, ticks:{ font:{size:11}, color:'#666660', callback:v=>'$'+v+'k' } }
-      }
-    }
-  });
-  document.getElementById('legend-evolucion').innerHTML = [
-    ['#2d7a4f','Cobrado'],['#c0392b','Gastado'],['#5b3fa8','Invertido']
-  ].map(([c,l])=>`<span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:2px;background:${c}"></span>${l}</span>`).join('')
-  + '<span style="margin-left:auto;color:var(--muted)">* mes en curso</span>';
-
-  // Gráfico distribución
-  const catGastos = {};
-  const catLabelsGraf = { servicios:'Servicios', monotributo:'Monotributo', alquiler:'Alquiler',
-    tarjeta:'Tarjeta', comida:'Comida', transporte:'Transporte', personal:'Personal',
-    inversion:'CEDEARs', fci:'FCI', otro:'Otro' };
-  movimientos.filter(m=>m.tipo==='gasto').forEach(m=>{
-    const label = catLabelsGraf[m.categoria] || m.categoria;
-    catGastos[label] = (catGastos[label]||0) + m.monto;
-  });
-  const distLabels = Object.keys(catGastos);
-  const distData   = Object.values(catGastos).map(v=>Math.round(v));
-  const colors     = ['#2d7a4f','#c0392b','#1a5fa8','#a05c00','#5b3fa8','#0f6e56','#888882','#e8a020','#c0392b','#3b6d11'];
-
-  if(distLabels.length === 0){
-    document.getElementById('chart-distribucion').parentElement.innerHTML =
-      '<p style="text-align:center;color:var(--muted);padding:40px;font-size:13px;grid-column:1/-1">Sin gastos registrados este mes</p>';
-    return;
-  }
-
-  if(chartDist) chartDist.destroy();
-  chartDist = new Chart(document.getElementById('chart-distribucion'),{
-    type:'doughnut',
-    data:{
-      labels: distLabels,
-      datasets:[{ data:distData, backgroundColor:colors.slice(0,distLabels.length), borderWidth:2, borderColor:'#1a1a1a' }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:false } },
-      cutout:'60%'
-    }
-  });
-
-  const total = distData.reduce((s,v)=>s+v,0);
-  document.getElementById('legend-distribucion').innerHTML = distLabels.map((l,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
-      <span style="width:10px;height:10px;border-radius:2px;background:${colors[i]};flex-shrink:0"></span>
-      <span style="color:var(--text);flex:1">${l}</span>
-      <span style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${Math.round(distData[i]/total*100)}%</span>
-    </div>`).join('');
-}
+let chartUSD = null;
 
 // ── TRABAJO / MATISA ─────────────────────────────────────
 
