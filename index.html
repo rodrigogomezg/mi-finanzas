@@ -528,8 +528,6 @@
 
       <div class="cards-grid" id="cards-resumen"></div>
 
-      <div id="resumen-semanas"></div>
-
       <div id="resumen-sueldo"></div>
 
       <div id="plan-mes-resumen"></div>
@@ -2193,60 +2191,6 @@ function renderResumen(){
       <div class="metric-sm"><div class="sm-label">Gastado</div><div class="sm-value" style="color:var(--red)">${fmt(totalGastado)}</div><div class="sm-sub">${pctGasto}% del ingreso</div></div>
     </div>
   `;
-
-  // ── #3 Seguimiento semanal ────────────────────────────
-  const hoyDia  = hoy.getDate();
-  const semDefs = [
-    {label:'Semana 1',desde:1, hasta:7 },
-    {label:'Semana 2',desde:8, hasta:14},
-    {label:'Semana 3',desde:15,hasta:21},
-    {label:'Semana 4',desde:22,hasta:31},
-  ];
-  const semRows = semDefs.map(s=>{
-    const enSem = m=>{ const d=new Date(m.fecha+'T12:00').getDate(); return d>=s.desde&&d<=s.hasta; };
-    const LIBRE_CATS = ['comida','servicios','combustible','otro'];
-    const cob   = delMes.filter(m=>m.tipo==='cobro'&&enSem(m));
-    const gas   = delMes.filter(m=>m.tipo==='gasto'&&enSem(m));
-    const totalC = cob.reduce((sum,m)=>sum+m.monto,0);
-    const totalG = gas.reduce((sum,m)=>sum+m.monto,0);
-    const gastLibre = gas.filter(m=>LIBRE_CATS.includes(m.categoria)).reduce((sum,m)=>sum+m.monto,0);
-    const separado = cob.reduce((sum,c)=>{
-      const dist = c.distribucion || {};
-      return sum + (dist.obligaciones||0) + (dist.fci||0) + (dist.cedears||0);
-    },0);
-    const presup = Math.max(0, totalC - separado);
-    const esActual = hoyDia>=s.desde && hoyDia<=s.hasta;
-    if(!totalC&&!totalG&&!esActual) return null;
-    const desvio = presup > 0 && gastLibre > presup;
-    return {...s, totalC, totalG, gastLibre, presup, separado, desvio, balance:totalC-totalG, esActual};
-  }).filter(Boolean);
-
-  document.getElementById('resumen-semanas').innerHTML = semRows.length ? `
-    <div class="progress-section" style="margin-bottom:20px">
-      <h3>Seguimiento semanal</h3>
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-      <table style="width:100%;min-width:480px;border-collapse:collapse;font-size:13px;margin-top:10px">
-        <thead><tr>
-          ${['Semana','Cobrado','Separado','Gastado','Disponible','Balance'].map(h=>`<th style="text-align:${h==='Semana'?'left':'right'};padding:5px 0 8px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">${h}</th>`).join('')}
-        </tr></thead>
-        <tbody>${semRows.map(s=>`
-          <tr style="${s.esActual?'background:rgba(255,255,255,0.03)':''}">
-            <td style="padding:9px 0;border-bottom:0.5px solid var(--border)">
-              ${s.label}${s.esActual?` <span style="font-size:10px;color:var(--green);background:var(--green-bg);padding:1px 6px;border-radius:99px">actual</span>`:''}
-            </td>
-            <td style="text-align:right;padding:9px 0;border-bottom:0.5px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--green)">${s.totalC?fmt(s.totalC):'—'}</td>
-            <td style="text-align:right;padding:9px 0;border-bottom:0.5px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--blue)">${s.separado?fmt(s.separado):'—'}</td>
-            <td style="text-align:right;padding:9px 0;border-bottom:0.5px solid var(--border);font-family:'JetBrains Mono',monospace;color:${s.totalG?'var(--red)':'var(--muted)'}">
-              ${s.totalG?fmt(s.totalG):'—'}${s.desvio?' <span style="font-size:11px;color:var(--red)">⚠</span>':''}
-            </td>
-            <td style="text-align:right;padding:9px 0;border-bottom:0.5px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--muted)">${s.presup?`${fmt(s.presup)}<div style="font-size:10px;color:var(--muted);margin-top:1px">libre: ${fmt(s.gastLibre)}</div>`:'—'}</td>
-            <td style="text-align:right;padding:9px 0;border-bottom:0.5px solid var(--border);font-family:'JetBrains Mono',monospace;font-weight:500;color:${s.balance>=0?'var(--blue)':'var(--red)'}">${s.totalC?fmt(s.balance):'—'}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-      </div>
-      ${semRows.some(s=>s.desvio)?`<div style="font-size:11px;color:var(--muted);margin-top:8px">⚠ lo gastado superó el disponible estimado de esa semana</div>`:''}
-    </div>` : '';
 
   // ── Resumen sueldo ────────────────────────────────────
   const ym = `${anio}-${String(mes+1).padStart(2,'0')}`;
