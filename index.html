@@ -555,8 +555,9 @@
             <div class="form-group">
               <label>Tipo</label>
               <select id="cobro-tipo" onchange="calcularDistribucion()">
-                <option value="semanal">Cobro semanal</option>
-                <option value="mensual_fijo">Cobro mensual fijo (~$200.000)</option>
+                <option value="sueldo">Pago de sueldo</option>
+                <option value="semanal">Cobro semanal (otro)</option>
+                <option value="mensual_fijo">Cobro mensual fijo</option>
                 <option value="extra">Ingreso extra / ventas</option>
               </select>
             </div>
@@ -816,7 +817,6 @@
 
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="dia" onclick="switchTab('trabajo','dia',this)">Registrar día</button>
-        <button class="tab-btn" data-tab="pago" onclick="switchTab('trabajo','pago',this)">Registrar pago</button>
         <button class="tab-btn" data-tab="hist" onclick="switchTab('trabajo','hist',this)">Historial</button>
       </div>
 
@@ -886,43 +886,6 @@
             <div style="margin-top:14px">
               <button class="btn btn-primary" onclick="agregarAdelantoEmpresa()">Registrar ingreso</button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab: pago -->
-      <div id="tab-trabajo-pago" class="tab-pane">
-        <div class="form-card">
-          <h3>Registrar pago recibido</h3>
-          <div class="form-grid">
-            <div class="form-group">
-              <label>Monto ($)</label>
-              <input type="number" id="trab-pago-monto" placeholder="250000" min="1">
-            </div>
-            <div class="form-group">
-              <label>Método</label>
-              <select id="trab-pago-metodo">
-                <option value="transferencia">Transferencia</option>
-                <option value="efectivo">Efectivo</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Fecha</label>
-              <input type="date" id="trab-pago-fecha">
-            </div>
-            <div class="form-group">
-              <label>Nota (opcional)</label>
-              <input type="text" id="trab-pago-nota" placeholder="Ej: MATISA WEB">
-            </div>
-            <div class="form-group full">
-              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:400">
-                <input type="checkbox" id="trab-pago-facturado" style="width:16px;height:16px;accent-color:var(--green);flex-shrink:0">
-                Facturado en AFIP
-              </label>
-            </div>
-          </div>
-          <div style="margin-top:14px">
-            <button class="btn btn-primary" onclick="agregarPagoMatisa()">Registrar pago</button>
           </div>
         </div>
       </div>
@@ -1321,30 +1284,54 @@ function _getCobrosAsignados(){
   return asig;
 }
 
+// ── SUELDO: cobrado (legacy pagosMatisa + cobros categoría sueldo) ──
+function _cobradoSueldo(filtroYm){
+  const legacy = filtroYm
+    ? pagosMatisa.filter(p => p.fecha?.startsWith(filtroYm))
+    : pagosMatisa;
+  const fromMov = movimientos.filter(m =>
+    m.tipo === 'cobro' && m.categoria === 'sueldo' && (!filtroYm || m.fecha?.startsWith(filtroYm))
+  );
+  return [...legacy, ...fromMov].reduce((s, x) => s + x.monto, 0);
+}
+
 // ── SALDO RESERVAS ────────────────────────────────────────
 function _getSaldoReservas(){
-  const desde45 = new Date(Date.now() - 45*86400000);
-  const cobros45 = movimientos.filter(m => m.tipo === 'cobro' && new Date(m.fecha+'T12:00') >= desde45);
-  const totalCobros  = cobros45.reduce((s, m) => s + m.monto, 0);
-  const obligAsig    = cobros45.reduce((s, m) => s + (m.distribucion?.obligaciones || 0), 0);
-  const fciAsig      = cobros45.reduce((s, m) => s + (m.distribucion?.fci || 0), 0);
-  const cedAsig      = cobros45.reduce((s, m) => s + (m.distribucion?.cedears || 0), 0);
-  const primeraFecha = cobros45.length > 0
-    ? new Date(Math.min(...cobros45.map(m => new Date(m.fecha+'T12:00').getTime())))
-    : desde45;
-  const gastosOblig = movimientos
-    .filter(m => m.tipo === 'gasto' && new Date(m.fecha+'T12:00') >= primeraFecha && ['alquiler','tarjeta'].includes(m.categoria))
-    .reduce((s, m) => s + m.monto, 0);
-  const gastosLibres = movimientos
-    .filter(m => m.tipo === 'gasto' && new Date(m.fecha+'T12:00') >= primeraFecha && !['alquiler','tarjeta'].includes(m.categoria))
-    .reduce((s, m) => s + m.monto, 0);
-  const netTransfOblig = transferencias
-    .filter(t => new Date(t.fecha+'T12:00') >= primeraFecha)
-    .reduce((s, t) => s + (t.a === 'obligaciones' ? t.monto : 0) - (t.de === 'obligaciones' ? t.monto : 0), 0);
-  return {
-    obligaciones: Math.max(0, obligAsig - gastosOblig + netTransfOblig),
-    disponible:   Math.max(0, totalCobros - obligAsig - fciAsig - cedAsig - gastosLibres),
-  };
+  // Procesar todos los eventos cronológicamente, clampeando cada bucket a 0 en cada paso.
+  // Esto evita que déficits previos ocultos consuman asignaciones de cobros futuros.
+  const ORDER = { cobro: 0, transf: 1, gasto: 2 };
+  const events = [
+    ...movimientos,
+    ...transferencias.map(t => ({ ...t, _tipo: 'transf' })),
+  ].sort((a, b) => {
+    const da = new Date(a.fecha+'T12:00'), db = new Date(b.fecha+'T12:00');
+    if(da - db !== 0) return da - db;
+    return (ORDER[a._tipo||a.tipo] || 0) - (ORDER[b._tipo||b.tipo] || 0);
+  });
+
+  let oblig = 0, disp = 0;
+  for(const ev of events){
+    const t = ev._tipo || ev.tipo;
+    if(t === 'cobro'){
+      const aOblig = ev.distribucion?.obligaciones || 0;
+      const aFCI   = ev.distribucion?.fci     || 0;
+      const aCed   = ev.distribucion?.cedears  || 0;
+      oblig += aOblig;
+      disp  += Math.max(0, ev.monto - aOblig - aFCI - aCed);
+    } else if(t === 'gasto'){
+      if(['alquiler','tarjeta'].includes(ev.categoria)){
+        oblig = Math.max(0, oblig - ev.monto);
+      } else {
+        disp = Math.max(0, disp - ev.monto);
+      }
+    } else if(t === 'transf'){
+      if(ev.de === 'obligaciones') oblig = Math.max(0, oblig - ev.monto);
+      if(ev.a  === 'obligaciones') oblig += ev.monto;
+      if(ev.de === 'disponible')   disp  = Math.max(0, disp - ev.monto);
+      if(ev.a  === 'disponible')   disp  += ev.monto;
+    }
+  }
+  return { obligaciones: oblig, disponible: disp };
 }
 
 // ── FCI / CEDEARs ─────────────────────────────────────────
@@ -1382,7 +1369,7 @@ function calcDistribucion(montoCobro){
   if(!montoCobro) return null;
   const tipo = document.getElementById('cobro-tipo')?.value || 'semanal';
 
-  if(tipo === 'semanal'){
+  if(tipo === 'semanal' || tipo === 'sueldo'){
     const metaOblig = planMensual.cobroSemanalOblig || 200000;
     const aOblig    = Math.min(montoCobro, metaOblig);
     const aDisp     = Math.max(0, montoCobro - aOblig);
@@ -1607,6 +1594,7 @@ async function registrarCobro(conDistribucion = true){
     if(btnDefault) btnDefault.style.display = 'block';
     renderResumen();
     renderPlanMes('plan-mes-resumen');
+    if(tipo === 'sueldo') renderTrabajo();
   } finally {
     _saving = false;
   }
@@ -1726,6 +1714,7 @@ async function _confirmarDistEditada(){
     _distData = null;
     renderResumen();
     renderPlanMes('plan-mes-resumen');
+    if(tipo === 'sueldo') renderTrabajo();
     toast('✓ Cobro registrado con tu distribución');
   } finally {
     _saving = false;
@@ -2208,7 +2197,7 @@ function renderResumen(){
   const ym = `${anio}-${String(mes+1).padStart(2,'0')}`;
   const ganM  = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).reduce((s,r) => s+r.monto, 0);
   const adelM = adelantosEmpresa.filter(a => a.fecha?.startsWith(ym)).reduce((s,a) => s+a.monto, 0);
-  const cobM  = pagosMatisa.filter(p => p.fecha?.startsWith(ym)).reduce((s,p) => s+p.monto, 0);
+  const cobM  = _cobradoSueldo(ym);
   const generadoM  = ganM + adelM;
   const pendienteM = Math.max(0, generadoM - cobM);
   const sueldoEl   = document.getElementById('resumen-sueldo');
@@ -2476,12 +2465,62 @@ function renderFlujo(){
   document.getElementById('flujo-cal').innerHTML = html;
 }
 
+// ── DETALLE DISTRIBUCIÓN ──────────────────────────────────
+function _showDistModal(id){
+  const m = movimientos.find(x => x.id === id);
+  if(!m) return;
+  const dist   = m.distribucion || {};
+  const LABELS = { obligaciones:'Obligaciones (alquiler + tarjeta)', fci:'FCI', cedears:'CEDEARs' };
+  const totalAsig = Object.values(dist).reduce((s,v)=>s+v, 0);
+  const libre  = m.monto - totalAsig;
+
+  const distRows = Object.entries(dist).map(([k,v]) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;color:var(--muted)">${LABELS[k]||k}</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--blue)">${fmt(v)}</span>
+    </div>`).join('');
+
+  const libreRow = libre > 0 ? `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px;color:var(--muted)">Disponible</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--green)">${fmt(libre)}</span>
+    </div>` : '';
+
+  const totalRow = `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;margin-top:2px">
+      <span style="font-size:13px;font-weight:600">Total cobrado</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700">${fmt(m.monto)}</span>
+    </div>`;
+
+  const body = Object.keys(dist).length
+    ? distRows + libreRow + totalRow
+    : `<p style="color:var(--muted);font-size:13px;padding:12px 0">Sin distribución — todo fue a disponible.</p>` + totalRow;
+
+  const el = document.createElement('div');
+  el.id = '_dist-overlay';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  el.innerHTML = `
+    <div style="background:var(--surface1);border-radius:16px;padding:20px;width:100%;max-width:340px;box-shadow:0 16px 40px rgba(0,0,0,0.4)" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 style="font-size:15px;font-weight:600;margin:0">Distribución del cobro</h3>
+        <button onclick="document.getElementById('_dist-overlay').remove()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
+      </div>
+      ${body}
+    </div>`;
+  el.addEventListener('click', () => el.remove());
+  document.addEventListener('keydown', function esc(e){
+    if(e.key==='Escape'){ el.remove(); document.removeEventListener('keydown', esc); }
+  });
+  document.getElementById('_dist-overlay')?.remove();
+  document.body.appendChild(el);
+}
+
 // ── HISTORIAL ─────────────────────────────────────────────
 function renderHistorial(){
   const catLabels = {
     semanal_1:'Semana 1', semanal_2:'Semana 2', semanal_3:'Semana 3', semanal_4:'Semana 4',
     mensual:'Mensual', variable:'Variable',
-    semanal:'Semanal', mensual_fijo:'Mensual fijo', extra:'Ingreso extra',
+    sueldo:'Sueldo', semanal:'Semanal', mensual_fijo:'Mensual fijo', extra:'Ingreso extra',
     servicios:'Servicios', monotributo:'Monotributo',
     alquiler:'Alquiler', tarjeta:'Tarjeta', comida:'Comida', transporte:'Transporte',
     personal:'Personal', inversion:'CEDEARs', fci:'FCI', otro:'Otro'
@@ -2489,7 +2528,7 @@ function renderHistorial(){
   const catColor = {
     semanal_1:'green', semanal_2:'green', semanal_3:'green', semanal_4:'green',
     mensual:'green', variable:'amber',
-    semanal:'green', mensual_fijo:'green', extra:'amber',
+    sueldo:'green', semanal:'green', mensual_fijo:'green', extra:'amber',
     servicios:'blue', monotributo:'blue', alquiler:'red', tarjeta:'red',
     comida:'amber', transporte:'amber', personal:'amber', inversion:'purple', fci:'blue', otro:'amber'
   };
@@ -2559,15 +2598,19 @@ function renderHistorial(){
     const reasigNota = m.reasignaciones
       ? Object.entries(m.reasignaciones).map(([k,v]) => `${RESERVA_LABELS[k]||k} ${fmt(v)}`).join(' + ')
       : null;
+    const esCobro = m.tipo === 'cobro';
+    const clickAttr = esCobro
+      ? ` style="cursor:pointer" onclick="if(!event.target.closest('button')) _showDistModal(${m.id})"`
+      : '';
     return `
-      <tr>
+      <tr${clickAttr}>
         <td>${new Date(m.fecha+'T12:00').toLocaleDateString('es-AR')}</td>
-        <td><span class="badge badge-${m.tipo==='cobro'?'green':'red'}">${m.tipo==='cobro'?'Cobro':'Gasto'}</span></td>
+        <td><span class="badge badge-${esCobro?'green':'red'}">${esCobro?'Cobro':'Gasto'}</span></td>
         <td><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span></td>
-        <td style="font-family:'JetBrains Mono',monospace; color:${m.tipo==='cobro'?'var(--green)':'var(--red)'}">
-          ${m.tipo==='cobro'?'+':'−'}${fmt(m.monto)}
+        <td style="font-family:'JetBrains Mono',monospace; color:${esCobro?'var(--green)':'var(--red)'}">
+          ${esCobro?'+':'−'}${fmt(m.monto)}
         </td>
-        <td class="td-nota" style="color:var(--muted)">${reasigNota ? `<span style="font-size:10px;color:var(--amber)">↩ ${reasigNota}</span>${m.nota ? ' · '+esc(m.nota) : ''}` : (esc(m.nota)||'—')}</td>
+        <td class="td-nota" style="color:var(--muted)">${reasigNota ? `<span style="font-size:10px;color:var(--amber)">↩ ${reasigNota}</span>${m.nota ? ' · '+esc(m.nota) : ''}` : (esc(m.nota)||'—')}${esCobro && m.distribucion ? ` <span style="font-size:10px;color:var(--blue);opacity:0.7">· ver dist.</span>` : ''}</td>
         <td><button class="btn btn-danger btn-sm" onclick="eliminar(${m.id})">×</button></td>
       </tr>`;
   }).join('');
@@ -2586,9 +2629,10 @@ async function eliminar(id){
     const t = tareas.find(t => t.id === m.tareaId);
     if(t) { t.done = false; await S.set('tareas', tareas); }
   }
+  const esSueldo = m?.categoria === 'sueldo';
   softDelete({
     arr: movimientos, id, setKey: 'movimientos',
-    render: ()=>{ renderHistorial(); renderResumen(); renderTareasSelect(); },
+    render: ()=>{ renderHistorial(); renderResumen(); renderTareasSelect(); if(esSueldo) renderTrabajo(); },
     label: 'Movimiento'
   });
 }
@@ -3199,7 +3243,7 @@ async function checkCierreMensual(){
   const trabMesAnt = registrosDiarios.filter(r => r.fecha?.startsWith(lastClose));
   const ganMesAnt  = trabMesAnt.reduce((s,r)=>s+r.monto,0);
   const adelMesAnt = adelantosEmpresa.filter(a => a.fecha?.startsWith(lastClose)).reduce((s,a)=>s+a.monto,0);
-  const cobMatMesAnt = pagosMatisa.filter(p => p.fecha?.startsWith(lastClose)).reduce((s,p)=>s+p.monto,0);
+  const cobMatMesAnt = _cobradoSueldo(lastClose);
   const adeudadoMesAnt = ganMesAnt + adelMesAnt - cobMatMesAnt;
 
   const resumenHtml = `
@@ -3521,13 +3565,13 @@ function renderTrabajo(){
 
   const ganY  = registrosDiarios.reduce((s,r) => s + r.monto, 0);
   const adelY = adelantosEmpresa.reduce((s,a) => s + a.monto, 0);
-  const cobY  = pagosMatisa.reduce((s,p) => s + p.monto, 0);
+  const cobY  = _cobradoSueldo();
   const sfY   = pagosMatisa.filter(p => !p.facturado).reduce((s,p) => s + p.monto, 0);
   const diasY = registrosDiarios.length;
 
   const ganM  = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).reduce((s,r) => s + r.monto, 0);
   const adelM = adelantosEmpresa.filter(a => a.fecha?.startsWith(ym)).reduce((s,a) => s + a.monto, 0);
-  const cobM  = pagosMatisa.filter(p => p.fecha?.startsWith(ym)).reduce((s,p) => s + p.monto, 0);
+  const cobM  = _cobradoSueldo(ym);
   const sfM   = pagosMatisa.filter(p => p.fecha?.startsWith(ym) && !p.facturado).reduce((s,p) => s + p.monto, 0);
   const diasM = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).length;
 
@@ -3587,7 +3631,8 @@ function renderTrabajoHistorial(){
 
   // Collect all months that have data
   const months = new Set();
-  [...registrosDiarios, ...pagosMatisa, ...adelantosEmpresa].forEach(e => {
+  const _cobrosSueldoAll = movimientos.filter(m => m.tipo === 'cobro' && m.categoria === 'sueldo');
+  [...registrosDiarios, ...pagosMatisa, ...adelantosEmpresa, ..._cobrosSueldoAll].forEach(e => {
     if(e.fecha) months.add(e.fecha.slice(0,7));
   });
   const sortedMonths = [...months].sort((a,b) => b.localeCompare(a));
@@ -3602,7 +3647,11 @@ function renderTrabajoHistorial(){
     const mesLabel = `${MESES[parseInt(m)-1]} ${y}`;
 
     const regs  = registrosDiarios.filter(r => r.fecha && r.fecha.startsWith(ym)).sort((a,b) => b.fecha.localeCompare(a.fecha));
-    const pagos = pagosMatisa.filter(p => p.fecha && p.fecha.startsWith(ym)).sort((a,b) => b.fecha.localeCompare(a.fecha));
+    const pagosMat = pagosMatisa.filter(p => p.fecha && p.fecha.startsWith(ym));
+    const pagosMov = movimientos
+      .filter(m => m.tipo === 'cobro' && m.categoria === 'sueldo' && m.fecha?.startsWith(ym))
+      .map(m => ({ id: m.id, fecha: m.fecha, monto: m.monto, nota: m.nota, metodo: 'transferencia', facturado: false, _fromMov: true }));
+    const pagos = [...pagosMat, ...pagosMov].sort((a,b) => b.fecha.localeCompare(a.fecha));
     const adels = adelantosEmpresa.filter(a => a.fecha && a.fecha.startsWith(ym)).sort((a,b) => b.fecha.localeCompare(a.fecha));
 
     const ganMes   = regs.reduce((s,r) => s + r.monto, 0);
@@ -3647,17 +3696,20 @@ function renderTrabajoHistorial(){
         </tr></thead>
         <tbody>${pagos.map(p => {
           const d = new Date(p.fecha+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
-          const facBadge = p.facturado
-            ? `<span class="trab-pill trab-pill-f" onclick="toggleFacturadoMatisa(${p.id})" style="cursor:pointer" title="Click para cambiar">Facturado</span>`
-            : `<span class="trab-pill trab-pill-nf" onclick="toggleFacturadoMatisa(${p.id})" style="cursor:pointer" title="Click para marcar como facturado">Sin facturar</span>`;
+          const facBadge = p._fromMov
+            ? `<span class="trab-pill trab-pill-nf">Movimientos</span>`
+            : p.facturado
+              ? `<span class="trab-pill trab-pill-f" onclick="toggleFacturadoMatisa(${p.id})" style="cursor:pointer" title="Click para cambiar">Facturado</span>`
+              : `<span class="trab-pill trab-pill-nf" onclick="toggleFacturadoMatisa(${p.id})" style="cursor:pointer" title="Click para marcar como facturado">Sin facturar</span>`;
           const metClass = p.metodo === 'transferencia' ? 'trab-pill-transf' : p.metodo === 'efectivo' ? 'trab-pill-efec' : 'trab-pill-ef';
           const metLabel = p.metodo === 'transferencia' ? 'Transferencia' : p.metodo === 'efectivo' ? 'Efectivo' : p.metodo;
           const metBadge = `<span class="trab-pill ${metClass}">${metLabel}</span>`;
+          const delFn = p._fromMov ? `eliminar(${p.id})` : `eliminarPagoMatisa(${p.id})`;
           return `<tr>
             <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px">${d}${p.nota?' <span style="color:var(--muted);font-size:11px">· '+p.nota+'</span>':''}</td>
             <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px;font-family:'JetBrains Mono',monospace;font-weight:500;text-align:right">${fmt(p.monto)}</td>
             <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px"><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">${metBadge} ${facBadge}</div></td>
-            <td style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarPagoMatisa(${p.id})">×</button></td>
+            <td style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:center"><button class="btn btn-danger btn-sm" onclick="${delFn}">×</button></td>
           </tr>`;
         }).join('')}</tbody>
       </table>`;
