@@ -689,8 +689,9 @@
             <label>Tipo</label>
             <select id="inv-tipo" onchange="toggleInvTipo()">
               <option value="fci">Depósito FCI (ARS)</option>
-              <option value="fci_saldo">Ajuste saldo FCI (ARS)</option>
+              <option value="fci_saldo">Actualizar saldo FCI (ARS)</option>
               <option value="cedears">Compra CEDEARs (USD)</option>
+              <option value="ced_saldo">Actualizar valor cartera CEDEARs (USD)</option>
             </select>
           </div>
           <div class="form-group">
@@ -1121,9 +1122,6 @@ async function init(){
   document.getElementById('gasto-fecha').value = hoy;
   document.getElementById('tarea-venc').value  = hoy;
   document.getElementById('inv-fecha').value   = hoy;
-  const elObjFecha = document.getElementById('obj-fecha');
-  if(elObjFecha) elObjFecha.value = hoy;
-
   movimientos   = await S.get('movimientos')   || [];
   historialUSD  = await S.get('historialUSD')  || [{fecha:'2026-05-11', valor:4244.48, nota:'Cartera inicial'}];
   separados     = await S.get('separados')     || { alquiler:0, tarjeta:0, inversion:0, fci:0 };
@@ -1789,12 +1787,18 @@ async function guardarInversion(){
   if(_saving) return;
   _saving = true;
   try {
-    inversiones.push({ id: Date.now(), tipo, monto, fecha, nota });
-    await S.set('inversiones', inversiones);
+    if(tipo === 'ced_saldo'){
+      historialUSD.push({ fecha, valor: monto, nota });
+      await S.set('historialUSD', historialUSD);
+      toast(`✓ Cartera CEDEARs actualizada — ${fmtU(monto)}`);
+    } else {
+      inversiones.push({ id: Date.now(), tipo, monto, fecha, nota });
+      await S.set('inversiones', inversiones);
+      const labels = { cedears:'CEDEARs', fci:'Depósito FCI', fci_saldo:'Saldo FCI actualizado' };
+      toast(`✓ ${labels[tipo]||tipo} — ${tipo==='cedears'?'US$'+monto.toFixed(2):fmt(monto)}`);
+    }
     document.getElementById('inv-monto').value = '';
     document.getElementById('inv-nota').value  = '';
-    const labels = { cedears:'CEDEARs', fci:'Depósito FCI', fci_saldo:'Saldo FCI actualizado' };
-    toast(`✓ ${labels[tipo]||tipo} — ${tipo==='cedears'?'US$'+monto.toFixed(2):fmt(monto)}`);
     _refreshInvPlans();
   } finally {
     _saving = false;
@@ -1804,14 +1808,23 @@ async function guardarInversion(){
 function toggleInvTipo(){
   const tipo  = document.getElementById('inv-tipo').value;
   const label = document.getElementById('inv-monto-label');
+  const inp   = document.getElementById('inv-monto');
   if(tipo === 'cedears'){
-    label.textContent = 'Monto (USD)';
-    document.getElementById('inv-monto').step = '0.01';
-    document.getElementById('inv-monto').placeholder = '0.00';
+    label.textContent    = 'Monto (USD)';
+    inp.step             = '0.01';
+    inp.placeholder      = '0.00';
+  } else if(tipo === 'ced_saldo'){
+    label.textContent    = 'Valor actual (USD)';
+    inp.step             = '0.01';
+    inp.placeholder      = '0.00';
+  } else if(tipo === 'fci_saldo'){
+    label.textContent    = 'Saldo actual (ARS)';
+    inp.step             = '1';
+    inp.placeholder      = '0';
   } else {
-    label.textContent = tipo === 'fci_saldo' ? 'Nuevo saldo real (ARS)' : 'Monto (ARS)';
-    document.getElementById('inv-monto').step = '1';
-    document.getElementById('inv-monto').placeholder = '0';
+    label.textContent    = 'Monto (ARS)';
+    inp.step             = '1';
+    inp.placeholder      = '0';
   }
 }
 
@@ -2592,33 +2605,6 @@ async function confirmarLimpiar(){
 }
 
 // ── OBJETIVO USD ─────────────────────────────────────────
-async function actualizarSaldoFCI(){
-  const monto = parseFloat(document.getElementById('fci-upd-valor').value);
-  const fecha = document.getElementById('fci-upd-fecha').value;
-  const nota  = document.getElementById('fci-upd-nota').value;
-  if(!monto || !fecha){ toast('Completá monto y fecha', 'err'); return; }
-  inversiones.push({ id: Date.now(), tipo:'fci_saldo', monto, fecha, nota: nota || 'Saldo FCI actualizado' });
-  await S.set('inversiones', inversiones);
-  document.getElementById('fci-upd-valor').value = '';
-  document.getElementById('fci-upd-nota').value  = '';
-  renderTarjeta();
-  toast('✓ Saldo FCI actualizado');
-}
-
-async function actualizarObjetivo(){
-  const valor = parseFloat(document.getElementById('obj-valor').value);
-  const fecha = document.getElementById('obj-fecha').value;
-  const nota  = document.getElementById('obj-nota').value;
-  if(!valor || !fecha){ toast('Completá valor y fecha', 'err'); return; }
-
-  historialUSD.push({ fecha, valor, nota });
-  await S.set('historialUSD', historialUSD);
-
-  document.getElementById('obj-valor').value = '';
-  document.getElementById('obj-nota').value  = '';
-  renderTarjeta();
-  toast('✓ Cartera actualizada');
-}
 
 async function eliminarHistorialUSD(fecha, valor){
   const idx = historialUSD.findIndex(h => h.fecha === fecha && h.valor === valor);
@@ -2861,48 +2847,6 @@ function renderTarjeta(){
     const showChart = typeof Chart !== 'undefined' && histPortfolio.length >= 2;
 
     cartera.innerHTML = `
-      <div class="form-card" style="margin-top:20px">
-        <h3>Actualizar saldo FCI</h3>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Saldo actual ($)</label>
-            <input type="number" id="fci-upd-valor" placeholder="0" min="0" step="1">
-          </div>
-          <div class="form-group">
-            <label>Fecha</label>
-            <input type="date" id="fci-upd-fecha" value="${hoy}">
-          </div>
-          <div class="form-group full">
-            <label>Nota (opcional)</label>
-            <input type="text" id="fci-upd-nota" placeholder="Ej: rendimiento mayo">
-          </div>
-        </div>
-        <div style="margin-top:14px">
-          <button class="btn btn-primary" onclick="actualizarSaldoFCI()">Guardar</button>
-        </div>
-      </div>
-
-      <div class="form-card" style="margin-top:16px">
-        <h3>Actualizar valor cartera CEDEARs</h3>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Valor actual (US$)</label>
-            <input type="number" id="obj-valor" placeholder="0.00" step="0.01" min="0">
-          </div>
-          <div class="form-group">
-            <label>Fecha</label>
-            <input type="date" id="obj-fecha" value="${hoy}">
-          </div>
-          <div class="form-group full">
-            <label>Nota (opcional)</label>
-            <input type="text" id="obj-nota" placeholder="Ej: compré QQQD">
-          </div>
-        </div>
-        <div style="margin-top:14px">
-          <button class="btn btn-primary" onclick="actualizarObjetivo()">Guardar</button>
-        </div>
-      </div>
-
       ${showChart ? `<div class="progress-section" style="margin-top:20px;margin-bottom:20px">
         <h3>Evolución de la cartera</h3>
         <div style="position:relative;height:180px;margin-top:10px">
