@@ -523,13 +523,14 @@
       <div class="page-sub" id="resumen-fecha">Cargando...</div>
 
       <div id="backup-banner"></div>
-      <div id="semaforo-resumen"></div>
       <div id="resumen-alerta-tarjeta"></div>
       <div id="resumen-tareas"></div>
 
       <div class="cards-grid" id="cards-resumen"></div>
 
       <div id="resumen-semanas"></div>
+
+      <div id="resumen-sueldo"></div>
 
       <div id="plan-mes-resumen"></div>
 
@@ -2167,21 +2168,6 @@ function renderResumen(){
   const tarjetaTask  = tareas.find(t => t.cat === 'tarjeta');
   const metaOblig    = (planMensual.alquilerMonto || 450000) + (tarjetaTask?.monto || 0);
   const pctOblig     = metaOblig > 0 ? Math.min(100, Math.round(saldos.obligaciones / metaOblig * 100)) : 0;
-  const s1ok = tareasMes.length === 0 || tareasMes.filter(t=>t.done).length / tareasMes.length >= 0.5;
-  const s2ok = saldos.obligaciones > 0;
-  const s3ok = saldos.disponible   > 0;
-  document.getElementById('semaforo-resumen').innerHTML = `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
-      ${[
-        { ok:s1ok, label:'Vencimientos', sub:`${tareasMes.filter(t=>t.done).length}/${tareasMes.length} pagados este mes` },
-        { ok:s2ok, label:'Obligaciones', sub:`Acumulado: ${fmt(saldos.obligaciones)} / ${fmt(metaOblig)}` },
-        { ok:s3ok, label:'Disponible',   sub:fmt(saldos.disponible) },
-      ].map(s=>`
-        <div style="flex:1;min-width:140px;background:var(--surface);border:1px solid ${s.ok?'var(--green-border)':'var(--red-border)'};border-radius:10px;padding:11px 14px;display:flex;align-items:flex-start;gap:9px">
-          <div style="width:9px;height:9px;border-radius:50%;background:${s.ok?'var(--green)':'var(--red)'};flex-shrink:0;margin-top:3px"></div>
-          <div><div style="font-size:13px;font-weight:500">${s.label}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${s.sub}</div></div>
-        </div>`).join('')}
-    </div>`;
 
   // ── Cards ─────────────────────────────────────────────
   const cobrosN = delMes.filter(m=>m.tipo==='cobro').length;
@@ -2263,6 +2249,42 @@ function renderResumen(){
       </div>
       ${semRows.some(s=>s.desvio)?`<div style="font-size:11px;color:var(--muted);margin-top:8px">⚠ lo gastado superó el disponible estimado de esa semana</div>`:''}
     </div>` : '';
+
+  // ── Resumen sueldo ────────────────────────────────────
+  const ym = `${anio}-${String(mes+1).padStart(2,'0')}`;
+  const ganM  = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).reduce((s,r) => s+r.monto, 0);
+  const adelM = adelantosEmpresa.filter(a => a.fecha?.startsWith(ym)).reduce((s,a) => s+a.monto, 0);
+  const cobM  = pagosMatisa.filter(p => p.fecha?.startsWith(ym)).reduce((s,p) => s+p.monto, 0);
+  const generadoM  = ganM + adelM;
+  const pendienteM = Math.max(0, generadoM - cobM);
+  const sueldoEl   = document.getElementById('resumen-sueldo');
+  if(sueldoEl){
+    if(generadoM > 0 || cobM > 0){
+      sueldoEl.innerHTML = `
+        <div class="progress-section" style="margin-bottom:20px">
+          <h3>Sueldo este mes</h3>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px">
+            <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:10px 12px">
+              <div style="font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Generado</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:var(--green)">${fmt(generadoM)}</div>
+              ${adelM > 0 ? `<div style="font-size:10px;color:var(--muted);margin-top:3px">${fmt(ganM)} h · ${fmt(adelM)} esp.</div>` : `<div style="font-size:10px;color:var(--muted);margin-top:3px">${fmt(ganM)} en horas</div>`}
+            </div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Cobrado</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600">${fmt(cobM)}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:3px">${cobM > 0 ? `${Math.round(cobM/generadoM*100)}% del generado` : 'sin pagos aún'}</div>
+            </div>
+            <div style="background:${pendienteM > 0 ? 'var(--amber-bg)' : 'var(--surface2)'};border:1px solid ${pendienteM > 0 ? 'var(--amber-border)' : 'var(--border)'};border-radius:8px;padding:10px 12px">
+              <div style="font-size:10px;color:${pendienteM > 0 ? 'var(--amber)' : 'var(--muted)'};text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Pendiente</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:${pendienteM > 0 ? 'var(--amber)' : 'var(--text)'}">${fmt(pendienteM)}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:3px">${pendienteM > 0 ? 'por cobrar' : 'todo cobrado'}</div>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      sueldoEl.innerHTML = '';
+    }
+  }
 
   renderPlanMes('plan-mes-resumen');
 }
