@@ -2191,8 +2191,6 @@ function renderResumen(){
     <div class="secondary-cards">
       <div class="metric-sm"><div class="sm-label">Cobrado</div><div class="sm-value" style="color:var(--green)">${fmt(totalCobrado)}</div><div class="sm-sub">${cobrosN} cobro${cobrosN!==1?'s':''}</div></div>
       <div class="metric-sm"><div class="sm-label">Gastado</div><div class="sm-value" style="color:var(--red)">${fmt(totalGastado)}</div><div class="sm-sub">${pctGasto}% del ingreso</div></div>
-      <div class="metric-sm"><div class="sm-label">FCI</div><div class="sm-value" style="color:var(--purple)">${fmt(_getFCISaldo())}</div><div class="sm-sub">fase ${_getCurrentPhase()}</div></div>
-      <div class="metric-sm"><div class="sm-label">CEDEARs</div><div class="sm-value" style="color:var(--blue)">US$${_getCedearsSaldoUSD().toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="sm-sub">inversión</div></div>
     </div>
   `;
 
