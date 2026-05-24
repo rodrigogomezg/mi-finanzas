@@ -120,6 +120,8 @@
   .form-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:14px; }
   .form-card h3 { font-size:13px; font-weight:600; margin-bottom:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
   .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .fg-3col { grid-template-columns:2fr 1fr 1fr; }
+  .table-wrap-sm table { min-width:auto; }
   .form-group { display:flex; flex-direction:column; gap:3px; }
   .form-group.full { grid-column:1/-1; }
   .form-group label { font-size:11px; color:var(--muted); font-weight:500; }
@@ -149,6 +151,17 @@
     .btn-danger:hover { filter:brightness(1.15); }
   }
   .btn-sm { padding:5px 10px; font-size:12px; }
+  .btn-edit { background:transparent; color:var(--muted); padding:4px 6px; border:none; cursor:pointer; border-radius:4px; font-size:13px; line-height:1; transition:color 150ms var(--ease-out), background 150ms var(--ease-out); font-family:inherit; }
+  @media (hover:hover) and (pointer:fine) { .btn-edit:hover { color:var(--blue); background:oklch(60% 0.18 240 / 0.08); } }
+  .btn-edit.active { color:var(--blue); }
+
+  /* EDICIÓN INLINE */
+  .mov-edit-panel { padding:12px 16px 14px; background:var(--surface2); border-top:1px solid var(--border); border-bottom:2px solid var(--blue); display:none; opacity:0; transform:translateY(-4px); transition:opacity 180ms var(--ease-out), transform 180ms var(--ease-out), display 180ms allow-discrete; }
+  .mov-edit-panel.open { display:block; opacity:1; transform:translateY(0); }
+  @starting-style { .mov-edit-panel.open { opacity:0; transform:translateY(-4px); } }
+  .mov-edit-tr td { padding:0 !important; border-top:none !important; }
+  @keyframes row-flash { 0% { background-color:oklch(72% 0.18 145 / 0.2); } 100% { background-color:transparent; } }
+  tr[data-flash] { animation:row-flash 1.4s var(--ease-out) forwards; }
 
   /* INSTRUCCION / DISTRIBUCIÓN BOX */
   .instruccion { border-radius:12px; padding:20px; margin-bottom:20px; }
@@ -341,6 +354,7 @@
 
     /* Forms */
     .form-grid { grid-template-columns:1fr; }
+    .fg-3col { grid-template-columns:1fr; }
 
     /* Modales: bottom sheet */
     .modal-overlay { align-items:flex-end; }
@@ -695,7 +709,7 @@
       <!-- Formulario nueva operación -->
       <div class="form-card" style="margin-top:20px">
         <h3>Registrar operación</h3>
-        <div class="form-grid" style="grid-template-columns:2fr 1fr 1fr">
+        <div class="form-grid fg-3col">
           <div class="form-group">
             <label>Tipo</label>
             <select id="inv-tipo" onchange="toggleInvTipo()">
@@ -724,7 +738,7 @@
       </div>
 
       <!-- Historial -->
-      <div class="table-wrap" style="margin-top:20px">
+      <div class="table-wrap table-wrap-sm" style="margin-top:20px">
         <div class="table-header"><h3>Historial de operaciones</h3></div>
         <div id="inv-historial"></div>
       </div>
@@ -1039,6 +1053,8 @@ function toast(msg, type='ok', duration=3000){
 let _pendingUndo = null;
 let _distData = null;
 let _saving = false;
+let _editingMovId = null;
+let _flashMovId   = null;
 
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -1071,6 +1087,48 @@ async function undoDelete(){
   await _pendingUndo.restore();
   _pendingUndo = null;
   toast('Recuperado', 'ok', 2000);
+}
+
+// ── EDICIÓN INLINE DE MOVIMIENTOS ────────────────────────
+function abrirEdicion(id){
+  _editingMovId = (_editingMovId === id) ? null : id;
+  renderHistorial();
+  if(_editingMovId){
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`edit-fecha-${id}`);
+      if(el) el.focus();
+    });
+  }
+}
+
+function cerrarEdicion(){
+  _editingMovId = null;
+  renderHistorial();
+}
+
+async function guardarEdicion(id){
+  const m = movimientos.find(x => x.id === id);
+  if(!m) return;
+  const fecha  = document.getElementById(`edit-fecha-${id}`).value;
+  const monto  = parseFloat(document.getElementById(`edit-monto-${id}`).value);
+  const cat    = document.getElementById(`edit-cat-${id}`).value;
+  const nota   = document.getElementById(`edit-nota-${id}`).value.trim();
+  if(!fecha || !monto || monto <= 0){ toast('Completá fecha y monto', 'err'); return; }
+  const montoChanged = monto !== m.monto;
+  m.fecha = fecha;
+  m.monto = monto;
+  m.categoria = cat;
+  m.nota = nota;
+  if(montoChanged && m.tipo === 'cobro' && m.distribucion){
+    m.distribucion = null;
+    toast('Monto editado · distribución reseteada', 'warn', 3000);
+  }
+  await S.set('movimientos', movimientos);
+  _editingMovId = null;
+  _flashMovId   = id;
+  renderHistorial();
+  renderResumen();
+  if(!montoChanged || m.tipo !== 'cobro') toast('Cambio guardado', 'ok', 2000);
 }
 
 // ── ESTADO ───────────────────────────────────────────────
@@ -1299,12 +1357,7 @@ function _getCobrosAsignados(){
 }
 
 async function eliminarSaldoInicial(id){
-  movimientos = movimientos.filter(m => m.id !== id);
-  await S.set('movimientos', movimientos);
-  renderResumen();
-  renderHistorial();
-  renderConfig();
-  toast('Checkpoint eliminado');
+  await softDelete({ arr: movimientos, id, setKey: 'movimientos', render: () => { renderResumen(); renderHistorial(); renderConfig(); }, label: 'Checkpoint' });
 }
 
 // ── SUELDO: cobrado y sin-facturar (legacy pagosMatisa + cobros categoría sueldo) ──
@@ -1864,9 +1917,7 @@ function toggleInvTipo(){
 }
 
 async function eliminarInversion(id){
-  inversiones = inversiones.filter(i => i.id !== id);
-  await S.set('inversiones', inversiones);
-  _refreshInvPlans();
+  await softDelete({ arr: inversiones, id, setKey: 'inversiones', render: _refreshInvPlans, label: 'Inversión' });
 }
 
 function _refreshInvPlans(){
@@ -2060,10 +2111,7 @@ async function guardarTransferencia(){
 }
 
 async function eliminarTransferencia(id){
-  transferencias = transferencias.filter(t => t.id !== id);
-  await S.set('transferencias', transferencias);
-  renderResumen();
-  renderHistorial();
+  await softDelete({ arr: transferencias, id, setKey: 'transferencias', render: () => { renderResumen(); renderHistorial(); }, label: 'Transferencia' });
 }
 
 // ── RESUMEN ───────────────────────────────────────────────
@@ -2555,13 +2603,37 @@ function renderHistorial(){
         </tr>`;
     }
     const esCobro = m.tipo === 'cobro';
+    const isEditing = _editingMovId === m.id;
+    const isFlash   = _flashMovId   === m.id;
     const clickAttr = esCobro
       ? ` style="cursor:pointer" onclick="if(!event.target.closest('button')) _showDistModal(${m.id})"`
       : '';
     const notaCell = esc(m.nota)||'—';
     const distHint = esCobro && m.distribucion ? ` <span style="font-size:10px;color:var(--blue);opacity:0.7">· dist.</span>` : '';
+    const editCatOptions = esCobro
+      ? [['sueldo','Pago de sueldo'],['semanal','Cobro semanal'],['mensual_fijo','Cobro mensual fijo'],['extra','Ingreso extra']]
+          .map(([v,l]) => `<option value="${v}"${m.categoria===v?' selected':''}>${l}</option>`).join('')
+      : [['comida','Comida'],['servicios','Servicios'],['combustible','Combustible'],['alquiler','Alquiler'],['tarjeta','Tarjeta'],['otro','Otro']]
+          .map(([v,l]) => `<option value="${v}"${m.categoria===v?' selected':''}>${l}</option>`).join('');
+    const editRow = isEditing ? `
+      <tr class="mov-edit-tr">
+        <td colspan="6" style="padding:0;border-top:none">
+          <div class="mov-edit-panel open">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:8px">
+              <div class="form-group"><label>Fecha</label><input type="date" id="edit-fecha-${m.id}" value="${m.fecha}"></div>
+              <div class="form-group"><label>Monto</label><input type="number" id="edit-monto-${m.id}" value="${m.monto}" min="1" step="1"></div>
+              <div class="form-group"><label>Categoría</label><select id="edit-cat-${m.id}">${editCatOptions}</select></div>
+              <div class="form-group"><label>Nota</label><input type="text" id="edit-nota-${m.id}" value="${esc(m.nota||'')}" placeholder="Nota opcional"></div>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+              <button class="btn btn-sm" onclick="cerrarEdicion()">Cancelar</button>
+              <button class="btn btn-primary btn-sm" onclick="guardarEdicion(${m.id})">Guardar</button>
+            </div>
+          </div>
+        </td>
+      </tr>` : '';
     return `
-      <tr${clickAttr}>
+      <tr${clickAttr}${isFlash?' data-flash':''}>
         <td style="white-space:nowrap">${fmtFecha(m.fecha)}</td>
         <td class="td-nota" style="color:var(--muted)">${notaCell}${distHint}</td>
         <td style="font-family:'JetBrains Mono',monospace;color:${esCobro?'var(--green)':'var(--red)'}">
@@ -2569,9 +2641,15 @@ function renderHistorial(){
         </td>
         <td><span class="badge badge-${esCobro?'green':'red'}">${esCobro?'Cobro':'Gasto'}</span></td>
         <td><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span></td>
-        <td><button class="btn btn-danger btn-sm" onclick="eliminar(${m.id})">×</button></td>
-      </tr>`;
+        <td style="white-space:nowrap">
+          <button class="btn-edit${isEditing?' active':''}" onclick="abrirEdicion(${m.id})" title="Editar">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="eliminar(${m.id})">×</button>
+        </td>
+      </tr>${editRow}`;
   }).join('');
+  _flashMovId = null;
 
   document.getElementById('tabla-movimientos').innerHTML = `
     <table>
@@ -2609,12 +2687,16 @@ async function confirmarLimpiar(){
 // ── OBJETIVO USD ─────────────────────────────────────────
 
 async function eliminarHistorialUSD(fecha, valor){
+  if(_pendingUndo){ clearTimeout(_pendingUndo.timer); _pendingUndo = null; }
   const idx = historialUSD.findIndex(h => h.fecha === fecha && h.valor === valor);
   if(idx === -1) return;
+  const item = historialUSD[idx];
   historialUSD.splice(idx, 1);
   await S.set('historialUSD', historialUSD);
   renderTarjeta();
-  toast('Registro eliminado');
+  const timer = setTimeout(() => { _pendingUndo = null; }, 4500);
+  _pendingUndo = { timer, async restore(){ historialUSD.splice(idx, 0, item); await S.set('historialUSD', historialUSD); renderTarjeta(); } };
+  toast(`Registro eliminado · <button onclick="undoDelete()" style="background:none;border:none;color:var(--text);font-weight:600;cursor:pointer;text-decoration:underline;padding:0 0 0 6px;font-size:inherit;font-family:inherit">Deshacer</button>`, 'warn', 4800);
 }
 
 
@@ -2791,7 +2873,7 @@ function renderTarjeta(){
           <span>${pct1}% · ${labelMeses(mesesFCI(FCI_META_1))}</span>
         </div>
         <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
-          <div style="height:100%;width:${pct1}%;background:${pct1>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:width 0.3s"></div>
+          <div style="height:100%;transform:scaleX(${pct1/100});transform-origin:left;background:${pct1>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
         </div>
       </div>
       <div>
@@ -2800,7 +2882,7 @@ function renderTarjeta(){
           <span>${pct2}% · ${labelMeses(mesesFCI(FCI_META_2))}</span>
         </div>
         <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
-          <div style="height:100%;width:${pct2}%;background:${pct2>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:width 0.3s"></div>
+          <div style="height:100%;transform:scaleX(${pct2/100});transform-origin:left;background:${pct2>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
         </div>
       </div>
       ${fciAporteRef>0?`<div style="font-size:11px;color:var(--muted);margin-top:8px">Referencia: ${fmt(fciAporteRef)} aportado en los últimos 30 días</div>`:''}
@@ -2819,7 +2901,7 @@ function renderTarjeta(){
           <span>${pct30}% · ${labelMeses(mesesCEDEARs(30000))}</span>
         </div>
         <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
-          <div style="height:100%;width:${pct30}%;background:${pct30>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:width 0.3s"></div>
+          <div style="height:100%;transform:scaleX(${pct30/100});transform-origin:left;background:${pct30>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
         </div>
       </div>
       <div>
@@ -2828,7 +2910,7 @@ function renderTarjeta(){
           <span>${pct100}% · ${labelMeses(mesesCEDEARs(100000))}</span>
         </div>
         <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
-          <div style="height:100%;width:${pct100}%;background:${pct100>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:width 0.3s"></div>
+          <div style="height:100%;transform:scaleX(${pct100/100});transform-origin:left;background:${pct100>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
         </div>
       </div>
       ${cedAporteRef>0?`<div style="font-size:11px;color:var(--muted);margin-top:8px">Referencia: ${fmtU(cedAporteRef)} aportado en últimos 30 días · proyección compuesta 10% anual</div>`:''}
@@ -2839,10 +2921,10 @@ function renderTarjeta(){
     const hoy = new Date().toISOString().split('T')[0];
     const histRows = histPortfolio.length
       ? histPortfolio.map(h => `<tr>
-          <td style="padding:9px 0;border-bottom:0.5px solid var(--border);white-space:nowrap">${new Date(h.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
-          <td style="padding:9px 4px;border-bottom:0.5px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--blue);font-weight:500">${fmtU(h.valor)}</td>
-          <td style="padding:9px 0;border-bottom:0.5px solid var(--border);color:var(--muted);font-size:12px">${esc(h.nota||'')}</td>
-          <td style="padding:9px 0 9px 8px;border-bottom:0.5px solid var(--border);text-align:right"><button class="btn btn-danger btn-sm" onclick="eliminarHistorialUSD('${h.fecha}',${h.valor})">×</button></td>
+          <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${new Date(h.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
+          <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--blue);font-weight:500">${fmtU(h.valor)}</td>
+          <td style="padding:9px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-size:12px">${esc(h.nota||'')}</td>
+          <td style="padding:9px 8px;border-bottom:1px solid var(--border);text-align:right"><button class="btn btn-danger btn-sm" onclick="eliminarHistorialUSD('${h.fecha}',${h.valor})">×</button></td>
         </tr>`).join('')
       : `<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin registros aún</td></tr>`;
 
@@ -2856,13 +2938,13 @@ function renderTarjeta(){
         </div>
       </div>` : ''}
 
-      <div class="table-wrap" style="margin-top:20px">
+      <div class="table-wrap table-wrap-sm" style="margin-top:20px">
         <div class="table-header"><h3>Historial de cartera</h3></div>
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead><tr>
-            <th style="text-align:left;padding:6px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Fecha</th>
-            <th style="text-align:left;padding:6px 4px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Valor</th>
-            <th style="text-align:left;padding:6px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Nota</th>
+            <th style="text-align:left;padding:6px 8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Fecha</th>
+            <th style="text-align:left;padding:6px 8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Valor</th>
+            <th style="text-align:left;padding:6px 8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Nota</th>
             <th style="border-bottom:1px solid var(--border)"></th>
           </tr></thead>
           <tbody>${histRows}</tbody>
@@ -2915,17 +2997,17 @@ function renderTarjeta(){
       : `<span style="font-family:'JetBrains Mono',monospace;color:${tipoColor[i.tipo]}">${fmt(i.monto)}</span>`;
     const nota = i.nota ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(i.nota)}</div>` : '';
     return `<tr>
-      <td style="padding:9px 0;border-bottom:0.5px solid var(--border);white-space:nowrap">${new Date(i.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
-      <td style="padding:9px 4px;border-bottom:0.5px solid var(--border)"><span style="font-size:12px;font-weight:500;color:${tipoColor[i.tipo]}">${tipoLabel[i.tipo]||i.tipo}</span>${nota}</td>
-      <td style="padding:9px 0;border-bottom:0.5px solid var(--border);text-align:right">${montoStr}</td>
-      <td style="padding:9px 0 9px 8px;border-bottom:0.5px solid var(--border);text-align:right"><button class="btn btn-danger btn-sm" onclick="eliminarInversion(${i.id})">×</button></td>
+      <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${new Date(i.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
+      <td style="padding:9px 8px;border-bottom:1px solid var(--border)"><span style="font-size:12px;font-weight:500;color:${tipoColor[i.tipo]}">${tipoLabel[i.tipo]||i.tipo}</span>${nota}</td>
+      <td style="padding:9px 8px;border-bottom:1px solid var(--border);text-align:right">${montoStr}</td>
+      <td style="padding:9px 8px;border-bottom:1px solid var(--border);text-align:right"><button class="btn btn-danger btn-sm" onclick="eliminarInversion(${i.id})">×</button></td>
     </tr>`;
   }).join('');
   hist.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
     <thead><tr>
-      <th style="text-align:left;padding:6px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Fecha</th>
-      <th style="text-align:left;padding:6px 4px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Tipo</th>
-      <th style="text-align:right;padding:6px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Monto</th>
+      <th style="text-align:left;padding:6px 8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Fecha</th>
+      <th style="text-align:left;padding:6px 8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Tipo</th>
+      <th style="text-align:right;padding:6px 8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Monto</th>
       <th style="border-bottom:1px solid var(--border)"></th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -3033,9 +3115,7 @@ function _mostrarConfirmGasto(t){
 }
 
 async function eliminarTarea(id){
-  tareas = tareas.filter(t=>t.id!==id);
-  await S.set('tareas', tareas);
-  renderTareas();
+  await softDelete({ arr: tareas, id, setKey: 'tareas', render: renderTareas, label: 'Tarea' });
 }
 
 // ── SALDO INICIAL ─────────────────────────────────────────
