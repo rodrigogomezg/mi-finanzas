@@ -562,6 +562,14 @@
               </select>
             </div>
             <div class="form-group">
+              <label>Medio de pago</label>
+              <select id="cobro-metodo">
+                <option value="transferencia">Transferencia</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="otro">Otro</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label>Fecha</label>
               <input type="date" id="cobro-fecha">
             </div>
@@ -790,6 +798,29 @@
         </div>
         <div style="margin-top:16px">
           <button class="btn btn-primary" onclick="guardarConfig()">Guardar configuración</button>
+        </div>
+      </div>
+
+      <div class="form-card" style="margin-top:16px">
+        <h3>Saldo inicial / corrección</h3>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">Fijá los saldos reales de hoy como punto de partida. Los movimientos anteriores quedan en el historial pero no afectan el cálculo.</p>
+        <div id="si-actual" style="margin-bottom:14px"></div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Obligaciones ($)</label>
+            <input type="number" id="si-oblig" placeholder="0" min="0" step="1">
+          </div>
+          <div class="form-group">
+            <label>Disponible ($)</label>
+            <input type="number" id="si-disp" placeholder="0" min="0" step="1">
+          </div>
+          <div class="form-group">
+            <label>Fecha</label>
+            <input type="date" id="si-fecha">
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <button class="btn btn-primary" onclick="guardarSaldoInicial()">Fijar saldo</button>
         </div>
       </div>
 
@@ -1284,34 +1315,64 @@ function _getCobrosAsignados(){
   return asig;
 }
 
-// ── SUELDO: cobrado (legacy pagosMatisa + cobros categoría sueldo) ──
+async function eliminarSaldoInicial(id){
+  movimientos = movimientos.filter(m => m.id !== id);
+  await S.set('movimientos', movimientos);
+  renderResumen();
+  renderHistorial();
+  renderConfig();
+  toast('Checkpoint eliminado');
+}
+
+// ── SUELDO: cobrado y sin-facturar (legacy pagosMatisa + cobros categoría sueldo) ──
 function _cobradoSueldo(filtroYm){
-  const legacy = filtroYm
-    ? pagosMatisa.filter(p => p.fecha?.startsWith(filtroYm))
-    : pagosMatisa;
+  const legacy  = (filtroYm ? pagosMatisa.filter(p => p.fecha?.startsWith(filtroYm)) : pagosMatisa);
   const fromMov = movimientos.filter(m =>
     m.tipo === 'cobro' && m.categoria === 'sueldo' && (!filtroYm || m.fecha?.startsWith(filtroYm))
   );
   return [...legacy, ...fromMov].reduce((s, x) => s + x.monto, 0);
 }
 
+// Sin facturar = solo transferencias no marcadas como facturadas
+function _sfSueldo(filtroYm){
+  const legacy  = (filtroYm ? pagosMatisa.filter(p => p.fecha?.startsWith(filtroYm)) : pagosMatisa)
+    .filter(p => !p.facturado && p.metodo === 'transferencia');
+  const fromMov = movimientos.filter(m =>
+    m.tipo === 'cobro' && m.categoria === 'sueldo' &&
+    (m.metodo || 'transferencia') === 'transferencia' &&
+    !m.facturado &&
+    (!filtroYm || m.fecha?.startsWith(filtroYm))
+  );
+  return [...legacy, ...fromMov].reduce((s, x) => s + x.monto, 0);
+}
+
 // ── SALDO RESERVAS ────────────────────────────────────────
 function _getSaldoReservas(){
-  // Procesar todos los eventos cronológicamente, clampeando cada bucket a 0 en cada paso.
-  // Esto evita que déficits previos ocultos consuman asignaciones de cobros futuros.
-  const ORDER = { cobro: 0, transf: 1, gasto: 2 };
+  // Procesamiento cronológico con clamp en cada paso.
+  // Si existe un saldo_inicial, arranca desde esos valores ignorando eventos anteriores.
+  const ORDER = { saldo_inicial: -1, cobro: 0, transf: 1, gasto: 2 };
   const events = [
     ...movimientos,
     ...transferencias.map(t => ({ ...t, _tipo: 'transf' })),
   ].sort((a, b) => {
     const da = new Date(a.fecha+'T12:00'), db = new Date(b.fecha+'T12:00');
     if(da - db !== 0) return da - db;
-    return (ORDER[a._tipo||a.tipo] || 0) - (ORDER[b._tipo||b.tipo] || 0);
+    return (ORDER[a._tipo||a.tipo] ?? 0) - (ORDER[b._tipo||b.tipo] ?? 0);
   });
 
-  let oblig = 0, disp = 0;
+  // Buscar el saldo_inicial más reciente (puede haber más de uno si el usuario corrige varias veces)
+  const iniciales = events.filter(ev => (ev._tipo||ev.tipo) === 'saldo_inicial');
+  const lastInicial = iniciales.length > 0 ? iniciales[iniciales.length - 1] : null;
+
+  let oblig = lastInicial ? (lastInicial.distribucion?.obligaciones || 0) : 0;
+  let disp  = lastInicial ? (lastInicial.distribucion?.disponible  || 0) : 0;
+  const cutoff = lastInicial ? new Date(lastInicial.fecha+'T12:00') : null;
+
   for(const ev of events){
     const t = ev._tipo || ev.tipo;
+    if(t === 'saldo_inicial') continue;
+    if(cutoff && new Date(ev.fecha+'T12:00') <= cutoff) continue;
+
     if(t === 'cobro'){
       const aOblig = ev.distribucion?.obligaciones || 0;
       const aFCI   = ev.distribucion?.fci     || 0;
@@ -1561,10 +1622,11 @@ function calcularInstruccion(){
 
 // ── REGISTRAR COBRO ───────────────────────────────────────
 async function registrarCobro(conDistribucion = true){
-  const monto = parseFloat(document.getElementById('cobro-monto').value);
-  const tipo  = document.getElementById('cobro-tipo').value;
-  const fecha = document.getElementById('cobro-fecha').value;
-  const nota  = document.getElementById('cobro-nota').value;
+  const monto  = parseFloat(document.getElementById('cobro-monto').value);
+  const tipo   = document.getElementById('cobro-tipo').value;
+  const metodo = document.getElementById('cobro-metodo')?.value || 'transferencia';
+  const fecha  = document.getElementById('cobro-fecha').value;
+  const nota   = document.getElementById('cobro-nota').value;
   if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
   if(!fecha){ toast('Elegí una fecha', 'err'); return; }
   if(_saving) return;
@@ -1574,13 +1636,13 @@ async function registrarCobro(conDistribucion = true){
       const dist = calcDistribucion(monto);
       if(dist){
         const distribucion = Object.fromEntries(dist.asignaciones.map(a => [a.key, a.monto]));
-        movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota, distribucion });
+        movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion });
       } else {
-        movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota });
+        movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota });
       }
       toast('✓ Cobro registrado con distribución');
     } else {
-      movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota });
+      movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota });
       toast('✓ Cobro registrado como libre disponible');
     }
 
@@ -1667,10 +1729,11 @@ function _onDistSlider(){
 
 async function _confirmarDistEditada(){
   if(!_distData) return;
-  const monto = parseFloat(document.getElementById('cobro-monto').value);
-  const tipo  = document.getElementById('cobro-tipo').value;
-  const fecha = document.getElementById('cobro-fecha').value;
-  const nota  = document.getElementById('cobro-nota').value;
+  const monto  = parseFloat(document.getElementById('cobro-monto').value);
+  const tipo   = document.getElementById('cobro-tipo').value;
+  const metodo = document.getElementById('cobro-metodo')?.value || 'transferencia';
+  const fecha  = document.getElementById('cobro-fecha').value;
+  const nota   = document.getElementById('cobro-nota').value;
   if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
   if(!fecha){ toast('Elegí una fecha', 'err'); return; }
   if(_saving) return;
@@ -1689,7 +1752,7 @@ async function _confirmarDistEditada(){
       return;
     }
 
-    movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, fecha, nota, distribucion });
+    movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion });
     await S.set('movimientos', movimientos);
 
     // Auto-crear entradas en inversiones para FCI y CEDEARs
@@ -2595,6 +2658,16 @@ function renderHistorial(){
           <td><button class="btn btn-danger btn-sm" onclick="eliminarInversion(${m.id})">×</button></td>
         </tr>`;
     }
+    if(m.tipo === 'saldo_inicial'){
+      return `
+        <tr style="background:rgba(59,130,246,0.04)">
+          <td>${new Date(m.fecha+'T12:00').toLocaleDateString('es-AR')}</td>
+          <td><span class="badge badge-blue">Checkpoint</span></td>
+          <td colspan="2" style="font-size:12px;color:var(--muted)">Oblig: <strong style="color:var(--blue)">${fmt(m.distribucion?.obligaciones||0)}</strong> · Disp: <strong style="color:var(--green)">${fmt(m.distribucion?.disponible||0)}</strong></td>
+          <td class="td-nota" style="color:var(--muted)">${esc(m.nota)||'—'}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="eliminarSaldoInicial(${m.id})">×</button></td>
+        </tr>`;
+    }
     const reasigNota = m.reasignaciones
       ? Object.entries(m.reasignaciones).map(([k,v]) => `${RESERVA_LABELS[k]||k} ${fmt(v)}`).join(' + ')
       : null;
@@ -3080,12 +3153,53 @@ async function eliminarTarea(id){
   renderTareas();
 }
 
+// ── SALDO INICIAL ─────────────────────────────────────────
+async function guardarSaldoInicial(){
+  const oblig = parseFloat(document.getElementById('si-oblig').value) || 0;
+  const disp  = parseFloat(document.getElementById('si-disp').value)  || 0;
+  const fecha = document.getElementById('si-fecha').value;
+  if(!fecha){ toast('Elegí una fecha', 'err'); return; }
+  if(oblig < 0 || disp < 0){ toast('Los saldos no pueden ser negativos', 'err'); return; }
+  movimientos.push({
+    id: Date.now(),
+    tipo: 'saldo_inicial',
+    fecha,
+    monto: 0,
+    distribucion: { obligaciones: oblig, disponible: disp },
+    nota: `Checkpoint — Oblig: ${fmt(oblig)}, Disp: ${fmt(disp)}`,
+  });
+  await S.set('movimientos', movimientos);
+  document.getElementById('si-oblig').value = '';
+  document.getElementById('si-disp').value  = '';
+  renderResumen();
+  renderHistorial();
+  renderConfig();
+  toast(`✓ Saldo inicial fijado — Oblig: ${fmt(oblig)} · Disp: ${fmt(disp)}`);
+}
+
 // ── CONFIGURACIÓN DEL PLAN ────────────────────────────────
 function renderConfig(){
   if(!document.getElementById('cfg-ingreso-base')) return;
   document.getElementById('cfg-ingreso-base').value  = planMensual.ingresoBase || '';
   document.getElementById('cfg-cobro-semanal').value = planMensual.cobroSemanalOblig || '';
   document.getElementById('cfg-alquiler').value      = planMensual.alquilerMonto || '';
+
+  // Mostrar checkpoint activo
+  const siEl = document.getElementById('si-actual');
+  const siDate = document.getElementById('si-fecha');
+  if(siDate && !siDate.value){ siDate.value = new Date().toISOString().split('T')[0]; }
+  if(siEl){
+    const iniciales = movimientos
+      .filter(m => m.tipo === 'saldo_inicial')
+      .sort((a,b) => a.fecha.localeCompare(b.fecha));
+    const last = iniciales[iniciales.length - 1];
+    siEl.innerHTML = last
+      ? `<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <span style="color:var(--muted)">Checkpoint activo: <strong style="color:var(--text)">${new Date(last.fecha+'T12:00').toLocaleDateString('es-AR')}</strong> — Oblig: <strong style="color:var(--blue)">${fmt(last.distribucion?.obligaciones||0)}</strong> · Disp: <strong style="color:var(--green)">${fmt(last.distribucion?.disponible||0)}</strong></span>
+          <button class="btn btn-danger btn-sm" onclick="eliminarSaldoInicial(${last.id})">×</button>
+        </div>`
+      : `<div style="font-size:12px;color:var(--muted)">Sin checkpoint fijado — se calcula desde el inicio.</div>`;
+  }
 
   const clientes = planMensual.clientesMensuales || [];
   document.getElementById('cfg-clientes-form').innerHTML = clientes.map((c,i) => `
@@ -3566,13 +3680,13 @@ function renderTrabajo(){
   const ganY  = registrosDiarios.reduce((s,r) => s + r.monto, 0);
   const adelY = adelantosEmpresa.reduce((s,a) => s + a.monto, 0);
   const cobY  = _cobradoSueldo();
-  const sfY   = pagosMatisa.filter(p => !p.facturado).reduce((s,p) => s + p.monto, 0);
+  const sfY   = _sfSueldo();
   const diasY = registrosDiarios.length;
 
   const ganM  = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).reduce((s,r) => s + r.monto, 0);
   const adelM = adelantosEmpresa.filter(a => a.fecha?.startsWith(ym)).reduce((s,a) => s + a.monto, 0);
   const cobM  = _cobradoSueldo(ym);
-  const sfM   = pagosMatisa.filter(p => p.fecha?.startsWith(ym) && !p.facturado).reduce((s,p) => s + p.monto, 0);
+  const sfM   = _sfSueldo(ym);
   const diasM = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).length;
 
   const adeudado = ganY + adelY - cobY;
@@ -3650,7 +3764,7 @@ function renderTrabajoHistorial(){
     const pagosMat = pagosMatisa.filter(p => p.fecha && p.fecha.startsWith(ym));
     const pagosMov = movimientos
       .filter(m => m.tipo === 'cobro' && m.categoria === 'sueldo' && m.fecha?.startsWith(ym))
-      .map(m => ({ id: m.id, fecha: m.fecha, monto: m.monto, nota: m.nota, metodo: 'transferencia', facturado: false, _fromMov: true }));
+      .map(m => ({ id: m.id, fecha: m.fecha, monto: m.monto, nota: m.nota, metodo: m.metodo || 'transferencia', facturado: m.facturado || false, _fromMov: true }));
     const pagos = [...pagosMat, ...pagosMov].sort((a,b) => b.fecha.localeCompare(a.fecha));
     const adels = adelantosEmpresa.filter(a => a.fecha && a.fecha.startsWith(ym)).sort((a,b) => b.fecha.localeCompare(a.fecha));
 
