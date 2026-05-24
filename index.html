@@ -906,8 +906,12 @@
                   <input type="number" id="trab-salida" placeholder="17" step="0.5" min="0" max="24" oninput="calcHorasTrab()">
                 </div>
               </div>
-              <div class="form-group full">
-                <p id="trab-calc-preview" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:2px 0">— hs × $0 = $0</p>
+              <div class="form-group full" style="display:flex;align-items:center;gap:10px">
+                <p id="trab-calc-preview" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:2px 0;flex:1">— hs × $0 = $0</p>
+                <label style="display:flex;align-items:center;cursor:pointer;user-select:none">
+                  <input type="checkbox" id="trab-feriado" onchange="calcHorasTrab()" style="display:none">
+                  <span id="trab-feriado-pill" style="font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:color 150ms,border-color 150ms,background 150ms">Feriado</span>
+                </label>
               </div>
               <div class="form-group inline-action full">
                 <div>
@@ -3553,11 +3557,21 @@ function setDiaMode(mode){
 function calcHorasTrab(){
   const e = parseFloat(document.getElementById('trab-entrada').value);
   const s = parseFloat(document.getElementById('trab-salida').value);
-  const pre = document.getElementById('trab-calc-preview');
+  const pre  = document.getElementById('trab-calc-preview');
+  const pill = document.getElementById('trab-feriado-pill');
+  const esFeriado = document.getElementById('trab-feriado')?.checked;
+  if(pill){
+    pill.style.color           = esFeriado ? 'var(--amber)' : 'var(--muted)';
+    pill.style.borderColor     = esFeriado ? 'var(--amber)' : 'var(--border)';
+    pill.style.background      = esFeriado ? 'oklch(78% 0.16 75 / 0.1)' : 'transparent';
+  }
   if(isNaN(e) || isNaN(s) || s <= e){ pre.textContent = '— hs × $0 = $0'; return; }
-  const hs = Math.round((s - e) * 100) / 100;
-  const monto = Math.round(hs * tarifaHora);
-  pre.textContent = `${hs} hs × ${fmt(tarifaHora)} = ${fmt(monto)}`;
+  const hs    = Math.round((s - e) * 100) / 100;
+  const multi = esFeriado ? 2 : 1;
+  const monto = Math.round(hs * tarifaHora * multi);
+  pre.textContent = esFeriado
+    ? `${hs} hs × ${fmt(tarifaHora)} × 2 = ${fmt(monto)}`
+    : `${hs} hs × ${fmt(tarifaHora)} = ${fmt(monto)}`;
 }
 
 async function actualizarTarifaHora(){
@@ -3578,15 +3592,20 @@ async function agregarRegistroDia(){
   const nota    = document.getElementById('trab-nota').value.trim();
   if(!fecha)           { toast('Elegí una fecha', 'err'); return; }
   if(isNaN(entrada) || isNaN(salida) || salida <= entrada){ toast('Revisá los horarios', 'err'); return; }
-  const horas = Math.round((salida - entrada) * 100) / 100;
-  const monto = Math.round(horas * tarifaHora);
-  registrosDiarios.push({ id: Date.now(), fecha, entrada: String(entrada), salida: String(salida), horas, monto, nota });
+  const horas     = Math.round((salida - entrada) * 100) / 100;
+  const esFeriado = document.getElementById('trab-feriado')?.checked || false;
+  const monto     = Math.round(horas * tarifaHora * (esFeriado ? 2 : 1));
+  const rec       = { id: Date.now(), fecha, entrada: String(entrada), salida: String(salida), horas, monto, nota };
+  if(esFeriado) rec.feriado = true;
+  registrosDiarios.push(rec);
   await S.set('registrosDiarios', registrosDiarios);
   document.getElementById('trab-entrada').value = '';
   document.getElementById('trab-salida').value  = '';
   document.getElementById('trab-nota').value    = '';
+  if(document.getElementById('trab-feriado')) document.getElementById('trab-feriado').checked = false;
   document.getElementById('trab-calc-preview').textContent = '— hs × $0 = $0';
-  toast(`Registrado: ${horas}h → ${fmt(monto)}`);
+  calcHorasTrab();
+  toast(esFeriado ? `Feriado registrado: ${horas}h × 2 → ${fmt(monto)}` : `Registrado: ${horas}h → ${fmt(monto)}`);
   renderTrabajo();
 }
 
@@ -3762,7 +3781,7 @@ function renderTrabajoHistorial(){
           return `<tr>
             <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px">${d}${r.nota?' <span style="color:var(--muted);font-size:11px">· '+r.nota+'</span>':''}</td>
             <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace">${horario}</td>
-            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px;font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--green);text-align:right">${fmt(r.monto)}</td>
+            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px;font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--green);text-align:right">${r.feriado?`<span style="font-size:10px;font-family:inherit;font-weight:500;color:var(--amber);background:oklch(78% 0.16 75 / 0.1);border:1px solid oklch(78% 0.16 75 / 0.3);border-radius:4px;padding:1px 5px;margin-right:5px;vertical-align:middle">×2</span>`:''} ${fmt(r.monto)}</td>
             <td style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarRegistroDia(${r.id})">×</button></td>
           </tr>`;
         }).join('')}</tbody>
