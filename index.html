@@ -866,24 +866,28 @@
           <!-- Modo: día de trabajo -->
           <div id="dia-form-trabajo">
             <div class="form-grid">
-              <div class="form-group">
-                <label>Fecha</label>
-                <input type="date" id="trab-fecha">
-              </div>
-              <div class="form-group inline-action">
-                <div>
-                  <label>Tarifa ($/h) — actual: <span id="trab-tarifa-label" style="font-family:'JetBrains Mono',monospace;color:var(--text)">$8.440</span></label>
-                  <input type="number" id="trab-tarifa-input" placeholder="8440">
+              <div class="form-group full" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div class="form-group">
+                  <label>Fecha</label>
+                  <input type="date" id="trab-fecha">
                 </div>
-                <button class="btn btn-sm" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap" onclick="actualizarTarifaHora()">↻</button>
+                <div class="form-group inline-action">
+                  <div>
+                    <label>Tarifa — <span id="trab-tarifa-label" style="font-family:'JetBrains Mono',monospace;color:var(--text)">$8.440</span>/h</label>
+                    <input type="number" id="trab-tarifa-input" placeholder="nueva tarifa">
+                  </div>
+                  <button class="btn btn-sm" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap" onclick="actualizarTarifaHora()">↻</button>
+                </div>
               </div>
-              <div class="form-group">
-                <label>Hora entrada</label>
-                <input type="number" id="trab-entrada" placeholder="9" step="0.5" min="0" max="23" oninput="calcHorasTrab()">
-              </div>
-              <div class="form-group">
-                <label>Hora salida</label>
-                <input type="number" id="trab-salida" placeholder="17" step="0.5" min="0" max="24" oninput="calcHorasTrab()">
+              <div class="form-group full" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div class="form-group">
+                  <label>Hora entrada</label>
+                  <input type="number" id="trab-entrada" placeholder="9" step="0.5" min="0" max="23" oninput="calcHorasTrab()">
+                </div>
+                <div class="form-group">
+                  <label>Hora salida</label>
+                  <input type="number" id="trab-salida" placeholder="17" step="0.5" min="0" max="24" oninput="calcHorasTrab()">
+                </div>
               </div>
               <div class="form-group full">
                 <p id="trab-calc-preview" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:2px 0">— hs × $0 = $0</p>
@@ -1000,19 +1004,6 @@
   </div>
 </div>
 
-<!-- Modal reasignación de reservas -->
-<div id="modal-reasig" class="modal-overlay" style="display:none">
-  <div class="modal-content" style="width:400px;max-height:90vh">
-    <h3 id="reasig-titulo" style="font-size:15px;font-weight:600;margin-bottom:6px"></h3>
-    <p id="reasig-desc" style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5"></p>
-    <div id="reasig-reservas" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px"></div>
-    <div id="reasig-total" style="font-size:12px;padding:9px 12px;background:var(--surface2);border-radius:8px;margin-bottom:16px;text-align:center"></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-primary" onclick="confirmarReasig()" style="flex:1">Registrar gasto</button>
-      <button class="btn" onclick="cerrarModalReasig()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text)">Cancelar</button>
-    </div>
-  </div>
-</div>
 
 <!-- MODAL CIERRE MENSUAL -->
 <div id="modal-cierre" class="modal-overlay" style="display:none;z-index:400">
@@ -1296,14 +1287,6 @@ function _getCobrosAsignados(){
     .forEach(m => {
       for(const [k, v] of Object.entries(m.distribucion)){
         if(k !== 'vida') asig[k] = (asig[k] || 0) + v;
-      }
-    });
-  // Restar montos tomados de reservas por gastos de otras categorías
-  movimientos
-    .filter(m => m.tipo === 'gasto' && m.reasignaciones && new Date(m.fecha + 'T12:00') >= desde)
-    .forEach(m => {
-      for(const [k, v] of Object.entries(m.reasignaciones)){
-        asig[k] = (asig[k] || 0) - v;
       }
     });
   // Aplicar transferencias entre reservas
@@ -1957,18 +1940,7 @@ async function registrarGasto(){
   if(!fecha){ toast('Elegí una fecha', 'err'); return; }
   if(_saving) return;
 
-  const data = { monto, cat, fecha, desc, tareaId, reasignaciones: null };
-
-  // Chequear si la reserva natural de esta categoría tiene saldo suficiente
-  const reservaNatural = GASTO_A_RESERVA[cat];
-  if(reservaNatural){
-    const saldos = _getSaldoReservas();
-    const disponible = saldos[reservaNatural] || 0;
-    if(monto > disponible + 50){ // tolerancia $50 para redondeo
-      _abrirModalReasig(data, reservaNatural, disponible, saldos);
-      return;
-    }
-  }
+  const data = { monto, cat, fecha, desc, tareaId };
 
   _saving = true;
   try {
@@ -1979,11 +1951,10 @@ async function registrarGasto(){
 }
 
 // Guarda el gasto y emite el toast correspondiente
-async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId, reasignaciones }){
+async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId }){
   const desvio = _getDesvioInfo(cat, monto); // ANTES de pushear
 
   const gasto = { id: Date.now(), tipo:'gasto', monto, categoria: cat, fecha, nota: desc };
-  if(reasignaciones && Object.keys(reasignaciones).length > 0) gasto.reasignaciones = reasignaciones;
 
   let tareaCompletada = null;
   if(tareaId){
@@ -2005,10 +1976,7 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId, reasig
 
   const tareaMsg = tareaCompletada ? ` · "${tareaCompletada.desc}" completada ✓` : '';
 
-  if(reasignaciones && Object.keys(reasignaciones).length > 0){
-    const from = Object.entries(reasignaciones).map(([k,v]) => `${RESERVA_LABELS[k]||k} ${fmt(v)}`).join(' + ');
-    toast(`✓ Gasto registrado${tareaMsg} · Tomado de: ${from}`);
-  } else if(desvio){
+  if(desvio){
     const desvioMsg = desvio.tipo === 'no-asignado'
       ? `Sin asignación para ${desvio.label}`
       : `${desvio.label} excede en ${fmt(desvio.exceso)} lo asignado`;
@@ -2029,90 +1997,6 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId, reasig
   if(tareaCompletada) renderTareas();
 }
 
-// ── MODAL REASIGNACIÓN DE RESERVAS ────────────────────────
-let _pendingReasig = null;
-let _reasigDeficit = 0;
-
-function _abrirModalReasig(data, reservaNatural, disponibleNatural, saldos){
-  _pendingReasig = data;
-  _reasigDeficit = data.monto - disponibleNatural;
-
-  document.getElementById('reasig-titulo').textContent =
-    `Saldo insuficiente en "${RESERVA_LABELS[reservaNatural]}"`;
-  document.getElementById('reasig-desc').innerHTML =
-    `Querés gastar <strong>${fmt(data.monto)}</strong> pero solo tenés ` +
-    `<strong>${fmt(disponibleNatural)}</strong> en ${RESERVA_LABELS[reservaNatural]}. ` +
-    `¿De qué reservas tomás los <strong>${fmt(_reasigDeficit)}</strong> que faltan?`;
-
-  const otras = Object.entries(saldos).filter(([k, v]) => k !== reservaNatural && v > 0);
-
-  if(!otras.length){
-    document.getElementById('reasig-reservas').innerHTML =
-      `<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">No hay otras reservas con saldo disponible.</div>`;
-  } else {
-    let restante = _reasigDeficit;
-    document.getElementById('reasig-reservas').innerHTML = otras.map(([k, v], i) => {
-      const sugerido = i === 0 ? Math.min(restante, v) : 0;
-      if(i === 0) restante -= sugerido;
-      return `
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:500">${RESERVA_LABELS[k]||k}</div>
-            <div style="font-size:11px;color:var(--muted)">Disponible: ${fmt(v)}</div>
-          </div>
-          <input type="number" id="reasig-in-${k}" placeholder="0" min="0" max="${Math.round(v)}"
-            value="${sugerido > 0 ? Math.round(sugerido) : ''}"
-            style="width:100px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'JetBrains Mono',monospace"
-            oninput="_actualizarTotalReasig()">
-        </div>`;
-    }).join('');
-  }
-
-  _actualizarTotalReasig();
-  document.getElementById('modal-reasig').style.display = 'flex';
-}
-
-function _actualizarTotalReasig(){
-  let total = 0;
-  document.querySelectorAll('[id^="reasig-in-"]').forEach(input => {
-    total += Math.min(parseFloat(input.value) || 0, parseFloat(input.max) || Infinity);
-  });
-  const sinCubrir = Math.max(0, _reasigDeficit - total);
-  const el = document.getElementById('reasig-total');
-  if(!el) return;
-  if(sinCubrir <= 0 && total > 0){
-    el.innerHTML = `<span style="color:var(--green)">✓ Déficit cubierto — tomás ${fmt(total)} de otras reservas</span>`;
-  } else if(total > 0){
-    el.innerHTML = `<span style="color:var(--amber)">Cubrís ${fmt(total)} — sin cubrir ${fmt(sinCubrir)} (se registra igual)</span>`;
-  } else {
-    el.innerHTML = `<span style="color:var(--muted)">Ingresá cuánto tomás de cada reserva (opcional)</span>`;
-  }
-}
-
-function cerrarModalReasig(){
-  _pendingReasig = null;
-  const m = document.getElementById('modal-reasig');
-  m.classList.add('closing');
-  setTimeout(() => { m.style.display='none'; m.classList.remove('closing'); }, 220);
-}
-
-async function confirmarReasig(){
-  if(!_pendingReasig || _saving) return;
-  const reasignaciones = {};
-  document.querySelectorAll('[id^="reasig-in-"]').forEach(input => {
-    const k = input.id.replace('reasig-in-', '');
-    const v = Math.min(parseFloat(input.value) || 0, parseFloat(input.max) || Infinity);
-    if(v > 0) reasignaciones[k] = v;
-  });
-  const data = { ..._pendingReasig, reasignaciones: Object.keys(reasignaciones).length > 0 ? reasignaciones : null };
-  cerrarModalReasig();
-  _saving = true;
-  try {
-    await _ejecutarRegistroGasto(data);
-  } finally {
-    _saving = false;
-  }
-}
 
 // ── TRANSFERENCIAS ENTRE RESERVAS ─────────────────────────
 function abrirModalTransferencia(){
@@ -2633,15 +2517,16 @@ function renderHistorial(){
   }
 
   const invLabels = { cedears: 'CEDEARs', fci: 'FCI / colchón' };
+  const fmtFecha = f => { const d = new Date(f+'T12:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; };
   const rows = sorted.map(m => {
     if(m._esTransferencia){
       return `
         <tr>
-          <td>${new Date(m.fecha+'T12:00').toLocaleDateString('es-AR')}</td>
-          <td><span class="badge badge-purple">Transferencia</span></td>
-          <td style="color:var(--text);font-size:12px">${RESERVA_LABELS[m.de]||m.de} → ${RESERVA_LABELS[m.a]||m.a}</td>
+          <td style="white-space:nowrap">${fmtFecha(m.fecha)}</td>
+          <td class="td-nota" style="color:var(--muted)">${esc(m.nota)||`${RESERVA_LABELS[m.de]||m.de} → ${RESERVA_LABELS[m.a]||m.a}`}</td>
           <td style="font-family:'JetBrains Mono',monospace;color:var(--purple)">${fmt(m.monto)}</td>
-          <td class="td-nota" style="color:var(--muted)">${esc(m.nota)||'—'}</td>
+          <td><span class="badge badge-purple">Transferencia</span></td>
+          <td>—</td>
           <td><button class="btn btn-danger btn-sm" onclick="eliminarTransferencia(${m.id})">×</button></td>
         </tr>`;
     }
@@ -2651,47 +2536,47 @@ function renderHistorial(){
         : '';
       return `
         <tr>
-          <td>${new Date(m.fecha+'T12:00').toLocaleDateString('es-AR')}</td>
+          <td style="white-space:nowrap">${fmtFecha(m.fecha)}</td>
+          <td class="td-nota" style="color:var(--muted)">${esc(m.nota)||'—'}</td>
+          <td style="font-family:'JetBrains Mono',monospace;color:var(--blue)">+${fmt(m.monto)}</td>
           <td><span class="badge badge-blue">Inversión</span></td>
           <td><span class="badge badge-blue">${invLabels[m.tipo]||m.tipo}</span>${estadoBadge}</td>
-          <td style="font-family:'JetBrains Mono',monospace;color:var(--blue)">+${fmt(m.monto)}</td>
-          <td class="td-nota" style="color:var(--muted)">${esc(m.nota)||'—'}</td>
           <td><button class="btn btn-danger btn-sm" onclick="eliminarInversion(${m.id})">×</button></td>
         </tr>`;
     }
     if(m.tipo === 'saldo_inicial'){
       return `
         <tr style="background:rgba(59,130,246,0.04)">
-          <td>${new Date(m.fecha+'T12:00').toLocaleDateString('es-AR')}</td>
+          <td style="white-space:nowrap">${fmtFecha(m.fecha)}</td>
+          <td style="font-size:12px;color:var(--muted)">Oblig: <strong style="color:var(--blue)">${fmt(m.distribucion?.obligaciones||0)}</strong> · Disp: <strong style="color:var(--green)">${fmt(m.distribucion?.disponible||0)}</strong></td>
+          <td>—</td>
           <td><span class="badge badge-blue">Checkpoint</span></td>
-          <td colspan="2" style="font-size:12px;color:var(--muted)">Oblig: <strong style="color:var(--blue)">${fmt(m.distribucion?.obligaciones||0)}</strong> · Disp: <strong style="color:var(--green)">${fmt(m.distribucion?.disponible||0)}</strong></td>
-          <td class="td-nota" style="color:var(--muted)">${esc(m.nota)||'—'}</td>
+          <td>—</td>
           <td><button class="btn btn-danger btn-sm" onclick="eliminarSaldoInicial(${m.id})">×</button></td>
         </tr>`;
     }
-    const reasigNota = m.reasignaciones
-      ? Object.entries(m.reasignaciones).map(([k,v]) => `${RESERVA_LABELS[k]||k} ${fmt(v)}`).join(' + ')
-      : null;
     const esCobro = m.tipo === 'cobro';
     const clickAttr = esCobro
       ? ` style="cursor:pointer" onclick="if(!event.target.closest('button')) _showDistModal(${m.id})"`
       : '';
+    const notaCell = esc(m.nota)||'—';
+    const distHint = esCobro && m.distribucion ? ` <span style="font-size:10px;color:var(--blue);opacity:0.7">· dist.</span>` : '';
     return `
       <tr${clickAttr}>
-        <td>${new Date(m.fecha+'T12:00').toLocaleDateString('es-AR')}</td>
-        <td><span class="badge badge-${esCobro?'green':'red'}">${esCobro?'Cobro':'Gasto'}</span></td>
-        <td><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span></td>
-        <td style="font-family:'JetBrains Mono',monospace; color:${esCobro?'var(--green)':'var(--red)'}">
+        <td style="white-space:nowrap">${fmtFecha(m.fecha)}</td>
+        <td class="td-nota" style="color:var(--muted)">${notaCell}${distHint}</td>
+        <td style="font-family:'JetBrains Mono',monospace;color:${esCobro?'var(--green)':'var(--red)'}">
           ${esCobro?'+':'−'}${fmt(m.monto)}
         </td>
-        <td class="td-nota" style="color:var(--muted)">${reasigNota ? `<span style="font-size:10px;color:var(--amber)">↩ ${reasigNota}</span>${m.nota ? ' · '+esc(m.nota) : ''}` : (esc(m.nota)||'—')}${esCobro && m.distribucion ? ` <span style="font-size:10px;color:var(--blue);opacity:0.7">· ver dist.</span>` : ''}</td>
+        <td><span class="badge badge-${esCobro?'green':'red'}">${esCobro?'Cobro':'Gasto'}</span></td>
+        <td><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span></td>
         <td><button class="btn btn-danger btn-sm" onclick="eliminar(${m.id})">×</button></td>
       </tr>`;
   }).join('');
 
   document.getElementById('tabla-movimientos').innerHTML = `
     <table>
-      <thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Monto</th><th>Nota</th><th></th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Nota</th><th>Monto</th><th>Tipo</th><th>Categoría</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
