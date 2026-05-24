@@ -1,4 +1,4 @@
-const CACHE = 'mi-finanzas-v1';
+const CACHE = 'mi-finanzas-v2';
 const OFFLINE_ASSETS = ['./'];
 
 self.addEventListener('install', e => {
