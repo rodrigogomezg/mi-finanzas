@@ -151,17 +151,17 @@
     .btn-danger:hover { filter:brightness(1.15); }
   }
   .btn-sm { padding:5px 10px; font-size:12px; }
-  .btn-edit { background:transparent; color:var(--muted); padding:4px 6px; border:none; cursor:pointer; border-radius:4px; font-size:13px; line-height:1; transition:color 150ms var(--ease-out), background 150ms var(--ease-out); font-family:inherit; }
-  @media (hover:hover) and (pointer:fine) { .btn-edit:hover { color:var(--blue); background:oklch(60% 0.18 240 / 0.08); } }
-  .btn-edit.active { color:var(--blue); }
-
-  /* EDICIÓN INLINE */
-  .mov-edit-panel { padding:12px 16px 14px; background:var(--surface2); border-top:1px solid var(--border); border-bottom:2px solid var(--blue); display:none; opacity:0; transform:translateY(-4px); transition:opacity 180ms var(--ease-out), transform 180ms var(--ease-out), display 180ms allow-discrete; }
-  .mov-edit-panel.open { display:block; opacity:1; transform:translateY(0); }
-  @starting-style { .mov-edit-panel.open { opacity:0; transform:translateY(-4px); } }
-  .mov-edit-tr td { padding:0 !important; border-top:none !important; }
+  /* LISTA DE MOVIMIENTOS */
+  .mov-row { display:grid; grid-template-columns:40px 1fr auto; align-items:center; gap:0 12px; padding:11px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 120ms ease; -webkit-tap-highlight-color:transparent; }
+  .mov-row:last-child { border-bottom:none; }
+  @media (hover:hover) and (pointer:fine) { .mov-row:hover { background:var(--surface2); } }
+  .mov-row:active { background:var(--surface2); }
+  .mov-date { font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; line-height:1.3; }
+  .mov-desc { font-size:13px; color:var(--text); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mov-cat  { margin-top:3px; }
+  .mov-amt  { font-size:14px; font-family:'JetBrains Mono',monospace; font-weight:600; text-align:right; white-space:nowrap; }
   @keyframes row-flash { 0% { background-color:oklch(72% 0.18 145 / 0.2); } 100% { background-color:transparent; } }
-  tr[data-flash] { animation:row-flash 1.4s var(--ease-out) forwards; }
+  [data-flash] { animation:row-flash 1.4s var(--ease-out) forwards; }
 
   /* INSTRUCCION / DISTRIBUCIÓN BOX */
   .instruccion { border-radius:12px; padding:20px; margin-bottom:24px; }
@@ -254,6 +254,9 @@
   .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
   .cal-cell { background:var(--surface); border:1px solid var(--border); border-radius:7px; padding:5px 6px; min-height:74px; overflow:hidden; }
   .cal-cell.hoy  { border-color:var(--green); }
+  .cal-cell.tiene-ev { cursor:pointer; transition:border-color 120ms ease, background 120ms ease; }
+  @media (hover:hover) and (pointer:fine) { .cal-cell.tiene-ev:hover { border-color:var(--muted); background:var(--surface2); } }
+  .cal-cell.tiene-ev:active { background:var(--surface2); }
   .cal-cell.vacio{ background:transparent; border-color:transparent; min-height:74px; }
   .cal-cell.pasado{ opacity:0.5; }
   .cal-num { font-size:11px; color:var(--muted); margin-bottom:3px; line-height:1; }
@@ -1061,8 +1064,7 @@ function toast(msg, type='ok', duration=3000){
 let _pendingUndo = null;
 let _distData = null;
 let _saving = false;
-let _editingMovId = null;
-let _flashMovId   = null;
+let _flashMovId = null;
 
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -1097,21 +1099,108 @@ async function undoDelete(){
   toast('Recuperado', 'ok', 2000);
 }
 
-// ── EDICIÓN INLINE DE MOVIMIENTOS ────────────────────────
-function abrirEdicion(id){
-  _editingMovId = (_editingMovId === id) ? null : id;
-  renderHistorial();
-  if(_editingMovId){
-    requestAnimationFrame(() => {
-      const el = document.getElementById(`edit-fecha-${id}`);
-      if(el) el.focus();
-    });
-  }
+// ── MODAL DE MOVIMIENTOS ─────────────────────────────────
+function _movModalClose(){
+  document.getElementById('_mov-modal-overlay')?.remove();
 }
 
-function cerrarEdicion(){
-  _editingMovId = null;
-  renderHistorial();
+function _movModalOpen(html){
+  document.getElementById('_mov-modal-overlay')?.remove();
+  const el = document.createElement('div');
+  el.id = '_mov-modal-overlay';
+  el.className = 'modal-overlay';
+  el.style.display = 'flex';
+  el.innerHTML = html;
+  el.addEventListener('click', e => { if(e.target === el) _movModalClose(); });
+  document.addEventListener('keydown', function esc(e){
+    if(e.key === 'Escape'){ _movModalClose(); document.removeEventListener('keydown', esc); }
+  });
+  document.body.appendChild(el);
+}
+
+function abrirModalMov(id){
+  const m = movimientos.find(x => x.id === id);
+  if(!m) return;
+  const esCobro = m.tipo === 'cobro';
+  const opts = (esCobro
+    ? [['sueldo','Pago de sueldo'],['semanal','Cobro semanal'],['mensual_fijo','Cobro mensual fijo'],['extra','Ingreso extra']]
+    : [['comida','Comida'],['servicios','Servicios'],['combustible','Combustible'],['alquiler','Alquiler'],['tarjeta','Tarjeta'],['otro','Otro']]
+  ).map(([v,l]) => `<option value="${v}"${m.categoria===v?' selected':''}>${l}</option>`).join('');
+  const distRow = esCobro ? `<div style="margin-bottom:12px"><button class="btn btn-sm" style="color:var(--blue);border-color:var(--blue);width:100%" onclick="document.getElementById('_mov-modal-overlay').remove();_showDistModal(${m.id})">Ver distribución</button></div>` : '';
+  _movModalOpen(`<div class="modal-content" style="width:360px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:15px;font-weight:600;margin:0">${esCobro?'Cobro':'Gasto'}</h3>
+      <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div class="form-group"><label>Fecha</label><input type="date" id="edit-fecha-${m.id}" value="${m.fecha}"></div>
+      <div class="form-group"><label>Monto</label><input type="number" id="edit-monto-${m.id}" value="${m.monto}" min="1" step="1"></div>
+      <div class="form-group"><label>Categoría</label><select id="edit-cat-${m.id}">${opts}</select></div>
+      <div class="form-group"><label>Nota</label><input type="text" id="edit-nota-${m.id}" value="${esc(m.nota||'')}" placeholder="Nota opcional"></div>
+    </div>
+    ${distRow}
+    <div style="display:flex;gap:8px;justify-content:space-between">
+      <button class="btn btn-danger btn-sm" onclick="_movModalClose();eliminar(${m.id})">Eliminar</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" onclick="_movModalClose()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="guardarEdicion(${m.id})">Guardar</button>
+      </div>
+    </div>
+  </div>`);
+  requestAnimationFrame(() => document.getElementById(`edit-fecha-${m.id}`)?.focus());
+}
+
+function abrirModalTransf(id){
+  const t = transferencias.find(x => x.id === id);
+  if(!t) return;
+  const label = esc(t.nota) || `${RESERVA_LABELS[t.de]||t.de} → ${RESERVA_LABELS[t.a]||t.a}`;
+  _movModalOpen(`<div class="modal-content" style="width:320px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="font-size:15px;font-weight:600;margin:0">Transferencia</h3>
+      <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    <p style="font-size:13px;margin-bottom:4px">${label}</p>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--purple);margin-bottom:20px">${fmt(t.monto)}</p>
+    <div style="display:flex;gap:8px;justify-content:space-between">
+      <button class="btn btn-danger btn-sm" onclick="_movModalClose();eliminarTransferencia(${t.id})">Eliminar</button>
+      <button class="btn btn-sm" onclick="_movModalClose()">Cerrar</button>
+    </div>
+  </div>`);
+}
+
+function abrirModalInv(id){
+  const inv = inversiones.find(x => x.id === id);
+  if(!inv) return;
+  const invLabels = { cedears:'CEDEARs', fci:'FCI / colchón' };
+  _movModalOpen(`<div class="modal-content" style="width:320px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="font-size:15px;font-weight:600;margin:0">Inversión · ${invLabels[inv.tipo]||inv.tipo}</h3>
+      <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    ${inv.nota ? `<p style="font-size:13px;margin-bottom:4px">${esc(inv.nota)}</p>` : ''}
+    <p style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--blue);margin-bottom:20px">+${fmt(inv.monto)}</p>
+    <div style="display:flex;gap:8px;justify-content:space-between">
+      <button class="btn btn-danger btn-sm" onclick="_movModalClose();eliminarInversion(${inv.id})">Eliminar</button>
+      <button class="btn btn-sm" onclick="_movModalClose()">Cerrar</button>
+    </div>
+  </div>`);
+}
+
+function abrirModalCheckpoint(id){
+  const m = movimientos.find(x => x.id === id);
+  if(!m) return;
+  _movModalOpen(`<div class="modal-content" style="width:320px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="font-size:15px;font-weight:600;margin:0">Checkpoint</h3>
+      <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:4px">Obligaciones: <strong style="color:var(--blue)">${fmt(m.distribucion?.obligaciones||0)}</strong></p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Disponible: <strong style="color:var(--green)">${fmt(m.distribucion?.disponible||0)}</strong></p>
+    <div style="display:flex;gap:8px;justify-content:space-between">
+      <button class="btn btn-danger btn-sm" onclick="_movModalClose();eliminarSaldoInicial(${m.id})">Eliminar</button>
+      <button class="btn btn-sm" onclick="_movModalClose()">Cerrar</button>
+    </div>
+  </div>`);
 }
 
 async function guardarEdicion(id){
@@ -1132,8 +1221,8 @@ async function guardarEdicion(id){
     toast('Monto editado · distribución reseteada', 'warn', 3000);
   }
   await S.set('movimientos', movimientos);
-  _editingMovId = null;
-  _flashMovId   = id;
+  _flashMovId = id;
+  _movModalClose();
   renderHistorial();
   renderResumen();
   if(!montoChanged || m.tipo !== 'cobro') toast('Cambio guardado', 'ok', 2000);
@@ -2444,14 +2533,92 @@ function renderFlujo(){
     let evHTML = tags.slice(0,MAX).join('');
     if(tags.length>MAX) evHTML += `<div class="cal-more">+${tags.length-MAX} más</div>`;
 
+    const tieneEv = tags.length > 0;
     html += `
-      <div class="cal-cell${esHoy?' hoy':''}${esPasado&&!esHoy?' pasado':''}">
+      <div class="cal-cell${esHoy?' hoy':''}${esPasado&&!esHoy?' pasado':''}${tieneEv?' tiene-ev':''}"${tieneEv?` onclick="abrirModalDia(${dia})"`:''}>
         <div class="cal-num">${dia}</div>
         ${evHTML}
       </div>`;
   }
 
   document.getElementById('flujo-cal').innerHTML = html;
+}
+
+// ── DETALLE DÍA ──────────────────────────────────────────
+function abrirModalDia(dia){
+  const hoy      = new Date();
+  const mes      = hoy.getMonth();
+  const anio     = hoy.getFullYear();
+  const pad      = n => String(n).padStart(2,'0');
+  const fechaStr = `${anio}-${pad(mes+1)}-${pad(dia)}`;
+
+  const cobros  = movimientos.filter(m => m.fecha === fechaStr && m.tipo === 'cobro');
+  const gastos  = movimientos.filter(m => m.fecha === fechaStr && m.tipo === 'gasto');
+  const tareasD = tareas.filter(t => t.venc === fechaStr);
+  if(!cobros.length && !gastos.length && !tareasD.length) return;
+
+  const CLABELS = {
+    sueldo:'Pago de sueldo', semanal:'Cobro semanal', mensual_fijo:'Cobro mensual fijo', extra:'Ingreso extra',
+    comida:'Comida', servicios:'Servicios', combustible:'Combustible', alquiler:'Alquiler',
+    tarjeta:'Tarjeta', otro:'Otro', inversion:'CEDEARs', fci:'FCI'
+  };
+  const CCOLORS = {
+    sueldo:'green', semanal:'green', mensual_fijo:'green', extra:'amber',
+    comida:'amber', servicios:'blue', combustible:'amber', alquiler:'red',
+    tarjeta:'red', otro:'amber', inversion:'purple', fci:'blue'
+  };
+
+  const titulo = new Date(fechaStr+'T12:00')
+    .toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+
+  const fila = (nota, cat, monto, colorMonto) => {
+    const desc = nota || CLABELS[cat] || cat;
+    const badge = `<span class="badge badge-${CCOLORS[cat]||'amber'}" style="font-size:10px">${CLABELS[cat]||cat}</span>`;
+    const sub = nota ? badge : '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div style="overflow:hidden;min-width:0">
+        <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(desc)}</div>
+        ${sub ? `<div style="margin-top:3px">${sub}</div>` : `<div style="margin-top:3px">${badge}</div>`}
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:${colorMonto};flex-shrink:0">${monto}</div>
+    </div>`;
+  };
+
+  const rows = [
+    ...cobros.map(c => fila(c.nota, c.categoria, `+${fmt(c.monto)}`, 'var(--green)')),
+    ...gastos.map(g => fila(g.nota, g.categoria, `−${fmt(g.monto)}`, 'var(--red)')),
+    ...tareasD.map(t => {
+      const estado = t.done ? 'Pagada' : (diasHasta(t.venc)<0 ? 'Vencida' : 'Pendiente');
+      const col    = t.done ? 'var(--muted)' : (diasHasta(t.venc)<0 ? 'var(--red)' : 'var(--amber)');
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <div style="overflow:hidden;min-width:0">
+          <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.desc)}</div>
+          <div style="font-size:11px;color:${col};margin-top:2px">${estado}</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:${col};flex-shrink:0">${t.monto?fmt(t.monto):'—'}</div>
+      </div>`;
+    })
+  ].join('');
+
+  const totCobros = cobros.reduce((s,c)=>s+c.monto,0);
+  const totGastos = gastos.reduce((s,g)=>s+g.monto,0);
+  const balance   = totCobros - totGastos;
+  const showTot   = cobros.length + gastos.length > 1;
+  const totalesHTML = showTot ? `
+    <div style="display:flex;gap:16px;flex-wrap:wrap;padding-top:10px">
+      ${cobros.length?`<span style="font-size:12px;color:var(--muted)">Cobros: <strong style="color:var(--green)">${fmt(totCobros)}</strong></span>`:''}
+      ${gastos.length?`<span style="font-size:12px;color:var(--muted)">Gastos: <strong style="color:var(--red)">${fmt(totGastos)}</strong></span>`:''}
+      ${cobros.length&&gastos.length?`<span style="font-size:12px;color:var(--muted)">Balance: <strong style="color:${balance>=0?'var(--green)':'var(--red)'}">${balance>=0?'+':''}${fmt(balance)}</strong></span>`:''}
+    </div>` : '';
+
+  _movModalOpen(`<div class="modal-content" style="width:380px;max-height:80vh">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 style="font-size:15px;font-weight:600;margin:0;text-transform:capitalize">${titulo}</h3>
+      <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    <div>${rows}</div>
+    ${totalesHTML}
+  </div>`);
 }
 
 // ── DETALLE DISTRIBUCIÓN ──────────────────────────────────
@@ -2561,95 +2728,42 @@ function renderHistorial(){
   const fmtFecha = f => { const d = new Date(f+'T12:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; };
   const rows = sorted.map(m => {
     if(m._esTransferencia){
-      return `
-        <tr>
-          <td style="white-space:nowrap">${fmtFecha(m.fecha)}</td>
-          <td class="td-nota" style="color:var(--muted)">${esc(m.nota)||`${RESERVA_LABELS[m.de]||m.de} → ${RESERVA_LABELS[m.a]||m.a}`}</td>
-          <td style="font-family:'JetBrains Mono',monospace;color:var(--purple)">${fmt(m.monto)}</td>
-          <td><span class="badge badge-purple">Transferencia</span></td>
-          <td>—</td>
-          <td><button class="btn btn-danger btn-sm" onclick="eliminarTransferencia(${m.id})">×</button></td>
-        </tr>`;
+      const label = esc(m.nota) || `${RESERVA_LABELS[m.de]||m.de} → ${RESERVA_LABELS[m.a]||m.a}`;
+      return `<div class="mov-row" onclick="abrirModalTransf(${m.id})">
+        <div class="mov-date">${fmtFecha(m.fecha)}</div>
+        <div><div class="mov-desc">${label}</div><div class="mov-cat"><span class="badge badge-purple">Transferencia</span></div></div>
+        <div class="mov-amt" style="color:var(--purple)">${fmt(m.monto)}</div>
+      </div>`;
     }
     if(m._esInversion){
-      const estadoBadge = m.estado === 'reservada'
-        ? `<span style="font-size:10px;background:rgba(212,152,14,0.12);color:var(--amber);padding:1px 6px;border-radius:4px;margin-left:4px">reservada</span>`
-        : '';
-      return `
-        <tr>
-          <td style="white-space:nowrap">${fmtFecha(m.fecha)}</td>
-          <td class="td-nota" style="color:var(--muted)">${esc(m.nota)||'—'}</td>
-          <td style="font-family:'JetBrains Mono',monospace;color:var(--blue)">+${fmt(m.monto)}</td>
-          <td><span class="badge badge-blue">Inversión</span></td>
-          <td><span class="badge badge-blue">${invLabels[m.tipo]||m.tipo}</span>${estadoBadge}</td>
-          <td><button class="btn btn-danger btn-sm" onclick="eliminarInversion(${m.id})">×</button></td>
-        </tr>`;
+      const invLabel = invLabels[m.tipo] || m.tipo;
+      const reservada = m.estado === 'reservada' ? ` <span style="color:var(--amber);font-size:10px">· reservada</span>` : '';
+      return `<div class="mov-row" onclick="abrirModalInv(${m.id})">
+        <div class="mov-date">${fmtFecha(m.fecha)}</div>
+        <div><div class="mov-desc">${esc(m.nota)||'Inversión'}</div><div class="mov-cat"><span class="badge badge-blue">${invLabel}</span>${reservada}</div></div>
+        <div class="mov-amt" style="color:var(--blue)">+${fmt(m.monto)}</div>
+      </div>`;
     }
     if(m.tipo === 'saldo_inicial'){
-      return `
-        <tr style="background:rgba(59,130,246,0.04)">
-          <td style="white-space:nowrap">${fmtFecha(m.fecha)}</td>
-          <td style="font-size:12px;color:var(--muted)">Oblig: <strong style="color:var(--blue)">${fmt(m.distribucion?.obligaciones||0)}</strong> · Disp: <strong style="color:var(--green)">${fmt(m.distribucion?.disponible||0)}</strong></td>
-          <td>—</td>
-          <td><span class="badge badge-blue">Checkpoint</span></td>
-          <td>—</td>
-          <td><button class="btn btn-danger btn-sm" onclick="eliminarSaldoInicial(${m.id})">×</button></td>
-        </tr>`;
+      return `<div class="mov-row" onclick="abrirModalCheckpoint(${m.id})">
+        <div class="mov-date">${fmtFecha(m.fecha)}</div>
+        <div><div class="mov-desc">Checkpoint</div><div class="mov-cat" style="font-size:11px;color:var(--muted)">Oblig: ${fmt(m.distribucion?.obligaciones||0)} · Disp: ${fmt(m.distribucion?.disponible||0)}</div></div>
+        <div class="mov-amt"><span class="badge badge-blue">⬤</span></div>
+      </div>`;
     }
-    const esCobro = m.tipo === 'cobro';
-    const isEditing = _editingMovId === m.id;
-    const isFlash   = _flashMovId   === m.id;
-    const clickAttr = esCobro
-      ? ` style="cursor:pointer" onclick="if(!event.target.closest('button')) _showDistModal(${m.id})"`
-      : '';
-    const notaCell = esc(m.nota)||'—';
-    const distHint = esCobro && m.distribucion ? ` <span style="font-size:10px;color:var(--blue);opacity:0.7">· dist.</span>` : '';
-    const editCatOptions = esCobro
-      ? [['sueldo','Pago de sueldo'],['semanal','Cobro semanal'],['mensual_fijo','Cobro mensual fijo'],['extra','Ingreso extra']]
-          .map(([v,l]) => `<option value="${v}"${m.categoria===v?' selected':''}>${l}</option>`).join('')
-      : [['comida','Comida'],['servicios','Servicios'],['combustible','Combustible'],['alquiler','Alquiler'],['tarjeta','Tarjeta'],['otro','Otro']]
-          .map(([v,l]) => `<option value="${v}"${m.categoria===v?' selected':''}>${l}</option>`).join('');
-    const editRow = isEditing ? `
-      <tr class="mov-edit-tr">
-        <td colspan="6" style="padding:0;border-top:none">
-          <div class="mov-edit-panel open">
-            <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:8px">
-              <div class="form-group"><label>Fecha</label><input type="date" id="edit-fecha-${m.id}" value="${m.fecha}"></div>
-              <div class="form-group"><label>Monto</label><input type="number" id="edit-monto-${m.id}" value="${m.monto}" min="1" step="1"></div>
-              <div class="form-group"><label>Categoría</label><select id="edit-cat-${m.id}">${editCatOptions}</select></div>
-              <div class="form-group"><label>Nota</label><input type="text" id="edit-nota-${m.id}" value="${esc(m.nota||'')}" placeholder="Nota opcional"></div>
-            </div>
-            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
-              <button class="btn btn-sm" onclick="cerrarEdicion()">Cancelar</button>
-              <button class="btn btn-primary btn-sm" onclick="guardarEdicion(${m.id})">Guardar</button>
-            </div>
-          </div>
-        </td>
-      </tr>` : '';
-    return `
-      <tr${clickAttr}${isFlash?' data-flash':''}>
-        <td style="white-space:nowrap">${fmtFecha(m.fecha)}</td>
-        <td class="td-nota" style="color:var(--muted)">${notaCell}${distHint}</td>
-        <td style="font-family:'JetBrains Mono',monospace;color:${esCobro?'var(--green)':'var(--red)'}">
-          ${esCobro?'+':'−'}${fmt(m.monto)}
-        </td>
-        <td><span class="badge badge-${esCobro?'green':'red'}">${esCobro?'Cobro':'Gasto'}</span></td>
-        <td><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span></td>
-        <td style="white-space:nowrap">
-          <button class="btn-edit${isEditing?' active':''}" onclick="abrirEdicion(${m.id})" title="Editar">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-          <button class="btn btn-danger btn-sm" onclick="eliminar(${m.id})">×</button>
-        </td>
-      </tr>${editRow}`;
+    const esCobro  = m.tipo === 'cobro';
+    const isFlash  = _flashMovId === m.id;
+    const distHint = esCobro && m.distribucion ? ` <span style="font-size:10px;color:var(--blue);opacity:0.6">· dist</span>` : '';
+    const descText = esc(m.nota) || catLabels[m.categoria] || m.categoria;
+    return `<div class="mov-row"${isFlash?' data-flash':''} onclick="abrirModalMov(${m.id})">
+      <div class="mov-date">${fmtFecha(m.fecha)}</div>
+      <div><div class="mov-desc">${descText}${distHint}</div><div class="mov-cat"><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span></div></div>
+      <div class="mov-amt" style="color:${esCobro?'var(--green)':'var(--red)'}">${esCobro?'+':'−'}${fmt(m.monto)}</div>
+    </div>`;
   }).join('');
   _flashMovId = null;
 
-  document.getElementById('tabla-movimientos').innerHTML = `
-    <table>
-      <thead><tr><th>Fecha</th><th>Nota</th><th>Monto</th><th>Tipo</th><th>Categoría</th><th></th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+  document.getElementById('tabla-movimientos').innerHTML = `<div>${rows}</div>`;
 }
 
 async function eliminar(id){
