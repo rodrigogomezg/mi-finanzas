@@ -2259,15 +2259,23 @@ function renderResumen(){
   // ── Cards ─────────────────────────────────────────────
   const cobrosN = delMes.filter(m=>m.tipo==='cobro').length;
   document.getElementById('cards-resumen').innerHTML = `
-    <div class="metric-hero">
-      <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;grid-column:1/-1">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border)">
         <span style="font-size:13px;font-weight:500;color:var(--green)">Disponible</span>
         <span style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--green)">${fmt(saldos.disponible)}</span>
       </div>
-    </div>
-    <div class="secondary-cards">
-      <div class="metric-sm"><div class="sm-label">Cobrado</div><div class="sm-value" style="color:var(--green)">${fmt(totalCobrado)}</div><div class="sm-sub">${cobrosN} cobro${cobrosN!==1?'s':''}</div></div>
-      <div class="metric-sm"><div class="sm-label">Gastado</div><div class="sm-value" style="color:var(--red)">${fmt(totalGastado)}</div><div class="sm-sub">${pctGasto}% del ingreso</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr">
+        <div style="padding:12px 16px;border-right:1px solid var(--border)">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Cobrado</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--green)">${fmt(totalCobrado)}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${cobrosN} cobro${cobrosN!==1?'s':''}</div>
+        </div>
+        <div style="padding:12px 16px">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Gastado</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--red)">${fmt(totalGastado)}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${pctGasto}% del ingreso</div>
+        </div>
+      </div>
     </div>
   `;
 
@@ -2424,6 +2432,14 @@ function renderPlanMes(elId){
   const alqLabel = alqVenc ? `vence ${vencLabel(alqVenc.venc, false)}` : `$${(alquilerMonto/1000).toFixed(0)}k fijo`;
   const tarjLabel = tarjetaTask ? (tarjetaMonto > 0 ? `${fmt(tarjetaMonto)} · vence ${vencLabel(tarjetaTask.venc, false)}` : 'monto pendiente') : 'sin configurar';
 
+  const hoyPlan = new Date();
+  const tareasMesAll = tareas.filter(t => {
+    const d = new Date(t.venc+'T12:00');
+    return d.getMonth()===hoyPlan.getMonth() && d.getFullYear()===hoyPlan.getFullYear();
+  });
+  const tareasTotal = tareasMesAll.length;
+  const tareasPagas = tareasMesAll.filter(t => t.done).length;
+
   const fillColor = pct >= 100 ? 'var(--green)' : falta > acumulado ? 'var(--amber)' : 'var(--blue)';
   const statusLabel = pct >= 100
     ? `<span style="color:var(--green)">✓ cubierto</span>`
@@ -2452,6 +2468,11 @@ function renderPlanMes(elId){
               <span style="color:var(--text)">${tarjLabel}</span>
             </div>
           </div>
+          ${tareasTotal > 0 ? `
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding-top:8px;border-top:1px solid var(--border);margin-top:10px">
+            <span style="color:var(--muted)">Tareas del mes</span>
+            <span style="color:${tareasPagas===tareasTotal?'var(--green)':'var(--text)'};font-weight:${tareasPagas===tareasTotal?'600':'400'}">${tareasPagas} de ${tareasTotal} pagadas${tareasPagas===tareasTotal?' ✓':''}</span>
+          </div>` : ''}
         </div>
       </div>
     </div>`;
