@@ -2167,27 +2167,13 @@ function renderResumen(){
   // ── Saldos + semáforo ─────────────────────────────────
   const saldos = _getSaldoReservas();
   const tareasMes = tareas.filter(t=>{ const d=new Date(t.venc+'T12:00'); return d.getMonth()===mes&&d.getFullYear()===anio; });
-  const tarjetaTask  = tareas.find(t => t.cat === 'tarjeta');
-  const metaOblig    = (planMensual.alquilerMonto || 450000) + (tarjetaTask?.monto || 0);
-  const pctOblig     = metaOblig > 0 ? Math.min(100, Math.round(saldos.obligaciones / metaOblig * 100)) : 0;
-
   // ── Cards ─────────────────────────────────────────────
   const cobrosN = delMes.filter(m=>m.tipo==='cobro').length;
   document.getElementById('cards-resumen').innerHTML = `
     <div class="metric-hero">
-      <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
         <span style="font-size:13px;font-weight:500;color:var(--green)">Disponible</span>
         <span style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--green)">${fmt(saldos.disponible)}</span>
-      </div>
-      <div style="background:var(--surface2);border-radius:8px;padding:12px 14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:12px;color:var(--muted)">Obligaciones (alquiler + tarjeta)</span>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--blue)">${fmt(saldos.obligaciones)}</span>
-        </div>
-        <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
-          <div style="height:100%;width:${pctOblig}%;background:var(--blue);border-radius:4px;transition:width 0.3s"></div>
-        </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:5px">${pctOblig}% de la meta ${fmt(metaOblig)}</div>
       </div>
     </div>
     <div class="secondary-cards">
