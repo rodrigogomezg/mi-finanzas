@@ -407,10 +407,6 @@
     /* Trabajo: tab bar con 4 botones — reducir para que entren */
     #page-trabajo .tab-btn { font-size:11px; padding:6px 4px; }
 
-    /* Trabajo: cabecera del mes apilada para que el stats no compita */
-    .trab-month-hd { flex-direction:column; align-items:flex-start; gap:4px; }
-    .trab-month-stats { text-align:left; }
-
     /* Trabajo historial: tablas con scroll horizontal */
     .trab-month-body { overflow-x:auto; -webkit-overflow-scrolling:touch; }
     .trab-month-body table { min-width:400px; }
@@ -435,10 +431,10 @@
 
   /* TRABAJO MODULE */
   .trab-month { background:var(--surface); border:1px solid var(--border); border-radius:12px; margin-bottom:10px; overflow:hidden; }
-  .trab-month-hd { padding:14px 20px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; gap:12px; }
+  .trab-month-hd { padding:10px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; gap:12px; }
   @media(hover:hover) and (pointer:fine){ .trab-month-hd:hover { background:var(--surface2); } }
   .trab-month-hd h4 { font-size:13px; font-weight:600; margin:0; }
-  .trab-month-stats { font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace; text-align:right; line-height:1.6; }
+  .trab-month-stats { font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace; white-space:nowrap; }
   .trab-month-body { display:none; border-top:1px solid var(--border); opacity:0; transform:translateY(-4px); transition:opacity 220ms var(--ease-out), transform 220ms var(--ease-out), display 220ms allow-discrete; }
   .trab-month-body.open { display:block; opacity:1; transform:translateY(0); }
   @starting-style { .trab-month-body.open { opacity:0; transform:translateY(-4px); } }
@@ -879,8 +875,8 @@
         <div class="form-card">
           <!-- Segmented toggle -->
           <div style="display:flex;gap:3px;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:20px">
-            <button id="dia-btn-trabajo" onclick="setDiaMode('trabajo')" style="flex:1;padding:7px 10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:var(--surface);color:var(--text);box-shadow:0 1px 3px oklch(0% 0 0 / 0.3);transition:background 180ms,color 180ms">Día de trabajo</button>
-            <button id="dia-btn-ingreso" onclick="setDiaMode('ingreso')" style="flex:1;padding:7px 10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:transparent;color:var(--muted);transition:background 180ms,color 180ms">Ingreso especial</button>
+            <button id="dia-btn-trabajo" onclick="setDiaMode('trabajo')" style="flex:1;padding:7px 10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:var(--surface);color:var(--text);box-shadow:0 1px 3px oklch(0% 0 0 / 0.3);transition:background 180ms var(--ease-out),color 180ms var(--ease-out)">Día de trabajo</button>
+            <button id="dia-btn-ingreso" onclick="setDiaMode('ingreso')" style="flex:1;padding:7px 10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:transparent;color:var(--muted);transition:background 180ms var(--ease-out),color 180ms var(--ease-out)">Ingreso especial</button>
           </div>
 
           <!-- Modo: día de trabajo -->
@@ -913,7 +909,7 @@
                 <p id="trab-calc-preview" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:2px 0;flex:1">— hs × $0 = $0</p>
                 <label style="display:flex;align-items:center;cursor:pointer;user-select:none">
                   <input type="checkbox" id="trab-feriado" onchange="calcHorasTrab()" style="display:none">
-                  <span id="trab-feriado-pill" style="font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:color 150ms,border-color 150ms,background 150ms">Feriado</span>
+                  <span id="trab-feriado-pill" style="font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:color 150ms var(--ease-out),border-color 150ms var(--ease-out),background 150ms var(--ease-out)">Feriado</span>
                 </label>
               </div>
               <div class="form-group inline-action full">
@@ -3887,10 +3883,7 @@ function renderTrabajoHistorial(){
     const cobMes   = pagos.reduce((s,p) => s + p.monto, 0);
     const adeudMes = ganMes + adelMes - cobMes;
 
-    const statsHtml = `
-      <div><span style="color:var(--muted)">Ganado</span> <span style="color:var(--green);font-weight:500">${fmt(ganMes + adelMes)}</span></div>
-      <div><span style="color:var(--muted)">Cobrado</span> <span style="color:var(--text)">${fmt(cobMes)}</span></div>
-      <div><span style="color:var(--muted)">Adeudado</span> <span style="color:var(--amber);font-weight:600">${fmt(adeudMes)}</span></div>`;
+    const statsHtml = `<span style="color:var(--muted)">Ganado</span> <span style="color:var(--green);font-weight:600">${fmt(ganMes + adelMes)}</span>`;
 
     const regsHtml = regs.length === 0 ? '' : `
       <div class="trab-sec-label">Días trabajados (${regs.length})</div>
