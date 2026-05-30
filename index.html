@@ -3776,6 +3776,11 @@ async function toggleFacturadoMatisa(id){
   if(p){ p.facturado = !p.facturado; await S.set('pagosMatisa', pagosMatisa); renderTrabajo(); }
 }
 
+async function toggleFacturadoMovimiento(id){
+  const m = movimientos.find(m => m.id === id);
+  if(m){ m.facturado = !m.facturado; await S.set('movimientos', movimientos); renderTrabajo(); }
+}
+
 function switchTrabMetric(mode){
   trabajoMetricMode = mode;
   renderTrabajo();
@@ -3919,11 +3924,10 @@ function renderTrabajoHistorial(){
         </tr></thead>
         <tbody>${pagos.map(p => {
           const d = new Date(p.fecha+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
-          const facBadge = p._fromMov
-            ? `<span class="trab-pill trab-pill-nf">Movimientos</span>`
-            : p.facturado
-              ? `<span class="trab-pill trab-pill-f" onclick="toggleFacturadoMatisa(${p.id})" style="cursor:pointer" title="Click para cambiar">Facturado</span>`
-              : `<span class="trab-pill trab-pill-nf" onclick="toggleFacturadoMatisa(${p.id})" style="cursor:pointer" title="Click para marcar como facturado">Sin facturar</span>`;
+          const toggleFn = p._fromMov ? `toggleFacturadoMovimiento(${p.id})` : `toggleFacturadoMatisa(${p.id})`;
+          const facBadge = p.facturado
+            ? `<span class="trab-pill trab-pill-f" onclick="${toggleFn}" style="cursor:pointer" title="Click para cambiar">Facturado</span>`
+            : `<span class="trab-pill trab-pill-nf" onclick="${toggleFn}" style="cursor:pointer" title="Click para marcar como facturado">Sin facturar</span>`;
           const metClass = p.metodo === 'transferencia' ? 'trab-pill-transf' : p.metodo === 'efectivo' ? 'trab-pill-efec' : 'trab-pill-ef';
           const metLabel = p.metodo === 'transferencia' ? 'Transferencia' : p.metodo === 'efectivo' ? 'Efectivo' : p.metodo;
           const metBadge = `<span class="trab-pill ${metClass}">${metLabel}</span>`;
