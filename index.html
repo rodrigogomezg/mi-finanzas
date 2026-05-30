@@ -48,10 +48,10 @@
   /* SIDEBAR */
   .sidebar { background:var(--surface); border-right:1px solid var(--border); padding:24px 0 0; position:sticky; top:0; height:100vh; overflow-y:auto; display:flex; flex-direction:column; }
   .sidebar-logo { padding:0 20px 24px; border-bottom:1px solid var(--border); }
-  .sidebar-logo h1 { font-size:15px; font-weight:600; color:var(--text); }
-  .sidebar-logo p { font-size:11px; color:var(--muted); margin-top:2px; font-family:'JetBrains Mono',monospace; }
-  .nav { padding:16px 0; flex:1; }
-  .nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; font-size:13px; cursor:pointer; color:var(--muted); border-radius:6px; margin:0 8px; transition:color 130ms ease, background 130ms ease; }
+  .sidebar-logo h1 { font-size:14px; font-weight:600; letter-spacing:-0.01em; color:var(--text); }
+  .sidebar-logo p { font-size:11px; color:var(--muted); margin-top:3px; font-family:'JetBrains Mono',monospace; }
+  .nav { padding:12px 0; flex:1; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:9px 12px; font-size:13px; cursor:pointer; color:var(--muted); border-radius:8px; margin:0 8px; transition:color 130ms var(--ease-out), background 130ms var(--ease-out); }
   @media (hover: hover) and (pointer: fine) {
     .nav-item:hover { background:var(--surface2); color:var(--text); }
   }
@@ -63,8 +63,8 @@
   .page { display:none; opacity:0; transition:opacity 180ms var(--ease-out), display 180ms allow-discrete; }
   .page.active { display:block; opacity:1; }
   @starting-style { .page.active { opacity:0; } }
-  .page-title { font-size:20px; font-weight:600; margin-bottom:4px; }
-  .page-sub { font-size:13px; color:var(--muted); margin-bottom:32px; }
+  .page-title { font-size:20px; font-weight:600; letter-spacing:-0.02em; margin-bottom:4px; }
+  .page-sub { font-size:13px; color:var(--muted); margin-bottom:20px; }
 
   /* CARDS GRID */
   .cards-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:28px; }
@@ -102,8 +102,9 @@
   .metric-sm .sm-sub { font-size:10px; color:var(--muted); margin-top:3px; }
 
   /* PROGRESS */
-  .progress-section { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:22px; margin-bottom:28px; }
-  .progress-section h3 { font-size:14px; font-weight:600; margin-bottom:16px; }
+  .progress-section { padding-bottom:20px; margin-bottom:20px; border-bottom:1px solid var(--border); }
+  .progress-section:last-child { border-bottom:none; padding-bottom:0; margin-bottom:0; }
+  .progress-section h3 { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; margin-bottom:14px; }
   .progress-item { margin-bottom:16px; }
   .progress-item:last-child { margin-bottom:0; }
   .progress-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
@@ -141,7 +142,7 @@
   .form-group input:focus, .form-group select:focus {
     border-color:var(--green);
     background:var(--surface);
-    box-shadow:0 0 0 3px rgba(61,170,114,0.1);
+    box-shadow:0 0 0 3px oklch(65% 0.15 155 / 0.12);
   }
   .btn { padding:9px 18px; border-radius:8px; border:none; cursor:pointer; font-size:13px; font-weight:500; font-family:'Manrope',sans-serif; transition:opacity 150ms var(--ease-out), transform 150ms var(--ease-out); }
   .btn:active { transform:scale(0.97); }
@@ -149,17 +150,23 @@
   @media (hover: hover) and (pointer: fine) {
     .btn-primary:hover { opacity:0.88; }
   }
-  .btn-danger { background:var(--red-bg); color:var(--red); border:1px solid var(--red-border); }
+  .btn-danger { background:transparent; color:var(--muted); border:1px solid var(--border); }
   @media (hover: hover) and (pointer: fine) {
-    .btn-danger:hover { filter:brightness(1.15); }
+    .btn-danger:hover { background:var(--red-bg); color:var(--red); border-color:var(--red-border); }
   }
+  .btn-danger:active { background:var(--red-bg); color:var(--red); }
   .btn-sm { padding:5px 10px; font-size:12px; }
   /* LISTA DE MOVIMIENTOS */
-  .mov-row { display:grid; grid-template-columns:40px 1fr auto; align-items:center; gap:0 12px; padding:11px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 120ms ease; -webkit-tap-highlight-color:transparent; }
+  .mov-row { display:grid; grid-template-columns:44px 1fr auto; align-items:center; gap:0 12px; padding:10px 14px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 120ms var(--ease-out); -webkit-tap-highlight-color:transparent; animation:rowIn 220ms var(--ease-out) both; animation-delay:calc(var(--i,0) * 22ms); }
   .mov-row:last-child { border-bottom:none; }
   @media (hover:hover) and (pointer:fine) { .mov-row:hover { background:var(--surface2); } }
   .mov-row:active { background:var(--surface2); }
-  .mov-date { font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; line-height:1.3; }
+  @keyframes rowIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+  .mov-date { font-size:10px; color:var(--muted); font-family:'JetBrains Mono',monospace; text-align:center; line-height:1.2; }
+  .mov-date b { font-size:14px; font-weight:600; color:var(--text); display:block; line-height:1; }
+  .select-inline { border:1px solid var(--border); border-radius:8px; padding:5px 10px; font-size:12px; background:var(--surface2); color:var(--text); outline:none; font-family:'Manrope',sans-serif; transition:border-color 150ms var(--ease-out); cursor:pointer; }
+  .select-inline:focus { border-color:var(--green); }
+  .table-header .btn-danger { color:var(--red); border-color:var(--red-border); }
   .mov-desc { font-size:13px; color:var(--text); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mov-cat  { margin-top:3px; }
   .mov-amt  { font-size:14px; font-family:'JetBrains Mono',monospace; font-weight:600; text-align:right; white-space:nowrap; }
@@ -194,8 +201,9 @@
   .dist-vida  { color:var(--green); }
   .dist-oblig { color:var(--blue); }
   .dist-inv   { color:var(--purple); }
-  .plan-section { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:22px; margin-bottom:28px; }
-  .plan-section h3 { font-size:14px; font-weight:600; margin-bottom:16px; }
+  .plan-section { padding-bottom:20px; margin-bottom:20px; border-bottom:1px solid var(--border); }
+  .plan-section:last-child { border-bottom:none; padding-bottom:0; margin-bottom:0; }
+  .plan-section h3 { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; margin-bottom:14px; }
   .plan-obl-row { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
   .plan-obl-row:last-child { margin-bottom:0; }
   .plan-obl-info { flex:1; min-width:0; }
@@ -276,7 +284,7 @@
 
   /* TABS */
   .tab-bar { display:flex; gap:2px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:4px; margin-bottom:20px; }
-  .tab-btn { flex:1; padding:7px 12px; border:none; border-radius:7px; background:transparent; color:var(--muted); font-size:13px; font-weight:500; font-family:'Manrope',sans-serif; cursor:pointer; transition:color 150ms ease, background 150ms ease; }
+  .tab-btn { flex:1; padding:7px 12px; border:none; border-radius:7px; background:transparent; color:var(--muted); font-size:13px; font-weight:500; font-family:'Manrope',sans-serif; cursor:pointer; transition:color 150ms var(--ease-out), background 150ms var(--ease-out), box-shadow 150ms var(--ease-out); }
   @media (hover: hover) and (pointer: fine) {
     .tab-btn:hover:not(.active) { color:var(--text); }
   }
@@ -290,7 +298,7 @@
   #toast-container { position:fixed; bottom:24px; right:24px; display:flex; flex-direction:column-reverse; gap:8px; z-index:1000; pointer-events:none; }
   .toast {
     padding:11px 16px; border-radius:10px; font-size:13px; font-weight:500;
-    box-shadow:0 4px 20px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.25);
+    box-shadow:0 4px 24px oklch(8% 0.01 240 / 0.6), 0 1px 4px oklch(8% 0.01 240 / 0.3);
     pointer-events:all; opacity:0; transform:translateY(12px) scale(0.97);
     transition:opacity 250ms var(--ease-out), transform 250ms var(--ease-out);
     max-width:320px; line-height:1.4;
@@ -321,7 +329,7 @@
     transform:scale(1);
     opacity:1;
     transition:transform 220ms var(--ease-out), opacity 220ms var(--ease-out);
-    box-shadow:0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.25);
+    box-shadow:0 8px 40px oklch(8% 0.01 240 / 0.7), 0 2px 8px oklch(8% 0.01 240 / 0.3);
   }
   @starting-style {
     .modal-overlay { opacity:0; }
@@ -437,12 +445,17 @@
   .trab-month { background:var(--surface); border:1px solid var(--border); border-radius:12px; margin-bottom:10px; overflow:hidden; }
   .trab-month-hd { padding:10px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; gap:12px; }
   @media(hover:hover) and (pointer:fine){ .trab-month-hd:hover { background:var(--surface2); } }
-  .trab-month-hd h4 { font-size:13px; font-weight:600; margin:0; }
+  .trab-month-hd h4 { font-size:13px; font-weight:600; letter-spacing:-0.01em; margin:0; }
   .trab-month-stats { font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace; white-space:nowrap; }
   .trab-month-body { display:none; border-top:1px solid var(--border); opacity:0; transform:translateY(-4px); transition:opacity 220ms var(--ease-out), transform 220ms var(--ease-out), display 220ms allow-discrete; }
   .trab-month-body.open { display:block; opacity:1; transform:translateY(0); }
   @starting-style { .trab-month-body.open { opacity:0; transform:translateY(-4px); } }
-  .trab-sec-label { font-size:10px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; padding:12px 20px 6px; }
+  .trab-sec-label { font-size:10px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; padding:10px 14px 5px; }
+  .info-banner { display:flex;align-items:center;gap:10px;border:1px solid;border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:13px; }
+  .info-banner.blue { background:var(--blue-bg);border-color:var(--blue-border);color:var(--blue); }
+  .seg-toggle { display:flex;gap:3px;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:16px; }
+  .seg-btn { flex:1;padding:7px 10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;font-family:'Manrope',sans-serif;background:transparent;color:var(--muted);transition:background 180ms var(--ease-out),color 180ms var(--ease-out),box-shadow 180ms var(--ease-out); }
+  .seg-btn.active { background:var(--surface);color:var(--text);box-shadow:0 1px 3px oklch(0% 0 0 / 0.3); }
   .trab-pill { display:inline-block; font-size:10px; font-weight:600; padding:1px 7px; border-radius:99px; }
   .trab-pill-f      { background:var(--green-bg);  color:var(--green);  }
   .trab-pill-nf     { background:var(--amber-bg);  color:var(--amber);  }
@@ -647,9 +660,9 @@
           </div>
 
           <div id="tab-historial-lista" class="tab-pane active">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-              <span style="font-size:12px;color:var(--muted)">Período:</span>
-              <select id="hist-mes-sel" onchange="renderHistorial()" style="border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;background:var(--surface2);color:var(--text);outline:none">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+              <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Período</span>
+              <select id="hist-mes-sel" onchange="renderHistorial()" class="select-inline">
                 <option value="actual">Mes actual</option>
               </select>
             </div>
@@ -689,10 +702,10 @@
       <div class="page-title">Inversiones</div>
       <div class="page-sub">FCI Money Market y CEDEARs — tu plan de construcción de capital</div>
 
-      <div style="display:flex;align-items:center;gap:10px;background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:13px;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span id="tc-indicador" style="color:var(--blue);flex:1;min-width:0">Obteniendo tipo de cambio MEP...</span>
-        <button class="btn btn-sm" style="margin-left:auto;font-size:11px;padding:3px 10px;flex-shrink:0;white-space:nowrap" onclick="fetchTC()">↻ Actualizar</button>
+      <div class="info-banner blue">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="tc-indicador" style="flex:1;min-width:0">Obteniendo tipo de cambio MEP...</span>
+        <button class="btn btn-sm" style="font-size:11px;flex-shrink:0;white-space:nowrap;background:transparent;border:1px solid var(--blue-border);color:var(--blue)" onclick="fetchTC()">↻ Actualizar</button>
       </div>
 
       <!-- Panel dinámico FCI + CEDEARs -->
@@ -702,7 +715,7 @@
       <div id="inv-cartera"></div>
 
       <!-- Formulario nueva operación -->
-      <div class="form-card" style="margin-top:20px">
+      <div class="form-card">
         <div class="form-grid">
           <div class="form-group full">
             <select id="inv-tipo" onchange="toggleInvTipo()">
@@ -856,9 +869,9 @@
       <div id="tab-trabajo-dia" class="tab-pane active">
         <div class="form-card">
           <!-- Segmented toggle -->
-          <div style="display:flex;gap:3px;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:20px">
-            <button id="dia-btn-trabajo" onclick="setDiaMode('trabajo')" style="flex:1;padding:7px 10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:var(--surface);color:var(--text);box-shadow:0 1px 3px oklch(0% 0 0 / 0.3);transition:background 180ms var(--ease-out),color 180ms var(--ease-out)">Día de trabajo</button>
-            <button id="dia-btn-ingreso" onclick="setDiaMode('ingreso')" style="flex:1;padding:7px 10px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;background:transparent;color:var(--muted);transition:background 180ms var(--ease-out),color 180ms var(--ease-out)">Ingreso especial</button>
+          <div class="seg-toggle">
+            <button id="dia-btn-trabajo" class="seg-btn active" onclick="setDiaMode('trabajo')">Día de trabajo</button>
+            <button id="dia-btn-ingreso" class="seg-btn" onclick="setDiaMode('ingreso')">Ingreso especial</button>
           </div>
 
           <!-- Modo: día de trabajo -->
@@ -889,7 +902,7 @@
             </div>
             <div class="form-group inline-action" style="margin-top:8px;gap:6px">
               <span style="font-size:11px;color:var(--muted);white-space:nowrap">Tarifa: <span id="trab-tarifa-label" style="font-family:'JetBrains Mono',monospace;color:var(--text)">$8.440</span>/h</span>
-              <input type="number" id="trab-tarifa-input" placeholder="Cambiar tarifa" style="flex:1;border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:12px;background:var(--surface2);color:var(--text);outline:none">
+              <input type="number" id="trab-tarifa-input" placeholder="Cambiar tarifa" style="flex:1;padding:5px 8px;font-size:12px">
               <button class="btn btn-sm" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap" onclick="actualizarTarifaHora()">↻</button>
             </div>
           </div>
@@ -2254,12 +2267,10 @@ function renderResumen(){
   if(sueldoEl){
     if(generadoM > 0 || cobM > 0){
       sueldoEl.innerHTML = `
-        <div class="progress-section" style="margin-bottom:20px">
-          <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;gap:12px">
-            <span style="font-size:12px;color:var(--muted)">Sueldo generado</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:var(--green);flex:1">${fmt(generadoM)}</span>
-            <button class="btn btn-sm" onclick="showPage('trabajo')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap;flex-shrink:0">+ Registrar día</button>
-          </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px">
+          <span style="font-size:12px;color:var(--muted)">Sueldo generado</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:var(--green);flex:1">${fmt(generadoM)}</span>
+          <button class="btn btn-sm" onclick="showPage('trabajo')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap;flex-shrink:0">+ Registrar día</button>
         </div>`;
     } else {
       sueldoEl.innerHTML = '';
@@ -2697,11 +2708,13 @@ function renderHistorial(){
   }
 
   const invLabels = { cedears: 'CEDEARs', fci: 'FCI / colchón' };
-  const fmtFecha = f => { const d = new Date(f+'T12:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; };
-  const rows = sorted.map(m => {
+  const _MS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const fmtFecha = f => { const d = new Date(f+'T12:00'); return `<b>${String(d.getDate()).padStart(2,'0')}</b>${_MS[d.getMonth()]}`; };
+  const rows = sorted.map((m, idx) => {
+    const si = `style="--i:${idx}"`;
     if(m._esTransferencia){
       const label = esc(m.nota) || `${RESERVA_LABELS[m.de]||m.de} → ${RESERVA_LABELS[m.a]||m.a}`;
-      return `<div class="mov-row" onclick="abrirModalTransf(${m.id})">
+      return `<div class="mov-row" ${si} onclick="abrirModalTransf(${m.id})">
         <div class="mov-date">${fmtFecha(m.fecha)}</div>
         <div><div class="mov-desc">${label}</div><div class="mov-cat"><span class="badge badge-purple">Transferencia</span></div></div>
         <div class="mov-amt" style="color:var(--purple)">${fmt(m.monto)}</div>
@@ -2710,24 +2723,24 @@ function renderHistorial(){
     if(m._esInversion){
       const invLabel = invLabels[m.tipo] || m.tipo;
       const reservada = m.estado === 'reservada' ? ` <span style="color:var(--amber);font-size:10px">· reservada</span>` : '';
-      return `<div class="mov-row" onclick="abrirModalInv(${m.id})">
+      return `<div class="mov-row" ${si} onclick="abrirModalInv(${m.id})">
         <div class="mov-date">${fmtFecha(m.fecha)}</div>
         <div><div class="mov-desc">${esc(m.nota)||'Inversión'}</div><div class="mov-cat"><span class="badge badge-blue">${invLabel}</span>${reservada}</div></div>
         <div class="mov-amt" style="color:var(--blue)">+${fmt(m.monto)}</div>
       </div>`;
     }
     if(m.tipo === 'saldo_inicial'){
-      return `<div class="mov-row" onclick="abrirModalCheckpoint(${m.id})">
+      return `<div class="mov-row" ${si} onclick="abrirModalCheckpoint(${m.id})">
         <div class="mov-date">${fmtFecha(m.fecha)}</div>
         <div><div class="mov-desc">Checkpoint</div><div class="mov-cat" style="font-size:11px;color:var(--muted)">Oblig: ${fmt(m.distribucion?.obligaciones||0)} · Disp: ${fmt(m.distribucion?.disponible||0)}</div></div>
-        <div class="mov-amt"><span class="badge badge-blue">⬤</span></div>
+        <div class="mov-amt"><span class="badge badge-blue">·</span></div>
       </div>`;
     }
     const esCobro  = m.tipo === 'cobro';
     const isFlash  = _flashMovId === m.id;
     const distHint = esCobro && m.distribucion ? ` <span style="font-size:10px;color:var(--blue);opacity:0.6">· dist</span>` : '';
     const descText = esc(m.nota) || catLabels[m.categoria] || m.categoria;
-    return `<div class="mov-row"${isFlash?' data-flash':''} onclick="abrirModalMov(${m.id})">
+    return `<div class="mov-row"${isFlash?' data-flash':''} ${si} onclick="abrirModalMov(${m.id})">
       <div class="mov-date">${fmtFecha(m.fecha)}</div>
       <div><div class="mov-desc">${descText}${distHint}</div><div class="mov-cat"><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span></div></div>
       <div class="mov-amt" style="color:${esCobro?'var(--green)':'var(--red)'}">${esCobro?'+':'−'}${fmt(m.monto)}</div>
@@ -2914,7 +2927,7 @@ function renderTarjeta(){
   }
   function labelMeses(m){
     if(m === null) return 'sin datos';
-    if(m === 0) return '✓ alcanzado';
+    if(m === 0) return 'alcanzado';
     if(m < 12) return `~${m} mes${m!==1?'es':''}`;
     const y = Math.floor(m/12), mo = m%12;
     return `~${y} año${y!==1?'s':''}${mo>0?' '+mo+'m':''}`;
@@ -2936,64 +2949,64 @@ function renderTarjeta(){
     : '';
 
   panel.innerHTML = `
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px">
-      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:4px">Fase actual</div>
-      <div style="font-size:15px;font-weight:600;color:${faseInfo.color};margin-bottom:4px">${faseInfo.label}</div>
-      <div style="font-size:12px;color:var(--muted)">${faseInfo.desc}</div>
-    </div>
-
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
-        <span style="font-size:13px;font-weight:600">FCI Money Market</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--purple)">${fmt(fciSaldo)}</span>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Fase actual</div>
+        <div style="font-size:14px;font-weight:600;letter-spacing:-0.01em;color:${faseInfo.color}">${faseInfo.label}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${faseInfo.desc}</div>
       </div>
-      <div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
-          <span>Meta Fase 1: ${fmt(FCI_META_1)}</span>
-          <span>${pct1}% · ${labelMeses(mesesFCI(FCI_META_1))}</span>
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+          <span style="font-size:12px;font-weight:600;letter-spacing:-0.01em">FCI Money Market</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:var(--purple)">${fmt(fciSaldo)}</span>
         </div>
-        <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
-          <div style="height:100%;transform:scaleX(${pct1/100});transform-origin:left;background:${pct1>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+            <span>Meta Fase 1: ${fmt(FCI_META_1)}</span>
+            <span>${pct1}% · ${labelMeses(mesesFCI(FCI_META_1))}</span>
+          </div>
+          <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
+            <div style="height:100%;transform:scaleX(${pct1/100});transform-origin:left;background:${pct1>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
+          </div>
         </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+            <span>Meta Fase 2: ${fmt(FCI_META_2)}</span>
+            <span>${pct2}% · ${labelMeses(mesesFCI(FCI_META_2))}</span>
+          </div>
+          <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
+            <div style="height:100%;transform:scaleX(${pct2/100});transform-origin:left;background:${pct2>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
+          </div>
+        </div>
+        ${fciAporteRef>0?`<div style="font-size:11px;color:var(--muted);margin-top:8px">Referencia: ${fmt(fciAporteRef)} en los últimos 30 días</div>`:''}
       </div>
-      <div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
-          <span>Meta Fase 2: ${fmt(FCI_META_2)}</span>
-          <span>${pct2}% · ${labelMeses(mesesFCI(FCI_META_2))}</span>
+      <div style="padding:14px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+          <span style="font-size:12px;font-weight:600;letter-spacing:-0.01em">CEDEARs</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:var(--blue)">${fmtU(cedUSD)}</span>
         </div>
-        <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
-          <div style="height:100%;transform:scaleX(${pct2/100});transform-origin:left;background:${pct2>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">≈ ${fmt(cedARS)} ARS · TC MEP $${tc.toLocaleString('es-AR')}</div>
+        ${aportadoSubline}
+        <div style="margin-top:10px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+            <span>Hito 1: US$30.000</span>
+            <span>${pct30}% · ${labelMeses(mesesCEDEARs(30000))}</span>
+          </div>
+          <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
+            <div style="height:100%;transform:scaleX(${pct30/100});transform-origin:left;background:${pct30>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
+          </div>
         </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+            <span>Hito 2: US$100.000</span>
+            <span>${pct100}% · ${labelMeses(mesesCEDEARs(100000))}</span>
+          </div>
+          <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
+            <div style="height:100%;transform:scaleX(${pct100/100});transform-origin:left;background:${pct100>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
+          </div>
+        </div>
+        ${cedAporteRef>0?`<div style="font-size:11px;color:var(--muted);margin-top:8px">Referencia: ${fmtU(cedAporteRef)} en últimos 30 días · proyección compuesta 10% anual</div>`:''}
       </div>
-      ${fciAporteRef>0?`<div style="font-size:11px;color:var(--muted);margin-top:8px">Referencia: ${fmt(fciAporteRef)} aportado en los últimos 30 días</div>`:''}
-    </div>
-
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
-        <span style="font-size:13px;font-weight:600">CEDEARs</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--blue)">${fmtU(cedUSD)}</span>
-      </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">≈ ${fmt(cedARS)} ARS · TC MEP: $${tc.toLocaleString('es-AR')}</div>
-      ${aportadoSubline}
-      <div style="margin-top:12px;margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
-          <span>Hito 1: US$30.000</span>
-          <span>${pct30}% · ${labelMeses(mesesCEDEARs(30000))}</span>
-        </div>
-        <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
-          <div style="height:100%;transform:scaleX(${pct30/100});transform-origin:left;background:${pct30>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
-        </div>
-      </div>
-      <div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
-          <span>Hito 2: US$100.000</span>
-          <span>${pct100}% · ${labelMeses(mesesCEDEARs(100000))}</span>
-        </div>
-        <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden">
-          <div style="height:100%;transform:scaleX(${pct100/100});transform-origin:left;background:${pct100>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
-        </div>
-      </div>
-      ${cedAporteRef>0?`<div style="font-size:11px;color:var(--muted);margin-top:8px">Referencia: ${fmtU(cedAporteRef)} aportado en últimos 30 días · proyección compuesta 10% anual</div>`:''}
     </div>`;
 
   // ── Sección cartera: evolución, actualizar, historial ────
@@ -3613,16 +3626,9 @@ function setDiaMode(mode){
   document.getElementById('dia-form-ingreso').style.display  = isIngreso ? '' : 'none';
   const btnT = document.getElementById('dia-btn-trabajo');
   const btnI = document.getElementById('dia-btn-ingreso');
-  if(isIngreso){
-    btnI.style.background = 'var(--surface)'; btnI.style.color = 'var(--text)';
-    btnI.style.boxShadow = '0 1px 3px oklch(0% 0 0 / 0.3)';
-    btnT.style.background = 'transparent'; btnT.style.color = 'var(--muted)';
-    btnT.style.boxShadow = 'none';
-  } else {
-    btnT.style.background = 'var(--surface)'; btnT.style.color = 'var(--text)';
-    btnT.style.boxShadow = '0 1px 3px oklch(0% 0 0 / 0.3)';
-    btnI.style.background = 'transparent'; btnI.style.color = 'var(--muted)';
-    btnI.style.boxShadow = 'none';
+  btnT.classList.toggle('active', !isIngreso);
+  btnI.classList.toggle('active',  isIngreso);
+  if(false){
   }
 }
 
@@ -3797,16 +3803,16 @@ function renderTrabajo(){
           </div>
           <div style="display:flex;gap:2px;background:var(--surface2);border-radius:8px;padding:2px;flex-shrink:0;margin-top:2px">${sw('month')}${sw('year')}</div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-          <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:10px 12px">
-            <div style="font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Generado</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border);margin-top:10px;margin-bottom:10px">
+          <div style="padding:10px 0 0">
+            <div style="font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Generado</div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--green)">${fmt(gan + adel)}</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:4px">${adel > 0 ? `${fmt(gan)} horas · ${fmt(adel)} esp.` : `${fmt(gan)} en horas`}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:3px">${adel > 0 ? `${fmt(gan)} h · ${fmt(adel)} esp.` : `${fmt(gan)} en horas`}</div>
           </div>
-          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Cobrado</div>
+          <div style="padding:10px 0 0 14px;border-left:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Cobrado</div>
             <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600">${fmt(cob)}</div>
-            <div style="font-size:10px;margin-top:4px;color:${sf > 0 ? 'var(--amber)' : 'var(--muted)'}">${sf > 0 ? `${fmt(sf)} sin facturar` : 'todo facturado'}</div>
+            <div style="font-size:10px;margin-top:3px;color:${sf > 0 ? 'var(--amber)' : 'var(--muted)'}">${sf > 0 ? `${fmt(sf)} sin facturar` : 'todo facturado'}</div>
           </div>
         </div>
         <div style="display:flex;gap:16px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)">
