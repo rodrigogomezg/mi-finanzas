@@ -117,10 +117,13 @@
   .fill-purple { background:var(--purple); }
 
   /* FORM */
-  .form-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 20px; margin-bottom:20px; }
+  .form-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:20px; }
   .form-card h3 { font-size:11px; font-weight:600; margin-bottom:12px; color:oklch(70% 0.008 240); text-transform:uppercase; letter-spacing:0.07em; }
   .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .fg-3col { grid-template-columns:2fr 1fr 1fr; }
+  .fg-4col { grid-template-columns:repeat(4,1fr); }
+  .form-pair { grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .form-group.inline-action > input { flex:1; }
   .table-wrap-sm table { min-width:auto; }
   .form-group { display:flex; flex-direction:column; gap:3px; }
   .form-group.full { grid-column:1/-1; }
@@ -203,11 +206,11 @@
 
   /* TABLE */
   .table-wrap { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:28px; }
-  .table-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
-  .table-header h3 { font-size:14px; font-weight:600; }
+  .table-header { padding:10px 14px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .table-header h3 { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); }
   table { width:100%; border-collapse:collapse; }
-  thead th { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; padding:10px 20px; text-align:left; background:var(--surface2); border-bottom:1px solid var(--border); }
-  tbody td { padding:11px 20px; border-bottom:1px solid var(--border); font-size:13px; }
+  thead th { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; padding:7px 14px; text-align:left; background:var(--surface2); border-bottom:1px solid var(--border); }
+  tbody td { padding:9px 14px; border-bottom:1px solid var(--border); font-size:13px; }
   tbody tr:last-child td { border-bottom:none; }
   @media (hover: hover) and (pointer: fine) {
     tbody tr:hover { background:var(--surface2); }
@@ -228,7 +231,9 @@
 
   /* TAREAS */
   .tareas-section-title { font-size:12px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; margin:20px 0 10px; }
-  .tarea-item { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:8px; display:flex; align-items:center; gap:12px; transition:opacity 200ms var(--ease-out); }
+  .tarea-table { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .tarea-item { background:transparent; border:none; border-bottom:1px solid var(--border); border-radius:0; padding:10px 14px; margin-bottom:0; display:flex; align-items:center; gap:10px; transition:opacity 200ms var(--ease-out); }
+  .tarea-item:last-child { border-bottom:none; }
   .tarea-item.completada { opacity:0.45; }
   .tarea-check { width:20px; height:20px; border-radius:50%; border:2px solid var(--border); cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:border-color 150ms ease, background 150ms ease; }
   @media (hover: hover) and (pointer: fine) {
@@ -347,9 +352,8 @@
     .metric-hero .hero-grid { grid-template-columns:repeat(2,1fr); gap:8px; }
     .secondary-cards { grid-template-columns:repeat(2,1fr); gap:8px; }
 
-    /* Tablas: scroll horizontal */
+    /* Tablas: scroll solo si hay overflow real */
     .table-wrap { overflow-x:auto; }
-    .table-wrap table { min-width:480px; }
 
     /* Calendario: scroll horizontal */
     .cal-scroll-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
@@ -358,6 +362,7 @@
     /* Forms */
     .form-grid { grid-template-columns:1fr; }
     .fg-3col { grid-template-columns:1fr; }
+    .fg-4col { grid-template-columns:1fr; }
 
     /* Modales: bottom sheet */
     .modal-overlay { align-items:flex-end; }
@@ -407,9 +412,8 @@
     /* Trabajo: tab bar con 4 botones — reducir para que entren */
     #page-trabajo .tab-btn { font-size:11px; padding:6px 4px; }
 
-    /* Trabajo historial: tablas con scroll horizontal */
+    /* Trabajo historial: scroll horizontal solo si la tabla lo necesita */
     .trab-month-body { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-    .trab-month-body table { min-width:400px; }
 
 
     /* Tarjeta: tablas de proyección y gastos con scroll horizontal */
@@ -566,14 +570,11 @@
 
       <div id="tab-movimientos-cobro" class="tab-pane active">
         <div class="form-card">
-          <h3>¿Cuánto cobraste?</h3>
           <div class="form-grid">
             <div class="form-group">
-              <label>Monto ($)</label>
-              <input type="number" id="cobro-monto" placeholder="337500" min="1" oninput="calcularDistribucion()">
+              <input type="number" id="cobro-monto" placeholder="Monto ($)" min="1" oninput="calcularDistribucion()">
             </div>
             <div class="form-group">
-              <label>Tipo</label>
               <select id="cobro-tipo" onchange="calcularDistribucion()">
                 <option value="sueldo">Pago de sueldo</option>
                 <option value="semanal">Cobro semanal (otro)</option>
@@ -581,23 +582,20 @@
                 <option value="extra">Ingreso extra / ventas</option>
               </select>
             </div>
-            <div class="form-group">
-              <label>Medio de pago</label>
-              <select id="cobro-metodo">
-                <option value="transferencia">Transferencia</option>
-                <option value="efectivo">Efectivo</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Fecha</label>
-              <input type="date" id="cobro-fecha">
+            <div class="form-pair">
+              <div class="form-group">
+                <select id="cobro-metodo">
+                  <option value="transferencia">Transferencia</option>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <input type="date" id="cobro-fecha">
+              </div>
             </div>
             <div class="form-group inline-action full">
-              <div>
-                <label>Nota (opcional)</label>
-                <input type="text" id="cobro-nota" placeholder="Ej: cliente Matisa">
-              </div>
+              <input type="text" id="cobro-nota" placeholder="Nota (opcional)">
               <button class="btn btn-primary" id="cobro-btn-default" onclick="registrarCobro(true)">Registrar</button>
             </div>
           </div>
@@ -608,39 +606,33 @@
 
       <div id="tab-movimientos-gasto" class="tab-pane">
         <div class="form-card">
-          <h3>Nuevo gasto</h3>
           <div class="form-grid">
             <div class="form-group">
-              <label>Monto ($)</label>
-              <input type="number" id="gasto-monto" placeholder="0" min="1">
+              <input type="number" id="gasto-monto" placeholder="Monto ($)" min="1">
             </div>
             <div class="form-group">
-              <label>Categoría</label>
-              <select id="gasto-cat">
-                <option value="comida">Comida / supermercado</option>
-                <option value="servicios">Servicios (luz, gas, agua...)</option>
-                <option value="combustible">Combustible</option>
-                <option value="alquiler">Alquiler</option>
-                <option value="tarjeta">Tarjeta</option>
-                <option value="otro">Otro</option>
+              <input type="text" id="gasto-desc" placeholder="Descripción (ej: Gas mayo)">
+            </div>
+            <div class="form-pair">
+              <div class="form-group">
+                <select id="gasto-cat">
+                  <option value="comida">Comida / supermercado</option>
+                  <option value="servicios">Servicios (luz, gas, agua...)</option>
+                  <option value="combustible">Combustible</option>
+                  <option value="alquiler">Alquiler</option>
+                  <option value="tarjeta">Tarjeta</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <input type="date" id="gasto-fecha">
+              </div>
+            </div>
+            <div class="form-group inline-action full">
+              <select id="gasto-tarea" onchange="seleccionarTareaGasto()" style="flex:1">
+                <option value="">Vincular a tarea (opcional)</option>
               </select>
-            </div>
-            <div class="form-group">
-              <label>Fecha</label>
-              <input type="date" id="gasto-fecha">
-            </div>
-            <div class="form-group">
-              <label>Descripción</label>
-              <input type="text" id="gasto-desc" placeholder="Ej: Gas mayo">
-            </div>
-            <div class="form-group full">
-              <label>Vincular a tarea <span style="color:var(--muted);font-weight:400">(opcional · autocompleta monto y cat.)</span></label>
-              <select id="gasto-tarea" onchange="seleccionarTareaGasto()">
-                <option value="">— Sin vincular —</option>
-              </select>
-            </div>
-            <div class="form-group full" style="margin-top:2px">
-              <button class="btn btn-primary" onclick="registrarGasto()">Registrar gasto</button>
+              <button class="btn btn-primary" onclick="registrarGasto()">Registrar</button>
             </div>
           </div>
         </div>
@@ -711,10 +703,8 @@
 
       <!-- Formulario nueva operación -->
       <div class="form-card" style="margin-top:20px">
-        <h3>Registrar operación</h3>
-        <div class="form-grid fg-3col">
-          <div class="form-group">
-            <label>Tipo</label>
+        <div class="form-grid">
+          <div class="form-group full">
             <select id="inv-tipo" onchange="toggleInvTipo()">
               <option value="fci">Depósito FCI (ARS)</option>
               <option value="fci_saldo">Actualizar saldo FCI (ARS)</option>
@@ -722,19 +712,16 @@
               <option value="ced_saldo">Actualizar cartera CEDEARs (USD)</option>
             </select>
           </div>
-          <div class="form-group">
-            <label id="inv-monto-label">Monto</label>
-            <input type="number" id="inv-monto" placeholder="0" min="0" step="0.01">
-          </div>
-          <div class="form-group">
-            <label>Fecha</label>
-            <input type="date" id="inv-fecha">
+          <div class="form-pair">
+            <div class="form-group">
+              <input type="number" id="inv-monto" placeholder="Monto" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <input type="date" id="inv-fecha">
+            </div>
           </div>
           <div class="form-group inline-action full">
-            <div>
-              <label>Nota (opcional)</label>
-              <input type="text" id="inv-nota" placeholder="Ej: Rendimiento mayo, compra GGAL...">
-            </div>
+            <input type="text" id="inv-nota" placeholder="Nota (opcional)">
             <button class="btn btn-primary" onclick="guardarInversion()">Confirmar</button>
           </div>
         </div>
@@ -753,23 +740,20 @@
       <div class="page-sub">Registrá lo que tenés que pagar y marcalo cuando lo hacés</div>
 
       <div class="form-card">
-        <h3>Nueva tarea</h3>
         <div class="form-grid">
-          <div class="form-group">
-            <label>Descripción</label>
-            <input type="text" id="tarea-desc" placeholder="Ej: Gas junio">
+          <div class="form-group full">
+            <input type="text" id="tarea-desc" placeholder="Descripción (ej: Gas junio)">
           </div>
-          <div class="form-group">
-            <label>Monto ($)</label>
-            <input type="number" id="tarea-monto" placeholder="12357">
+          <div class="form-pair">
+            <div class="form-group">
+              <input type="number" id="tarea-monto" placeholder="Monto ($)">
+            </div>
+            <div class="form-group">
+              <input type="date" id="tarea-venc">
+            </div>
           </div>
-          <div class="form-group">
-            <label>Fecha de vencimiento</label>
-            <input type="date" id="tarea-venc">
-          </div>
-          <div class="form-group">
-            <label>Categoría</label>
-            <select id="tarea-cat">
+          <div class="form-group inline-action full">
+            <select id="tarea-cat" style="flex:1">
               <option value="servicios">Servicios</option>
               <option value="monotributo">Monotributo</option>
               <option value="alquiler">Alquiler</option>
@@ -778,10 +762,8 @@
               <option value="fci">FCI / colchón</option>
               <option value="otro">Otro</option>
             </select>
+            <button class="btn btn-primary" onclick="agregarTarea()">Agregar</button>
           </div>
-        </div>
-        <div style="margin-top:14px;">
-          <button class="btn btn-primary" onclick="agregarTarea()">Agregar tarea</button>
         </div>
       </div>
 
@@ -882,63 +864,47 @@
           <!-- Modo: día de trabajo -->
           <div id="dia-form-trabajo">
             <div class="form-grid">
-              <div class="form-group full" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                <div class="form-group">
-                  <label>Fecha</label>
-                  <input type="date" id="trab-fecha">
-                </div>
-                <div class="form-group inline-action">
-                  <div>
-                    <label>Tarifa — <span id="trab-tarifa-label" style="font-family:'JetBrains Mono',monospace;color:var(--text)">$8.440</span>/h</label>
-                    <input type="number" id="trab-tarifa-input" placeholder="nueva tarifa">
-                  </div>
-                  <button class="btn btn-sm" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap" onclick="actualizarTarifaHora()">↻</button>
-                </div>
+              <div class="form-group full">
+                <input type="date" id="trab-fecha">
               </div>
-              <div class="form-group full" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <div class="form-pair">
                 <div class="form-group">
-                  <label>Hora entrada</label>
-                  <input type="number" id="trab-entrada" placeholder="9" step="0.5" min="0" max="23" oninput="calcHorasTrab()">
+                  <select id="trab-entrada" onchange="calcHorasTrab()"><option value="">Entrada</option></select>
                 </div>
                 <div class="form-group">
-                  <label>Hora salida</label>
-                  <input type="number" id="trab-salida" placeholder="17" step="0.5" min="0" max="24" oninput="calcHorasTrab()">
+                  <select id="trab-salida" onchange="calcHorasTrab()"><option value="">Salida</option></select>
                 </div>
               </div>
               <div class="form-group full" style="display:flex;align-items:center;gap:10px">
-                <p id="trab-calc-preview" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:2px 0;flex:1">— hs × $0 = $0</p>
-                <label style="display:flex;align-items:center;cursor:pointer;user-select:none">
+                <span id="trab-calc-preview" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;flex:1">— hs × $0 = $0</span>
+                <label style="display:flex;align-items:center;cursor:pointer;user-select:none;flex-shrink:0">
                   <input type="checkbox" id="trab-feriado" onchange="calcHorasTrab()" style="display:none">
                   <span id="trab-feriado-pill" style="font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:color 150ms var(--ease-out),border-color 150ms var(--ease-out),background 150ms var(--ease-out)">Feriado</span>
                 </label>
               </div>
               <div class="form-group inline-action full">
-                <div>
-                  <label>Nota (opcional)</label>
-                  <input type="text" id="trab-nota" placeholder="Ej: reunión, medio día, etc.">
-                </div>
+                <input type="text" id="trab-nota" placeholder="Nota (opcional)">
                 <button class="btn btn-primary" onclick="agregarRegistroDia()">Registrar</button>
               </div>
+            </div>
+            <div class="form-group inline-action" style="margin-top:8px;gap:6px">
+              <span style="font-size:11px;color:var(--muted);white-space:nowrap">Tarifa: <span id="trab-tarifa-label" style="font-family:'JetBrains Mono',monospace;color:var(--text)">$8.440</span>/h</span>
+              <input type="number" id="trab-tarifa-input" placeholder="Cambiar tarifa" style="flex:1;border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:12px;background:var(--surface2);color:var(--text);outline:none">
+              <button class="btn btn-sm" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap" onclick="actualizarTarifaHora()">↻</button>
             </div>
           </div>
 
           <!-- Modo: ingreso especial -->
           <div id="dia-form-ingreso" style="display:none">
-            <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Reembolsos y gastos pagados de tu bolsillo que la empresa te debe devolver. Se suman al saldo adeudado.</p>
             <div class="form-grid">
               <div class="form-group">
-                <label>Monto ($)</label>
-                <input type="number" id="trab-adel-monto" placeholder="48000" min="1">
+                <input type="number" id="trab-adel-monto" placeholder="Monto ($)" min="1">
               </div>
               <div class="form-group">
-                <label>Fecha</label>
                 <input type="date" id="trab-adel-fecha">
               </div>
               <div class="form-group inline-action full">
-                <div>
-                  <label>Descripción</label>
-                  <input type="text" id="trab-adel-desc" placeholder="Ej: Monotributo mayo, Hostinger, envío">
-                </div>
+                <input type="text" id="trab-adel-desc" placeholder="Descripción (ej: Monotributo mayo, Hostinger)" style="flex:1">
                 <button class="btn btn-primary" onclick="agregarAdelantoEmpresa()">Registrar</button>
               </div>
             </div>
@@ -1235,7 +1201,7 @@ let registrosDiarios = [];
 let pagosMatisa      = [];
 let adelantosEmpresa = [];
 let tarifaHora       = 8440;
-let trabajoMetricMode = 'year';
+let trabajoMetricMode = 'month';
 
 // ── PLAN MENSUAL ─────────────────────────────────────────
 const FCI_META_1  = 650000;   // Fase 1→2: hasta este saldo todo va al FCI
@@ -1254,10 +1220,12 @@ let planMensual = JSON.parse(JSON.stringify(PLAN_DEFAULT));
 // ── INIT ─────────────────────────────────────────────────
 async function init(){
   const hoy = new Date().toISOString().split('T')[0];
-  document.getElementById('cobro-fecha').value = hoy;
-  document.getElementById('gasto-fecha').value = hoy;
-  document.getElementById('tarea-venc').value  = hoy;
-  document.getElementById('inv-fecha').value   = hoy;
+  document.getElementById('cobro-fecha').value     = hoy;
+  document.getElementById('gasto-fecha').value     = hoy;
+  document.getElementById('tarea-venc').value      = hoy;
+  document.getElementById('inv-fecha').value       = hoy;
+  document.getElementById('trab-adel-fecha').value = hoy;
+  _fillTimeSelects();
   movimientos   = await S.get('movimientos')   || [];
   historialUSD  = await S.get('historialUSD')  || [{fecha:'2026-05-11', valor:4244.48, nota:'Cartera inicial'}];
   separados     = await S.get('separados')     || { alquiler:0, tarjeta:0, inversion:0, fci:0 };
@@ -2287,23 +2255,10 @@ function renderResumen(){
     if(generadoM > 0 || cobM > 0){
       sueldoEl.innerHTML = `
         <div class="progress-section" style="margin-bottom:20px">
-          <h3>Sueldo este mes</h3>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px">
-            <div style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:10px 12px">
-              <div style="font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Generado</div>
-              <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:var(--green)">${fmt(generadoM)}</div>
-              ${adelM > 0 ? `<div style="font-size:10px;color:var(--muted);margin-top:3px">${fmt(ganM)} h · ${fmt(adelM)} esp.</div>` : `<div style="font-size:10px;color:var(--muted);margin-top:3px">${fmt(ganM)} en horas</div>`}
-            </div>
-            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
-              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Cobrado</div>
-              <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600">${fmt(cobM)}</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:3px">${cobM > 0 ? `${Math.round(cobM/generadoM*100)}% del generado` : 'sin pagos aún'}</div>
-            </div>
-            <div style="background:${pendienteM > 0 ? 'var(--amber-bg)' : 'var(--surface2)'};border:1px solid ${pendienteM > 0 ? 'var(--amber-border)' : 'var(--border)'};border-radius:8px;padding:10px 12px">
-              <div style="font-size:10px;color:${pendienteM > 0 ? 'var(--amber)' : 'var(--muted)'};text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Pendiente</div>
-              <div style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:${pendienteM > 0 ? 'var(--amber)' : 'var(--text)'}">${fmt(pendienteM)}</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:3px">${pendienteM > 0 ? 'por cobrar' : 'todo cobrado'}</div>
-            </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;gap:12px">
+            <span style="font-size:12px;color:var(--muted)">Sueldo generado</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:var(--green);flex:1">${fmt(generadoM)}</span>
+            <button class="btn btn-sm" onclick="showPage('trabajo')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap;flex-shrink:0">+ Registrar día</button>
           </div>
         </div>`;
     } else {
@@ -3046,10 +3001,10 @@ function renderTarjeta(){
     const hoy = new Date().toISOString().split('T')[0];
     const histRows = histPortfolio.length
       ? histPortfolio.map(h => `<tr>
-          <td style="padding:9px 8px;border-bottom:1px solid var(--border);white-space:nowrap">${new Date(h.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
-          <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;color:var(--blue);font-weight:500">${fmtU(h.valor)}</td>
-          <td style="padding:9px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-size:12px">${esc(h.nota||'')}</td>
-          <td style="padding:9px 8px;border-bottom:1px solid var(--border);text-align:right"><button class="btn btn-danger btn-sm" onclick="eliminarHistorialUSD('${h.fecha}',${h.valor})">×</button></td>
+          <td style="white-space:nowrap">${new Date(h.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
+          <td style="font-family:'JetBrains Mono',monospace;color:var(--blue);font-weight:500">${fmtU(h.valor)}</td>
+          <td style="color:var(--muted);font-size:12px">${esc(h.nota||'')}</td>
+          <td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="eliminarHistorialUSD('${h.fecha}',${h.valor})">×</button></td>
         </tr>`).join('')
       : `<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin registros aún</td></tr>`;
 
@@ -3065,12 +3020,12 @@ function renderTarjeta(){
 
       <div class="table-wrap table-wrap-sm" style="margin-top:20px">
         <div class="table-header"><h3>Historial de cartera</h3></div>
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <table>
           <thead><tr>
-            <th style="text-align:left;padding:6px 8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Fecha</th>
-            <th style="text-align:left;padding:6px 8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Valor</th>
-            <th style="text-align:left;padding:6px 8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">Nota</th>
-            <th style="border-bottom:1px solid var(--border)"></th>
+            <th>Fecha</th>
+            <th>Valor</th>
+            <th>Nota</th>
+            <th></th>
           </tr></thead>
           <tbody>${histRows}</tbody>
         </table>
@@ -3353,12 +3308,12 @@ function renderTareas(){
       ${totalPendiente ? ` — total: <span style="font-family:'JetBrains Mono',monospace;color:var(--red)">${fmt(totalPendiente)}</span>` : ''}
       ${vencidasHoy ? ` <span class="badge badge-red">${vencidasHoy} vencida${vencidasHoy>1?'s':''}</span>` : ''}
     </div>
-    ${pendientes.length ? pendientes.map(renderItem).join('') : '<div class="empty-state" style="padding:20px"><p>Sin tareas pendientes 🎉</p></div>'}
+    ${pendientes.length ? `<div class="tarea-table">${pendientes.map(renderItem).join('')}</div>` : '<div class="empty-state" style="padding:20px"><p>Sin tareas pendientes</p></div>'}
   `;
 
   document.getElementById('tareas-completadas-wrap').innerHTML = completadas.length ? `
     <div class="tareas-section-title">Completadas (${completadas.length})</div>
-    ${completadas.map(renderItem).join('')}
+    <div class="tarea-table">${completadas.map(renderItem).join('')}</div>
   ` : '';
 
   // Badge en resumen si hay vencidas/próximas
@@ -3671,9 +3626,26 @@ function setDiaMode(mode){
   }
 }
 
+function _timeToH(t){ const [h,m]=(t||'').split(':').map(Number); return isNaN(h)?NaN:h+(m||0)/60; }
+
+function _fillTimeSelects(){
+  ['trab-entrada','trab-salida'].forEach(id => {
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">${id==='trab-entrada'?'Entrada':'Salida'}</option>`;
+    for(let h=0;h<24;h++){
+      for(const m of [0,30]){
+        const v = `${String(h).padStart(2,'0')}:${m===0?'00':'30'}`;
+        sel.innerHTML += `<option value="${v}"${v===cur?' selected':''}>${v}</option>`;
+      }
+    }
+  });
+}
+
 function calcHorasTrab(){
-  const e = parseFloat(document.getElementById('trab-entrada').value);
-  const s = parseFloat(document.getElementById('trab-salida').value);
+  const e = _timeToH(document.getElementById('trab-entrada').value);
+  const s = _timeToH(document.getElementById('trab-salida').value);
   const pre  = document.getElementById('trab-calc-preview');
   const pill = document.getElementById('trab-feriado-pill');
   const esFeriado = document.getElementById('trab-feriado')?.checked;
@@ -3703,16 +3675,18 @@ async function actualizarTarifaHora(){
 }
 
 async function agregarRegistroDia(){
-  const fecha   = document.getElementById('trab-fecha').value;
-  const entrada = parseFloat(document.getElementById('trab-entrada').value);
-  const salida  = parseFloat(document.getElementById('trab-salida').value);
-  const nota    = document.getElementById('trab-nota').value.trim();
+  const fecha    = document.getElementById('trab-fecha').value;
+  const entStr   = document.getElementById('trab-entrada').value;
+  const salStr   = document.getElementById('trab-salida').value;
+  const entrada  = _timeToH(entStr);
+  const salida   = _timeToH(salStr);
+  const nota     = document.getElementById('trab-nota').value.trim();
   if(!fecha)           { toast('Elegí una fecha', 'err'); return; }
   if(isNaN(entrada) || isNaN(salida) || salida <= entrada){ toast('Revisá los horarios', 'err'); return; }
   const horas     = Math.round((salida - entrada) * 100) / 100;
   const esFeriado = document.getElementById('trab-feriado')?.checked || false;
   const monto     = Math.round(horas * tarifaHora * (esFeriado ? 2 : 1));
-  const rec       = { id: Date.now(), fecha, entrada: String(entrada), salida: String(salida), horas, monto, nota };
+  const rec       = { id: Date.now(), fecha, entrada: entStr, salida: salStr, horas, monto, nota };
   if(esFeriado) rec.feriado = true;
   registrosDiarios.push(rec);
   await S.set('registrosDiarios', registrosDiarios);
@@ -3887,33 +3861,33 @@ function renderTrabajoHistorial(){
 
     const regsHtml = regs.length === 0 ? '' : `
       <div class="trab-sec-label">Días trabajados (${regs.length})</div>
-      <table style="width:100%;border-collapse:collapse">
+      <table>
         <thead><tr>
-          <th style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 20px;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border)">Fecha</th>
-          <th style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 20px;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border)">Horario</th>
-          <th style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 20px;text-align:right;background:var(--surface2);border-bottom:1px solid var(--border)">Monto</th>
-          <th style="background:var(--surface2);border-bottom:1px solid var(--border);width:40px"></th>
+          <th>Fecha</th>
+          <th>Horario</th>
+          <th style="text-align:right">Monto</th>
+          <th style="width:36px"></th>
         </tr></thead>
         <tbody>${regs.map(r => {
           const d = new Date(r.fecha+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
-          const horario = `${r.entrada}:00 – ${r.salida}:00`;
+          const horario = `${r.entrada}–${r.salida}`;
           return `<tr>
-            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px">${d}${r.nota?' <span style="color:var(--muted);font-size:11px">· '+r.nota+'</span>':''}</td>
-            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace">${horario}</td>
-            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px;font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--green);text-align:right">${r.feriado?`<span style="font-size:10px;font-family:inherit;font-weight:500;color:var(--amber);background:oklch(78% 0.16 75 / 0.1);border:1px solid oklch(78% 0.16 75 / 0.3);border-radius:4px;padding:1px 5px;margin-right:5px;vertical-align:middle">×2</span>`:''} ${fmt(r.monto)}</td>
-            <td style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarRegistroDia(${r.id})">×</button></td>
+            <td>${d}${r.nota?' <span style="color:var(--muted);font-size:11px">· '+r.nota+'</span>':''}</td>
+            <td style="color:var(--muted);font-family:'JetBrains Mono',monospace">${horario}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--green);text-align:right">${r.feriado?`<span style="font-size:9px;font-family:inherit;font-weight:700;color:var(--amber);margin-right:3px">×2</span>`:''} ${fmt(r.monto)}</td>
+            <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarRegistroDia(${r.id})">×</button></td>
           </tr>`;
         }).join('')}</tbody>
       </table>`;
 
     const pagosHtml = pagos.length === 0 ? '' : `
       <div class="trab-sec-label">Pagos recibidos (${pagos.length})</div>
-      <table style="width:100%;border-collapse:collapse">
+      <table>
         <thead><tr>
-          <th style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 20px;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border)">Fecha</th>
-          <th style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 20px;text-align:right;background:var(--surface2);border-bottom:1px solid var(--border)">Monto</th>
-          <th style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 20px;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border)">Método / ARCA</th>
-          <th style="background:var(--surface2);border-bottom:1px solid var(--border);width:40px"></th>
+          <th>Fecha</th>
+          <th style="text-align:right">Monto</th>
+          <th>Método / ARCA</th>
+          <th style="width:36px"></th>
         </tr></thead>
         <tbody>${pagos.map(p => {
           const d = new Date(p.fecha+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
@@ -3926,30 +3900,30 @@ function renderTrabajoHistorial(){
           const metBadge = `<span class="trab-pill ${metClass}">${metLabel}</span>`;
           const delFn = p._fromMov ? `eliminar(${p.id})` : `eliminarPagoMatisa(${p.id})`;
           return `<tr>
-            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px">${d}${p.nota?' <span style="color:var(--muted);font-size:11px">· '+p.nota+'</span>':''}</td>
-            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px;font-family:'JetBrains Mono',monospace;font-weight:500;text-align:right">${fmt(p.monto)}</td>
-            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px"><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">${metBadge} ${facBadge}</div></td>
-            <td style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:center"><button class="btn btn-danger btn-sm" onclick="${delFn}">×</button></td>
+            <td>${d}${p.nota?' <span style="color:var(--muted);font-size:11px">· '+p.nota+'</span>':''}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-weight:500;text-align:right">${fmt(p.monto)}</td>
+            <td><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">${metBadge} ${facBadge}</div></td>
+            <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="${delFn}">×</button></td>
           </tr>`;
         }).join('')}</tbody>
       </table>`;
 
     const adelsHtml = adels.length === 0 ? '' : `
       <div class="trab-sec-label">Ingresos especiales (${adels.length})</div>
-      <table style="width:100%;border-collapse:collapse">
+      <table>
         <thead><tr>
-          <th style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 20px;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border)">Fecha</th>
-          <th style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 20px;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border)">Descripción</th>
-          <th style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 20px;text-align:right;background:var(--surface2);border-bottom:1px solid var(--border)">Monto</th>
-          <th style="background:var(--surface2);border-bottom:1px solid var(--border);width:40px"></th>
+          <th>Fecha</th>
+          <th>Descripción</th>
+          <th style="text-align:right">Monto</th>
+          <th style="width:36px"></th>
         </tr></thead>
         <tbody>${adels.map(a => {
           const d = new Date(a.fecha+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
           return `<tr>
-            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px">${d}</td>
-            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted)">${a.descripcion}</td>
-            <td style="padding:10px 20px;border-bottom:1px solid var(--border);font-size:13px;font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--blue);text-align:right">${fmt(a.monto)}</td>
-            <td style="padding:10px 12px;border-bottom:1px solid var(--border);text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarAdelantoEmpresa(${a.id})">×</button></td>
+            <td>${d}</td>
+            <td style="color:var(--muted)">${a.descripcion}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--blue);text-align:right">${fmt(a.monto)}</td>
+            <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarAdelantoEmpresa(${a.id})">×</button></td>
           </tr>`;
         }).join('')}</tbody>
       </table>`;
