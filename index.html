@@ -3640,7 +3640,7 @@ function _fillTimeSelects(){
     if(!sel) return;
     const cur = sel.value;
     sel.innerHTML = `<option value="">${id==='trab-entrada'?'Entrada':'Salida'}</option>`;
-    for(let h=0;h<24;h++){
+    for(let h=7;h<=20;h++){
       for(const m of [0,30]){
         const v = `${String(h).padStart(2,'0')}:${m===0?'00':'30'}`;
         sel.innerHTML += `<option value="${v}"${v===cur?' selected':''}>${v}</option>`;
