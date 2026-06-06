@@ -1062,6 +1062,17 @@
   </div>
 </div>
 
+<!-- Modal: cobros del mes (Registros) -->
+<div id="modal-cobros-mes" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeRegModal('modal-cobros-mes')">
+  <div class="modal-content" style="width:min(360px,94vw)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <h3 id="reg-cobros-titulo" style="font-size:15px;font-weight:600;margin:0"></h3>
+      <button class="btn btn-sm" onclick="closeRegModal('modal-cobros-mes')" style="padding:4px 10px">✕</button>
+    </div>
+    <div id="reg-cobros-list" style="margin-top:8px;max-height:65vh;overflow-y:auto"></div>
+  </div>
+</div>
+
 <!-- Modal: tareas del mes (Registros) -->
 <div id="modal-tareas-mes" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeRegModal('modal-tareas-mes')">
   <div class="modal-content" style="width:min(360px,94vw)">
@@ -3414,13 +3425,23 @@ async function migrarRegistros(){
       return acc;
     }, {});
 
-    // Siempre recomputar totalIngresos (dato derivado)
-    const cobMov = movimientos.filter(mv => {
+    // Siempre recomputar cobros y totalIngresos (datos derivados)
+    const cobMovArr = movimientos.filter(mv => {
       const d = new Date(mv.fecha + 'T12:00');
       return d.getFullYear() === h.anio && d.getMonth() === h.mes && mv.tipo === 'cobro';
-    }).reduce((s, m) => s + m.monto, 0);
-    const cobPagos = pagosMatisa.filter(p => p.fecha?.startsWith(mesKey)).reduce((s, p) => s + p.monto, 0);
-    h.totalIngresos = cobMov + cobPagos;
+    });
+    const cobPagosArr = pagosMatisa.filter(p => p.fecha?.startsWith(mesKey));
+    h.cobros = [
+      ...cobMovArr.map(mv => ({
+        fecha: mv.fecha, monto: mv.monto,
+        tipo: mv.categoria || 'cobro', metodo: mv.metodo || '', nota: mv.nota || '',
+      })),
+      ...cobPagosArr.map(p => ({
+        fecha: p.fecha, monto: p.monto,
+        tipo: 'sueldo', metodo: p.metodo || '', nota: p.nota || '',
+      })),
+    ].sort((a, b) => a.fecha.localeCompare(b.fecha));
+    h.totalIngresos = cobMovArr.reduce((s, m) => s + m.monto, 0) + cobPagosArr.reduce((s, p) => s + p.monto, 0);
 
     changed = true;
 
@@ -3591,8 +3612,20 @@ async function ejecutarCierre(){
     const tareasDelMes = tareas.filter(t => t.done && t.venc?.startsWith(_mesAnt));
 
     // Total ingresos = cobros movimientos + pagos sueldo legacy (pagosMatisa)
-    const pagosSueldoLegacy = pagosMatisa.filter(p => p.fecha?.startsWith(_mesAnt)).reduce((s, p) => s + p.monto, 0);
-    const totalIngresos = _cobradoAnt + pagosSueldoLegacy;
+    const pagosSueldoLegacy = pagosMatisa.filter(p => p.fecha?.startsWith(_mesAnt));
+    const totalIngresos = _cobradoAnt + pagosSueldoLegacy.reduce((s, p) => s + p.monto, 0);
+
+    // Lista de cobros del mes para el desglose
+    const cobrosDelMes = [
+      ...movMesAnt.filter(mv => mv.tipo === 'cobro').map(mv => ({
+        fecha: mv.fecha, monto: mv.monto,
+        tipo: mv.categoria || 'cobro', metodo: mv.metodo || '', nota: mv.nota || '',
+      })),
+      ...pagosSueldoLegacy.map(p => ({
+        fecha: p.fecha, monto: p.monto,
+        tipo: 'sueldo', metodo: p.metodo || '', nota: p.nota || '',
+      })),
+    ].sort((a, b) => a.fecha.localeCompare(b.fecha));
 
     historialMeses.push({
       mes: _lm - 1,
@@ -3612,6 +3645,7 @@ async function ejecutarCierre(){
         adeudado: _ganMesAnt + _adelMesAnt - _cobMatMesAnt,
       },
       gastosPorCategoria,
+      cobros: cobrosDelMes,
       tareas: tareasDelMes,
     });
     await S.set('historial_meses', historialMeses);
@@ -3688,8 +3722,8 @@ function renderRegistros(){
         <div class="reg-body">
           <div class="reg-body-inner">
             <div>
-              <div class="reg-stat-row">
-                <span class="reg-stat-label">Total cobrado</span>
+              <div class="reg-stat-row reg-stat-clickable" onclick="openCobrosModal(${i})">
+                <span class="reg-stat-label">Total cobrado <span class="reg-stat-hint">ver detalle ↗</span></span>
                 <span class="reg-stat-value" style="color:var(--green)">${fmt(totalIngresos)}</span>
               </div>
               <div class="reg-stat-row reg-stat-clickable" onclick="openGastosModal(${i})">
@@ -3783,6 +3817,26 @@ function openGastosModal(idx){
     </div>`).join('');
 
   document.getElementById('modal-gastos-pie').style.display = 'flex';
+}
+
+const REG_TIPO_LABELS = { sueldo:'Pago de sueldo', semanal:'Cobro semanal', mensual_fijo:'Mensual fijo', extra:'Ingreso extra / ventas', cobro:'Cobro' };
+
+function openCobrosModal(idx){
+  const m = _registrosData[idx];
+  if(!m) return;
+  const lista = m.cobros || [];
+  document.getElementById('reg-cobros-titulo').textContent = `Cobros — ${m.mesNombre}`;
+  document.getElementById('reg-cobros-list').innerHTML = lista.length
+    ? lista.map(c => `
+      <div class="reg-stat-row" style="border-top:0.5px solid var(--border);align-items:flex-start">
+        <div>
+          <div style="font-size:13px;color:var(--text)">${REG_TIPO_LABELS[c.tipo] || c.tipo || 'Cobro'}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.fecha}${c.metodo ? ' · ' + c.metodo : ''}${c.nota ? ' · ' + c.nota : ''}</div>
+        </div>
+        <span class="reg-stat-value" style="color:var(--green);padding-top:2px">${fmt(c.monto)}</span>
+      </div>`).join('')
+    : '<div class="reg-empty" style="padding:28px">Sin cobros registrados</div>';
+  document.getElementById('modal-cobros-mes').style.display = 'flex';
 }
 
 function openTareasModal(idx){
