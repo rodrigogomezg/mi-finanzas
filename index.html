@@ -3403,30 +3403,26 @@ async function migrarRegistros(){
   for(const h of historialMeses){
     const mesKey = `${h.anio}-${String(h.mes + 1).padStart(2,'0')}`;
 
-    // Backfill gastosPorCategoria desde movimientos
-    if(!h.gastosPorCategoria){
-      const gastosMes = movimientos.filter(mv => {
-        const d = new Date(mv.fecha + 'T12:00');
-        return d.getFullYear() === h.anio && d.getMonth() === h.mes && mv.tipo === 'gasto';
-      });
-      h.gastosPorCategoria = gastosMes.reduce((acc, g) => {
-        const cat = g.categoria || g.cat || 'otro';
-        acc[cat] = (acc[cat] || 0) + g.monto;
-        return acc;
-      }, {});
-      changed = true;
-    }
+    // Siempre recomputar gastosPorCategoria desde movimientos (dato derivado, no se edita)
+    const gastosMes = movimientos.filter(mv => {
+      const d = new Date(mv.fecha + 'T12:00');
+      return d.getFullYear() === h.anio && d.getMonth() === h.mes && mv.tipo === 'gasto';
+    });
+    h.gastosPorCategoria = gastosMes.reduce((acc, g) => {
+      const cat = g.categoria || g.cat || 'otro';
+      acc[cat] = (acc[cat] || 0) + g.monto;
+      return acc;
+    }, {});
 
-    // Backfill totalIngresos
-    if(!h.totalIngresos){
-      const cobMov = movimientos.filter(mv => {
-        const d = new Date(mv.fecha + 'T12:00');
-        return d.getFullYear() === h.anio && d.getMonth() === h.mes && mv.tipo === 'cobro';
-      }).reduce((s, m) => s + m.monto, 0);
-      const cobPagos = pagosMatisa.filter(p => p.fecha?.startsWith(mesKey)).reduce((s, p) => s + p.monto, 0);
-      h.totalIngresos = cobMov + cobPagos;
-      changed = true;
-    }
+    // Siempre recomputar totalIngresos (dato derivado)
+    const cobMov = movimientos.filter(mv => {
+      const d = new Date(mv.fecha + 'T12:00');
+      return d.getFullYear() === h.anio && d.getMonth() === h.mes && mv.tipo === 'cobro';
+    }).reduce((s, m) => s + m.monto, 0);
+    const cobPagos = pagosMatisa.filter(p => p.fecha?.startsWith(mesKey)).reduce((s, p) => s + p.monto, 0);
+    h.totalIngresos = cobMov + cobPagos;
+
+    changed = true;
 
     // Backfill tareas pagadas del mes (las que siguen en el array activo)
     if(!h.tareas){
