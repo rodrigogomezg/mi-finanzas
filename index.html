@@ -1345,6 +1345,7 @@ async function init(){
   if(trabAdelFecha) trabAdelFecha.value = hoy;
 
   await autoArchivarMesesViejos();
+  await migrarRegistros();
   await checkCierreMensual();
 
   renderResumen();
@@ -3393,6 +3394,45 @@ function renderTareas(){
 
 
 // ── CIERRE AUTOMÁTICO ─────────────────────────────────────
+async function migrarRegistros(){
+  const historialMeses = await S.get('historial_meses') || [];
+  if(!historialMeses.length) return;
+
+  let changed = false;
+
+  for(const h of historialMeses){
+    const mesKey = `${h.anio}-${String(h.mes + 1).padStart(2,'0')}`;
+
+    // Backfill gastosPorCategoria desde movimientos
+    if(!h.gastosPorCategoria){
+      const gastosMes = movimientos.filter(mv => {
+        const d = new Date(mv.fecha + 'T12:00');
+        return d.getFullYear() === h.anio && d.getMonth() === h.mes && mv.tipo === 'gasto';
+      });
+      h.gastosPorCategoria = gastosMes.reduce((acc, g) => {
+        const cat = g.cat || 'otro';
+        acc[cat] = (acc[cat] || 0) + g.monto;
+        return acc;
+      }, {});
+      changed = true;
+    }
+
+    // Backfill tareas pagadas del mes (las que siguen en el array activo)
+    if(!h.tareas){
+      h.tareas = tareas.filter(t => t.done && t.venc?.startsWith(mesKey));
+      changed = true;
+    }
+  }
+
+  if(changed) await S.set('historial_meses', historialMeses);
+
+  // Limpiar tareas pagas de meses ya cerrados del listado activo
+  const mesKeyCerrados = historialMeses.map(h => `${h.anio}-${String(h.mes + 1).padStart(2,'0')}`);
+  const antes = tareas.length;
+  tareas = tareas.filter(t => !t.done || !mesKeyCerrados.includes(t.venc?.substring(0, 7)));
+  if(tareas.length !== antes) await S.set('tareas', tareas);
+}
+
 async function autoArchivarMesesViejos(){
   const DIAS_UMBRAL = 60;
   const corte = new Date(Date.now() - DIAS_UMBRAL * 86400000);
