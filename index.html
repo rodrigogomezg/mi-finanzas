@@ -3410,10 +3410,21 @@ async function migrarRegistros(){
         return d.getFullYear() === h.anio && d.getMonth() === h.mes && mv.tipo === 'gasto';
       });
       h.gastosPorCategoria = gastosMes.reduce((acc, g) => {
-        const cat = g.cat || 'otro';
+        const cat = g.categoria || g.cat || 'otro';
         acc[cat] = (acc[cat] || 0) + g.monto;
         return acc;
       }, {});
+      changed = true;
+    }
+
+    // Backfill totalIngresos
+    if(!h.totalIngresos){
+      const cobMov = movimientos.filter(mv => {
+        const d = new Date(mv.fecha + 'T12:00');
+        return d.getFullYear() === h.anio && d.getMonth() === h.mes && mv.tipo === 'cobro';
+      }).reduce((s, m) => s + m.monto, 0);
+      const cobPagos = pagosMatisa.filter(p => p.fecha?.startsWith(mesKey)).reduce((s, p) => s + p.monto, 0);
+      h.totalIngresos = cobMov + cobPagos;
       changed = true;
     }
 
@@ -3575,7 +3586,7 @@ async function ejecutarCierre(){
       return d.getFullYear() === _ly && d.getMonth() === _lm - 1;
     });
     const gastosPorCategoria = movMesAnt.filter(mv => mv.tipo === 'gasto').reduce((acc, g) => {
-      const cat = g.cat || 'otro';
+      const cat = g.categoria || g.cat || 'otro';
       acc[cat] = (acc[cat] || 0) + g.monto;
       return acc;
     }, {});
@@ -3583,11 +3594,16 @@ async function ejecutarCierre(){
     // Tareas pagadas del mes cerrado (por vencimiento)
     const tareasDelMes = tareas.filter(t => t.done && t.venc?.startsWith(_mesAnt));
 
+    // Total ingresos = cobros movimientos + pagos sueldo legacy (pagosMatisa)
+    const pagosSueldoLegacy = pagosMatisa.filter(p => p.fecha?.startsWith(_mesAnt)).reduce((s, p) => s + p.monto, 0);
+    const totalIngresos = _cobradoAnt + pagosSueldoLegacy;
+
     historialMeses.push({
       mes: _lm - 1,
       anio: _ly,
       mesNombre: _mesAnteriorNombre,
       cobrado: _cobradoAnt,
+      totalIngresos,
       gastado: _gastadoAnt,
       invertido: asigCierre.cedears || 0,
       saldo: _cobradoAnt - _gastadoAnt,
@@ -3646,8 +3662,9 @@ function renderRegistros(){
     }
     list.innerHTML = _registrosData.map((m, i) => {
       const prev = _registrosData[i + 1];
+      const totalIngresos = m.totalIngresos || m.cobrado;
       const saldoColor = m.saldo >= 0 ? 'var(--green)' : 'var(--red)';
-      const pctAhorro  = m.cobrado > 0 ? Math.round(m.saldo / m.cobrado * 100) : 0;
+      const pctAhorro  = totalIngresos > 0 ? Math.round(m.saldo / totalIngresos * 100) : 0;
       const totalTareas = (m.tareas || []).length;
 
       let comparativaHtml = '';
@@ -3668,7 +3685,7 @@ function renderRegistros(){
             ${comparativaHtml}
           </div>
           <div class="reg-header-right">
-            <span class="reg-saldo" style="color:${saldoColor}">${m.saldo>=0?'+':''}${fmt(m.saldo)}</span>
+            <span class="reg-saldo" style="color:var(--green)">${fmt(totalIngresos)}</span>
             <svg class="reg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
         </div>
@@ -3676,8 +3693,8 @@ function renderRegistros(){
           <div class="reg-body-inner">
             <div>
               <div class="reg-stat-row">
-                <span class="reg-stat-label">Cobrado</span>
-                <span class="reg-stat-value" style="color:var(--green)">${fmt(m.cobrado)}</span>
+                <span class="reg-stat-label">Total cobrado</span>
+                <span class="reg-stat-value" style="color:var(--green)">${fmt(totalIngresos)}</span>
               </div>
               <div class="reg-stat-row reg-stat-clickable" onclick="openGastosModal(${i})">
                 <span class="reg-stat-label">Gastado <span class="reg-stat-hint">ver por categoría ↗</span></span>
