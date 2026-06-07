@@ -491,6 +491,14 @@
   .reg-comparativa.down { background:var(--red-bg,oklch(20% 0.06 25)); color:var(--red); }
   .reg-comparativa.flat { background:var(--surface2); color:var(--muted); }
   .reg-empty { text-align:center; color:var(--muted); font-size:13px; padding:56px 20px; line-height:1.6; }
+
+  /* CATEGORÍAS CONFIG */
+  .cat-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:0.5px solid var(--border); }
+  .cat-row:last-child { border-bottom:none; }
+  .cat-color-input { width:34px; height:34px; border-radius:8px; border:1px solid var(--border); cursor:pointer; padding:2px; background:var(--surface2); flex-shrink:0; }
+  .cat-label-input { flex:1; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:13px; color:var(--text); font-family:'Manrope',sans-serif; outline:none; transition:border-color 150ms var(--ease-out); }
+  .cat-label-input:focus { border-color:var(--green); }
+  .cat-key { font-size:10px; color:var(--muted); font-family:'JetBrains Mono',monospace; min-width:72px; }
 </style>
 </head>
 <body>
@@ -511,13 +519,13 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
         Movimientos
       </div>
-      <div class="nav-item" onclick="showPage('registros')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-        Registros
-      </div>
       <div class="nav-item" onclick="showPage('trabajo')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
         Sueldo
+      </div>
+      <div class="nav-item" onclick="showPage('registros')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Registros
       </div>
       <div class="nav-item" onclick="showPage('tarjeta')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
@@ -559,13 +567,13 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
       Movimientos
     </div>
-    <div class="bnav-item" data-page="registros" onclick="showPage('registros')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      Registros
-    </div>
     <div class="bnav-item" data-page="trabajo" onclick="showPage('trabajo')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
       Sueldo
+    </div>
+    <div class="bnav-item" data-page="registros" onclick="showPage('registros')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Registros
     </div>
     <div class="bnav-item" data-page="tarjeta" onclick="showPage('tarjeta')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
@@ -812,69 +820,90 @@
 
     <!-- CONFIGURACIÓN DEL PLAN -->
     <div id="page-config" class="page">
-      <div class="page-title">Configuración del plan</div>
-      <div class="page-sub">Ajustá los montos y fechas de vencimiento de tu presupuesto mensual</div>
+      <div class="page-title">Configuración</div>
+      <div class="page-sub">Plan económico, categorías y datos</div>
 
-      <div class="form-card">
-        <h3>Plan económico</h3>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Ingreso mensual base ($)</label>
-            <input type="number" id="cfg-ingreso-base" placeholder="1550000" min="1">
-          </div>
-          <div class="form-group">
-            <label>Separar por cobro semanal a Obligaciones ($)</label>
-            <input type="number" id="cfg-cobro-semanal" placeholder="200000" min="0">
-          </div>
-          <div class="form-group">
-            <label>Alquiler mensual ($)</label>
-            <input type="number" id="cfg-alquiler" placeholder="450000" min="0">
-          </div>
+      <div class="tab-group" id="tg-config">
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="plan" onclick="switchTab('config','plan',this)">Plan</button>
+          <button class="tab-btn" data-tab="categorias" onclick="switchTab('config','categorias',this)">Categorías</button>
         </div>
-        <div style="margin-top:14px">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em">Clientes mensuales fijos</div>
-          <div id="cfg-clientes-form"></div>
-        </div>
-        <div style="margin-top:16px">
-          <button class="btn btn-primary" onclick="guardarConfig()">Guardar configuración</button>
-        </div>
-      </div>
 
-      <div class="form-card" style="margin-top:16px">
-        <h3>Saldo inicial / corrección</h3>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">Fijá los saldos reales de hoy como punto de partida. Los movimientos anteriores quedan en el historial pero no afectan el cálculo.</p>
-        <div id="si-actual" style="margin-bottom:14px"></div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Obligaciones ($)</label>
-            <input type="number" id="si-oblig" placeholder="0" min="0" step="1">
+        <div id="tab-config-plan" class="tab-pane active">
+          <div class="form-card">
+            <h3>Plan económico</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Ingreso mensual base ($)</label>
+                <input type="number" id="cfg-ingreso-base" placeholder="1550000" min="1">
+              </div>
+              <div class="form-group">
+                <label>Separar por cobro semanal a Obligaciones ($)</label>
+                <input type="number" id="cfg-cobro-semanal" placeholder="200000" min="0">
+              </div>
+              <div class="form-group">
+                <label>Alquiler mensual ($)</label>
+                <input type="number" id="cfg-alquiler" placeholder="450000" min="0">
+              </div>
+            </div>
+            <div style="margin-top:14px">
+              <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em">Clientes mensuales fijos</div>
+              <div id="cfg-clientes-form"></div>
+            </div>
+            <div style="margin-top:16px">
+              <button class="btn btn-primary" onclick="guardarConfig()">Guardar configuración</button>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Disponible ($)</label>
-            <input type="number" id="si-disp" placeholder="0" min="0" step="1">
-          </div>
-          <div class="form-group">
-            <label>Fecha</label>
-            <input type="date" id="si-fecha">
-          </div>
-        </div>
-        <div style="margin-top:14px">
-          <button class="btn btn-primary" onclick="guardarSaldoInicial()">Fijar saldo</button>
-        </div>
-      </div>
 
-      <div class="form-card">
-        <h3>Datos</h3>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Exportá un backup o importá datos desde otro dispositivo.</p>
-        <button class="btn btn-primary" onclick="exportarDatos()" style="width:100%;margin-bottom:8px">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Exportar datos
-        </button>
-        <label class="btn" style="width:100%;cursor:pointer;display:block;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 16px;font-size:14px;font-family:'Manrope',sans-serif;font-weight:500">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Importar datos
-          <input type="file" accept=".json" onchange="importarDatos(event)" style="display:none">
-        </label>
+          <div class="form-card" style="margin-top:16px">
+            <h3>Saldo inicial / corrección</h3>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5">Fijá los saldos reales de hoy como punto de partida. Los movimientos anteriores quedan en el historial pero no afectan el cálculo.</p>
+            <div id="si-actual" style="margin-bottom:14px"></div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Obligaciones ($)</label>
+                <input type="number" id="si-oblig" placeholder="0" min="0" step="1">
+              </div>
+              <div class="form-group">
+                <label>Disponible ($)</label>
+                <input type="number" id="si-disp" placeholder="0" min="0" step="1">
+              </div>
+              <div class="form-group">
+                <label>Fecha</label>
+                <input type="date" id="si-fecha">
+              </div>
+            </div>
+            <div style="margin-top:14px">
+              <button class="btn btn-primary" onclick="guardarSaldoInicial()">Fijar saldo</button>
+            </div>
+          </div>
+
+          <div class="form-card">
+            <h3>Datos</h3>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Exportá un backup o importá datos desde otro dispositivo.</p>
+            <button class="btn btn-primary" onclick="exportarDatos()" style="width:100%;margin-bottom:8px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar datos
+            </button>
+            <label class="btn" style="width:100%;cursor:pointer;display:block;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 16px;font-size:14px;font-family:'Manrope',sans-serif;font-weight:500">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Importar datos
+              <input type="file" accept=".json" onchange="importarDatos(event)" style="display:none">
+            </label>
+          </div>
+        </div>
+
+        <div id="tab-config-categorias" class="tab-pane">
+          <div class="form-card">
+            <h3>Categorías y colores</h3>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5">Personalizá los nombres y colores. Se reflejan en el gráfico de Registros.</p>
+            <div id="cat-config-list"></div>
+            <div style="margin-top:16px;display:flex;gap:8px">
+              <button class="btn btn-primary" onclick="guardarCategoriasConfig()">Guardar</button>
+              <button class="btn" onclick="resetCategoriasConfig()" style="background:transparent;border:1px solid var(--border);color:var(--muted)">Restablecer</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1333,6 +1362,9 @@ async function init(){
   if(savedCompras != null){ comprasTarjeta = savedCompras; } else { await migrarComprasTarjeta(); }
 
   tarifaHora = await S.get('tarifaHora') || 8440;
+  const savedCats = await S.get('categorias_config');
+  if(savedCats){ Object.assign(categoriasConfig, savedCats); }
+  _syncCatConfig();
   const seedVer = await S.get('seedVersion') || 0;
   if(seedVer < 3){
     const seed = seedDatosTrabajo();
@@ -1411,7 +1443,7 @@ function showPage(id){
   if(id==='movimientos'){ activateTab('movimientos','cobro','tg-mov'); activateTab('historial','lista','tg-hist'); calcularDistribucion(); renderHistorial(); }
   if(id==='registros')  renderRegistros();
   if(id==='tarjeta')    renderTarjeta();
-  if(id==='config')   { renderConfig(); }
+  if(id==='config')   { activateTab('config','plan','tg-config'); renderConfig(); }
   if(id==='trabajo')  renderTrabajo();
 }
 
@@ -1430,9 +1462,11 @@ function switchTab(page, tab, btn){
   root.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(`tab-${page}-${tab}`).classList.add('active');
-  if(page==='movimientos' && tab==='cobro')    calcularDistribucion();
-  if(page==='movimientos' && tab==='gasto')  { renderTareasSelect(); }
-  if(page==='movimientos' && tab==='tareas')   renderTareas();
+  if(page==='movimientos' && tab==='cobro')      calcularDistribucion();
+  if(page==='movimientos' && tab==='gasto')    { renderTareasSelect(); }
+  if(page==='movimientos' && tab==='tareas')     renderTareas();
+  if(page==='config'      && tab==='plan')       renderConfig();
+  if(page==='config'      && tab==='categorias') renderCategoriasConfig();
   if(page==='historial'   && tab==='flujo')    renderFlujo();
   if(page==='historial'   && tab==='lista')    renderHistorial();
 }
@@ -3304,6 +3338,37 @@ async function guardarSaldoInicial(){
 }
 
 // ── CONFIGURACIÓN DEL PLAN ────────────────────────────────
+function renderCategoriasConfig(){
+  const wrap = document.getElementById('cat-config-list');
+  if(!wrap) return;
+  wrap.innerHTML = Object.entries(categoriasConfig).map(([k, v]) => `
+    <div class="cat-row">
+      <input type="color" class="cat-color-input" value="${v.color}" data-cat="${k}">
+      <span class="cat-key">${k}</span>
+      <input type="text" class="cat-label-input" value="${v.label}" data-cat="${k}" placeholder="Nombre">
+    </div>`).join('');
+}
+
+async function guardarCategoriasConfig(){
+  document.querySelectorAll('.cat-row').forEach(row => {
+    const colorEl = row.querySelector('.cat-color-input');
+    const labelEl = row.querySelector('.cat-label-input');
+    const k = colorEl?.dataset.cat;
+    if(k) categoriasConfig[k] = { label: labelEl.value.trim() || CAT_DEFAULTS[k].label, color: colorEl.value };
+  });
+  await S.set('categorias_config', categoriasConfig);
+  _syncCatConfig();
+  toast('Categorías guardadas', 'ok');
+}
+
+async function resetCategoriasConfig(){
+  categoriasConfig = JSON.parse(JSON.stringify(CAT_DEFAULTS));
+  await S.set('categorias_config', categoriasConfig);
+  _syncCatConfig();
+  renderCategoriasConfig();
+  toast('Categorías restablecidas', 'ok');
+}
+
 function renderConfig(){
   if(!document.getElementById('cfg-ingreso-base')) return;
   document.getElementById('cfg-ingreso-base').value  = planMensual.ingresoBase || '';
@@ -3668,8 +3733,27 @@ async function ejecutarCierre(){
 }
 
 // ── REGISTROS ─────────────────────────────────────────────
-const REG_CAT_LABELS = { comida:'Comida / super', servicios:'Servicios', combustible:'Combustible', alquiler:'Alquiler', tarjeta:'Tarjeta', monotributo:'Monotributo', inversion:'Inversión CEDEARs', fci:'FCI / colchón', otro:'Otro' };
-const REG_CAT_COLORS = { comida:'#4ade80', servicios:'#60a5fa', combustible:'#fbbf24', alquiler:'#c084fc', tarjeta:'#f87171', monotributo:'#34d399', inversion:'#818cf8', fci:'#f472b6', otro:'#94a3b8' };
+const CAT_DEFAULTS = {
+  comida:      { label:'Comida / super',    color:'#4ade80' },
+  servicios:   { label:'Servicios',         color:'#60a5fa' },
+  combustible: { label:'Combustible',       color:'#fbbf24' },
+  alquiler:    { label:'Alquiler',          color:'#c084fc' },
+  tarjeta:     { label:'Tarjeta',           color:'#f87171' },
+  monotributo: { label:'Monotributo',       color:'#34d399' },
+  inversion:   { label:'Inversión CEDEARs', color:'#818cf8' },
+  fci:         { label:'FCI / colchón',     color:'#f472b6' },
+  otro:        { label:'Otro',              color:'#94a3b8' },
+};
+let categoriasConfig = JSON.parse(JSON.stringify(CAT_DEFAULTS));
+const REG_CAT_LABELS = Object.fromEntries(Object.entries(CAT_DEFAULTS).map(([k,v])=>[k,v.label]));
+const REG_CAT_COLORS = Object.fromEntries(Object.entries(CAT_DEFAULTS).map(([k,v])=>[k,v.color]));
+
+function _syncCatConfig(){
+  Object.entries(categoriasConfig).forEach(([k,v])=>{
+    REG_CAT_LABELS[k] = v.label;
+    REG_CAT_COLORS[k] = v.color;
+  });
+}
 
 let _registrosData = [];
 let _chartPieReg   = null;
