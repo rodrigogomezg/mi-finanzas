@@ -2484,17 +2484,24 @@ function renderPlanMes(elId){
   if(!el) return;
 
   const saldos = _getSaldoReservas();
-  const tarjetaTask = tareas.find(t => t.cat === 'tarjeta');
+  const tarjetaTask  = tareas.find(t => t.cat === 'tarjeta');
+  const alqVenc      = tareas.find(t => t.cat === 'alquiler');
   const alquilerMonto = planMensual.alquilerMonto || 450000;
   const tarjetaMonto  = tarjetaTask?.monto || 0;
-  const meta = alquilerMonto + tarjetaMonto;
-  const acumulado = saldos.obligaciones;
-  const pct = meta > 0 ? Math.min(100, Math.round(acumulado / meta * 100)) : 0;
-  const falta = Math.max(0, meta - acumulado);
 
-  const alqVenc = tareas.find(t => t.cat === 'alquiler');
-  const alqLabel = alqVenc ? `vence ${vencLabel(alqVenc.venc, false)}` : `$${(alquilerMonto/1000).toFixed(0)}k fijo`;
-  const tarjLabel = tarjetaTask ? (tarjetaMonto > 0 ? `${fmt(tarjetaMonto)} · vence ${vencLabel(tarjetaTask.venc, false)}` : 'monto pendiente') : 'sin configurar';
+  const tarjetaPagada  = tarjetaTask?.done === true;
+  const alquilerPagado = alqVenc?.done === true;
+
+  // Solo incluir en la meta lo que todavía no está pagado
+  const metaPendiente = (alquilerPagado ? 0 : alquilerMonto) + (tarjetaPagada ? 0 : tarjetaMonto);
+  const acumulado = saldos.obligaciones;
+  const pct   = metaPendiente > 0 ? Math.min(100, Math.round(acumulado / metaPendiente * 100)) : 100;
+  const falta = Math.max(0, metaPendiente - acumulado);
+
+  const alqLabel  = alqVenc ? `vence ${vencLabel(alqVenc.venc, false)}` : `$${(alquilerMonto/1000).toFixed(0)}k fijo`;
+  const tarjLabel = tarjetaTask
+    ? (tarjetaMonto > 0 ? `${fmt(tarjetaMonto)} · vence ${vencLabel(tarjetaTask.venc, false)}` : 'monto pendiente')
+    : 'sin configurar';
 
   const hoyPlan = new Date();
   const tareasMesAll = tareas.filter(t => {
@@ -2504,10 +2511,17 @@ function renderPlanMes(elId){
   const tareasTotal = tareasMesAll.length;
   const tareasPagas = tareasMesAll.filter(t => t.done).length;
 
-  const fillColor = pct >= 100 ? 'var(--green)' : falta > acumulado ? 'var(--amber)' : 'var(--blue)';
-  const statusLabel = pct >= 100
-    ? `<span style="color:var(--green)">✓ cubierto</span>`
-    : `Acumulado ${fmt(acumulado)} · falta <strong>${fmt(falta)}</strong>`;
+  const todosPagado = tarjetaPagada && alquilerPagado;
+  const fillColor   = (todosPagado || pct >= 100) ? 'var(--green)' : falta > acumulado ? 'var(--amber)' : 'var(--blue)';
+  const statusLabel = todosPagado
+    ? `<span style="color:var(--green)">✓ obligaciones del mes cubiertas</span>`
+    : pct >= 100
+      ? `<span style="color:var(--green)">✓ cubierto</span>`
+      : `Acumulado ${fmt(acumulado)} · falta <strong>${fmt(falta)}</strong>`;
+
+  const headerLabel = todosPagado ? 'Obligaciones del mes' :
+    (!alquilerPagado && !tarjetaPagada) ? 'Alquiler + tarjeta' :
+    (!alquilerPagado) ? 'Alquiler' : 'Tarjeta';
 
   el.innerHTML = `
     <div class="plan-section">
@@ -2516,20 +2530,26 @@ function renderPlanMes(elId){
       </div>
       <div class="plan-obl-row">
         <div class="plan-obl-info" style="flex:1">
+          ${!todosPagado ? `
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-            <span class="plan-obl-label">Alquiler + tarjeta</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${fillColor}">${fmt(acumulado)} / ${fmt(meta)}</span>
+            <span class="plan-obl-label">${headerLabel}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${fillColor}">${fmt(acumulado)} / ${fmt(metaPendiente)}</span>
           </div>
           <div class="plan-obl-bar" style="margin-bottom:6px"><div class="plan-obl-fill" style="transform:scaleX(${pct/100});background:${fillColor}"></div></div>
+          ` : ''}
           <div class="plan-obl-nums">${statusLabel}</div>
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
             <div style="display:flex;justify-content:space-between;font-size:12px">
               <span style="color:var(--muted)">Alquiler</span>
-              <span style="color:var(--text)">${fmt(alquilerMonto)} · ${alqLabel}</span>
+              ${alquilerPagado
+                ? `<span style="color:var(--green);font-weight:600">Pagado ✓ · ${fmt(alquilerMonto)}</span>`
+                : `<span style="color:var(--text)">${fmt(alquilerMonto)} · ${alqLabel}</span>`}
             </div>
             <div style="display:flex;justify-content:space-between;font-size:12px">
               <span style="color:var(--muted)">Tarjeta</span>
-              <span style="color:var(--text)">${tarjLabel}</span>
+              ${tarjetaPagada
+                ? `<span style="color:var(--green);font-weight:600">Pagada ✓ · ${fmt(tarjetaMonto)}</span>`
+                : `<span style="color:var(--text)">${tarjLabel}</span>`}
             </div>
           </div>
           ${tareasTotal > 0 ? `
