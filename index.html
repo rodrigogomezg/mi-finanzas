@@ -499,6 +499,39 @@
   .cat-label-input { flex:1; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:13px; color:var(--text); font-family:'Manrope',sans-serif; outline:none; transition:border-color 150ms var(--ease-out); }
   .cat-label-input:focus { border-color:var(--green); }
   .cat-key { font-size:10px; color:var(--muted); font-family:'JetBrains Mono',monospace; min-width:72px; }
+
+  /* GASTOS FIJOS MODULE */
+  .gf-alerta { display:flex; align-items:flex-start; gap:10px; padding:11px 14px; border-radius:10px; border:1px solid; margin-bottom:10px; font-size:13px; line-height:1.4; }
+  .gf-alerta-err  { background:var(--red-bg);   border-color:var(--red-border);   color:var(--red); }
+  .gf-alerta-warn { background:var(--amber-bg); border-color:var(--amber-border); color:var(--amber); }
+  .gf-alerta-ok   { background:var(--green-bg); border-color:var(--green-border); color:var(--green); }
+  .gf-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:14px; }
+  .gf-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .gf-card-title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); }
+  .gf-mes-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; gap:10px; }
+  .gf-mes-nombre { font-size:16px; font-weight:600; color:var(--text); margin-bottom:4px; }
+  .gf-mes-estado { display:inline-block; font-size:11px; font-weight:600; padding:2px 10px; border-radius:99px; }
+  .gf-estado-gris    { background:var(--surface2); color:var(--muted); }
+  .gf-estado-azul    { background:var(--blue-bg);  color:var(--blue); }
+  .gf-estado-naranja { background:var(--amber-bg); color:var(--amber); }
+  .gf-estado-rojo    { background:var(--red-bg);   color:var(--red); }
+  .gf-estado-verde   { background:var(--green-bg); color:var(--green); }
+  .gf-items-lista { margin-bottom:16px; }
+  .gf-item-fila { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:0.5px solid var(--border); gap:8px; flex-wrap:wrap; }
+  .gf-item-fila:last-of-type { border-bottom:none; }
+  .gf-item-label { font-size:13px; font-weight:500; color:var(--text); flex:1; min-width:70px; }
+  .gf-item-monto { font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:600; color:var(--text); }
+  .gf-item-acciones { display:flex; gap:6px; align-items:center; flex-shrink:0; }
+  .gf-badge-pagado { font-size:12px; font-weight:600; color:var(--green); background:var(--green-bg); border:1px solid var(--green-border); border-radius:99px; padding:2px 10px; white-space:nowrap; }
+  .gf-rec-panel { background:var(--surface2); border-radius:10px; padding:14px 16px; }
+  .gf-rec-row { display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:3px 0; color:var(--muted); }
+  .gf-val { font-family:'JetBrains Mono',monospace; font-weight:600; color:var(--text); }
+  .gf-rec-recomendacion { border-top:0.5px solid var(--border); margin-top:8px; padding-top:10px; color:var(--text); font-weight:600; }
+  .gf-rec-recomendacion .gf-val { color:var(--accent,var(--blue)); }
+  .gf-hist-row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:0.5px solid var(--border); font-size:13px; gap:8px; }
+  .gf-hist-row:last-child { border-bottom:none; }
+  .gf-hist-mes-item { padding:12px 0; border-bottom:0.5px solid var(--border); }
+  .gf-hist-mes-item:last-child { border-bottom:none; }
 </style>
 </head>
 <body>
@@ -530,6 +563,10 @@
       <div class="nav-item" onclick="showPage('tarjeta')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
         Inversiones
+      </div>
+      <div class="nav-item" onclick="showPage('gastos-fijos')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
+        Gastos Fijos <span id="badge-tareas" style="display:inline-block;min-width:16px;height:16px;line-height:16px;border-radius:99px;font-size:10px;font-weight:700;text-align:center;background:var(--red);color:#fff;padding:0 4px;margin-left:4px;vertical-align:middle"></span>
       </div>
     </nav>
 
@@ -579,6 +616,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
       Inversiones
     </div>
+    <div class="bnav-item" data-page="gastos-fijos" onclick="showPage('gastos-fijos')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
+      G. Fijos
+    </div>
     <div class="bnav-item" data-page="config" onclick="showPage('config')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       Config
@@ -608,13 +649,12 @@
     <!-- MOVIMIENTOS -->
     <div id="page-movimientos" class="page">
       <div class="page-title">Movimientos</div>
-      <div class="page-sub">Registrá cobros, gastos y vencimientos del mes</div>
+      <div class="page-sub">Registrá cobros y gastos del mes</div>
 
       <div class="tab-group" id="tg-mov">
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="cobro" onclick="switchTab('movimientos','cobro',this)">Cobré dinero</button>
         <button class="tab-btn" data-tab="gasto" onclick="switchTab('movimientos','gasto',this)">Registrar gasto</button>
-        <button class="tab-btn" data-tab="tareas" onclick="switchTab('movimientos','tareas',this)">Tareas</button>
       </div>
 
       <div id="tab-movimientos-cobro" class="tab-pane active">
@@ -687,37 +727,6 @@
         </div>
       </div>
 
-      <div id="tab-movimientos-tareas" class="tab-pane">
-        <div class="form-card">
-          <div class="form-grid">
-            <div class="form-group full">
-              <input type="text" id="tarea-desc" placeholder="Descripción (ej: Gas junio)">
-            </div>
-            <div class="form-pair">
-              <div class="form-group">
-                <input type="number" id="tarea-monto" placeholder="Monto ($)">
-              </div>
-              <div class="form-group">
-                <input type="date" id="tarea-venc">
-              </div>
-            </div>
-            <div class="form-group inline-action full">
-              <select id="tarea-cat" style="flex:1">
-                <option value="servicios">Servicios</option>
-                <option value="monotributo">Monotributo</option>
-                <option value="alquiler">Alquiler</option>
-                <option value="tarjeta">Tarjeta</option>
-                <option value="inversion">Inversión CEDEARs</option>
-                <option value="fci">FCI / colchón</option>
-                <option value="otro">Otro</option>
-              </select>
-              <button class="btn btn-primary" onclick="agregarTarea()">Agregar</button>
-            </div>
-          </div>
-        </div>
-        <div id="tareas-pendientes-wrap"></div>
-        <div id="tareas-completadas-wrap"></div>
-      </div>
       </div><!-- /tg-mov -->
 
       <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border)">
@@ -993,6 +1002,89 @@
       <div id="registros-list"></div>
     </div>
 
+    <!-- GASTOS FIJOS -->
+    <div id="page-gastos-fijos" class="page">
+      <div class="page-title">Gastos Fijos</div>
+      <div class="page-sub">Planificá gastos fijos y vencimientos del mes</div>
+
+      <div id="gf-alertas"></div>
+
+      <div id="gf-mes-panel"></div>
+
+      <div class="gf-card">
+        <div class="gf-card-header">
+          <span class="gf-card-title">Nueva tarea</span>
+        </div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <input type="text" id="tarea-desc" placeholder="Descripción (ej: Gas junio)">
+          </div>
+          <div class="form-pair">
+            <div class="form-group">
+              <input type="number" id="tarea-monto" placeholder="Monto ($)">
+            </div>
+            <div class="form-group">
+              <input type="date" id="tarea-venc">
+            </div>
+          </div>
+          <div class="form-group inline-action full">
+            <select id="tarea-cat" style="flex:1">
+              <option value="servicios">Servicios</option>
+              <option value="monotributo">Monotributo</option>
+              <option value="alquiler">Alquiler</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="inversion">Inversión CEDEARs</option>
+              <option value="fci">FCI / colchón</option>
+              <option value="otro">Otro</option>
+            </select>
+            <button class="btn btn-primary" onclick="agregarTarea()">Agregar</button>
+          </div>
+        </div>
+      </div>
+      <div id="tareas-pendientes-wrap"></div>
+      <div id="tareas-completadas-wrap"></div>
+
+      <div class="gf-card" id="gf-sep-panel">
+        <div class="gf-card-header">
+          <span class="gf-card-title">Separar al fondo</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <div class="form-group" style="flex:1">
+            <label>Monto a separar ($)</label>
+            <input type="number" id="gf-sep-monto" placeholder="0" min="1" oninput="gf_renderHint()">
+          </div>
+          <button class="btn btn-primary" onclick="gf_registrarSeparacion()">Separar</button>
+        </div>
+        <div id="gf-sep-hint" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+      </div>
+
+      <div class="gf-card">
+        <div class="gf-card-header">
+          <span class="gf-card-title">Transferencia manual</span>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Monto ($)</label>
+            <input type="number" id="gf-transf-monto" placeholder="0" min="1">
+          </div>
+          <div class="form-group">
+            <label>Dirección</label>
+            <select id="gf-transf-dir">
+              <option value="disp-sep">Disponible → Separado</option>
+              <option value="sep-disp">Separado → Disponible</option>
+            </select>
+          </div>
+          <div class="form-group inline-action full">
+            <input type="text" id="gf-transf-concepto" placeholder="Concepto (opcional)">
+            <button class="btn btn-primary" onclick="gf_hacerTransferencia()">Transferir</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="gf-historial-mes"></div>
+      <div id="gf-historial-meses"></div>
+    </div>
+
   </main>
 </div>
 <div id="toast-container"></div>
@@ -1110,6 +1202,52 @@
       <button class="btn btn-sm" onclick="closeRegModal('modal-tareas-mes')" style="padding:4px 10px">✕</button>
     </div>
     <div id="reg-tareas-list" style="margin-top:8px;max-height:65vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- Modal GF: Configurar mes -->
+<div id="gf-modal-config" class="modal-overlay" style="display:none" onclick="if(event.target===this)gf_cerrarModalConfig()">
+  <div class="modal-content" style="width:min(360px,94vw)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 id="gf-modal-config-titulo" style="font-size:15px;font-weight:600;margin:0">Configurar mes</h3>
+      <button onclick="gf_cerrarModalConfig()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="form-group">
+        <label>Alquiler ($)</label>
+        <input type="number" id="gf-modal-alquiler" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>Tarjeta — monto estimado ($)</label>
+        <input type="number" id="gf-modal-tarjeta-est" placeholder="0" min="0">
+      </div>
+    </div>
+    <input type="hidden" id="gf-modal-config-mes">
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn btn-primary" onclick="gf_guardarConfigMes()" style="flex:1">Guardar</button>
+      <button class="btn" onclick="gf_cerrarModalConfig()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text)">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal GF: Cierre de tarjeta -->
+<div id="gf-modal-cierre-tarjeta" class="modal-overlay" style="display:none" onclick="if(event.target===this)gf_cerrarModalCierre()">
+  <div class="modal-content" style="width:min(360px,94vw)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="font-size:15px;font-weight:600;margin:0">Cierre de tarjeta</h3>
+      <button onclick="gf_cerrarModalCierre()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5">Ingresá el monto real del resumen cerrado para actualizar el fondo.</p>
+    <div id="gf-modal-cierre-prev" style="margin-bottom:12px;font-size:13px;color:var(--muted)"></div>
+    <div class="form-group">
+      <label>Monto real del resumen ($)</label>
+      <input type="number" id="gf-modal-tarjeta-real" placeholder="0" min="0">
+    </div>
+    <input type="hidden" id="gf-modal-cierre-mes">
+    <div style="display:flex;gap:8px;margin-top:18px">
+      <button class="btn btn-primary" onclick="gf_confirmarCierreTarjeta()" style="flex:1">Confirmar cierre</button>
+      <button class="btn" onclick="gf_cerrarModalCierre()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text)">Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -1311,6 +1449,12 @@ let adelantosEmpresa = [];
 let tarifaHora       = 8440;
 let trabajoMetricMode = 'month';
 
+// ── GASTOS FIJOS STATE ────────────────────────────────────
+let gf_gastosFijos         = [];
+let gf_separacionesSemana  = [];
+let gf_transferenciasSaldo = [];
+let gf_ingresosEspeciales  = [];
+
 // ── PLAN MENSUAL ─────────────────────────────────────────
 const FCI_META_1  = 650000;   // Fase 1→2: hasta este saldo todo va al FCI
 const FCI_META_2  = 2400000;  // Fase 2→3: colchón completo, todo pasa a CEDEARs
@@ -1361,7 +1505,11 @@ async function init(){
   const savedCompras = await S.get('comprasTarjeta');
   if(savedCompras != null){ comprasTarjeta = savedCompras; } else { await migrarComprasTarjeta(); }
 
-  tarifaHora = await S.get('tarifaHora') || 8440;
+  tarifaHora             = await S.get('tarifaHora')             || 8440;
+  gf_gastosFijos         = await S.get('gastosFijos')            || [];
+  gf_separacionesSemana  = await S.get('gf_separacionesSemana')  || [];
+  gf_transferenciasSaldo = await S.get('gf_transferenciasSaldo') || [];
+  gf_ingresosEspeciales  = await S.get('gf_ingresosEspeciales')  || [];
   const savedCats = await S.get('categorias_config');
   if(savedCats){ Object.assign(categoriasConfig, savedCats); }
   _syncCatConfig();
@@ -1444,7 +1592,8 @@ function showPage(id){
   if(id==='registros')  renderRegistros();
   if(id==='tarjeta')    renderTarjeta();
   if(id==='config')   { activateTab('config','plan','tg-config'); renderConfig(); }
-  if(id==='trabajo')  renderTrabajo();
+  if(id==='trabajo')       renderTrabajo();
+  if(id==='gastos-fijos')  gf_renderGastosFijos();
 }
 
 function activateTab(page, tab, groupId){
@@ -1462,9 +1611,8 @@ function switchTab(page, tab, btn){
   root.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(`tab-${page}-${tab}`).classList.add('active');
-  if(page==='movimientos' && tab==='cobro')      calcularDistribucion();
-  if(page==='movimientos' && tab==='gasto')    { renderTareasSelect(); }
-  if(page==='movimientos' && tab==='tareas')     renderTareas();
+  if(page==='movimientos' && tab==='cobro') calcularDistribucion();
+  if(page==='movimientos' && tab==='gasto') renderTareasSelect();
   if(page==='config'      && tab==='plan')       renderConfig();
   if(page==='config'      && tab==='categorias') renderCategoriasConfig();
   if(page==='historial'   && tab==='flujo')    renderFlujo();
@@ -1558,26 +1706,24 @@ function _sfSueldo(filtroYm){
   return [...legacy, ...fromMov].reduce((s, x) => s + x.monto, 0);
 }
 
-// ── SALDO RESERVAS ────────────────────────────────────────
-function _getSaldoReservas(){
-  // Procesamiento cronológico con clamp en cada paso.
-  // Si existe un saldo_inicial, arranca desde esos valores ignorando eventos anteriores.
-  const ORDER = { saldo_inicial: -1, cobro: 0, transf: 1, gasto: 2 };
+// ── SALDO BOLSILLOS ───────────────────────────────────────
+function gf_getSaldos(){
+  const ORDER = { saldo_inicial: -1, cobro: 0, transf: 1, gf_transf: 1, gasto: 2 };
   const events = [
     ...movimientos,
     ...transferencias.map(t => ({ ...t, _tipo: 'transf' })),
+    ...gf_transferenciasSaldo.map(t => ({ ...t, _tipo: 'gf_transf' })),
   ].sort((a, b) => {
     const da = new Date(a.fecha+'T12:00'), db = new Date(b.fecha+'T12:00');
     if(da - db !== 0) return da - db;
     return (ORDER[a._tipo||a.tipo] ?? 0) - (ORDER[b._tipo||b.tipo] ?? 0);
   });
 
-  // Buscar el saldo_inicial más reciente (puede haber más de uno si el usuario corrige varias veces)
-  const iniciales = events.filter(ev => (ev._tipo||ev.tipo) === 'saldo_inicial');
+  const iniciales  = events.filter(ev => (ev._tipo||ev.tipo) === 'saldo_inicial');
   const lastInicial = iniciales.length > 0 ? iniciales[iniciales.length - 1] : null;
 
-  let oblig = lastInicial ? (lastInicial.distribucion?.obligaciones || 0) : 0;
-  let disp  = lastInicial ? (lastInicial.distribucion?.disponible  || 0) : 0;
+  let sep  = lastInicial ? (lastInicial.distribucion?.obligaciones || 0) : 0;
+  let disp = lastInicial ? (lastInicial.distribucion?.disponible   || 0) : 0;
   const cutoff = lastInicial ? new Date(lastInicial.fecha+'T12:00') : null;
 
   for(const ev of events){
@@ -1589,22 +1735,449 @@ function _getSaldoReservas(){
       const aOblig = ev.distribucion?.obligaciones || 0;
       const aFCI   = ev.distribucion?.fci     || 0;
       const aCed   = ev.distribucion?.cedears  || 0;
-      oblig += aOblig;
-      disp  += Math.max(0, ev.monto - aOblig - aFCI - aCed);
+      sep  += aOblig;
+      disp += Math.max(0, ev.monto - aOblig - aFCI - aCed);
     } else if(t === 'gasto'){
       if(['alquiler','tarjeta'].includes(ev.categoria)){
-        oblig = Math.max(0, oblig - ev.monto);
+        sep = Math.max(0, sep - ev.monto);
       } else {
         disp = Math.max(0, disp - ev.monto);
       }
     } else if(t === 'transf'){
-      if(ev.de === 'obligaciones') oblig = Math.max(0, oblig - ev.monto);
-      if(ev.a  === 'obligaciones') oblig += ev.monto;
-      if(ev.de === 'disponible')   disp  = Math.max(0, disp - ev.monto);
-      if(ev.a  === 'disponible')   disp  += ev.monto;
+      // old transferencias — 'obligaciones' mapea a separado
+      if(ev.de === 'obligaciones' || ev.de === 'separado') sep  = Math.max(0, sep  - ev.monto);
+      if(ev.a  === 'obligaciones' || ev.a  === 'separado') sep  += ev.monto;
+      if(ev.de === 'disponible')   disp = Math.max(0, disp - ev.monto);
+      if(ev.a  === 'disponible')   disp += ev.monto;
+    } else if(t === 'gf_transf'){
+      if(ev.origen  === 'disponible') disp = Math.max(0, disp - ev.monto);
+      if(ev.destino === 'disponible') disp += ev.monto;
+      if(ev.origen  === 'separado')   sep  = Math.max(0, sep  - ev.monto);
+      if(ev.destino === 'separado')   sep  += ev.monto;
     }
   }
-  return { obligaciones: oblig, disponible: disp };
+  return { separado: sep, disponible: disp };
+}
+
+// Alias de compatibilidad — código existente sigue funcionando
+function _getSaldoReservas(){
+  const s = gf_getSaldos();
+  return { obligaciones: s.separado, disponible: s.disponible };
+}
+
+// ── GASTOS FIJOS ──────────────────────────────────────────
+
+function gf_nombreMes(mesAnio){
+  const [y,m] = mesAnio.split('-').map(Number);
+  return new Date(y, m-1, 1).toLocaleString('es-AR', { month:'long', year:'numeric' });
+}
+
+function gf_getMesSiguiente(mesAnio){
+  const [y,m] = mesAnio.split('-').map(Number);
+  const d = new Date(y, m, 1); // 1ro del mes siguiente
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+function gf_getOrCreateMes(mesAnio){
+  let mes = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
+  if(!mes){
+    mes = {
+      mesAnio,
+      alquiler:  { montoEstimado: 0, montoReal: null, estado: 'pendiente' },
+      tarjeta:   { montoEstimado: 0, montoReal: null, cierreRealizado: false, estado: 'pendiente' },
+      estado:    'sin_configurar',
+    };
+    gf_gastosFijos.push(mes);
+  }
+  return mes;
+}
+
+function gf_getMesActivo(){
+  const hoy = new Date();
+  const ym  = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+  const mes = gf_gastosFijos.find(m => m.mesAnio === ym);
+  if(mes && mes.estado === 'completo') return gf_getMesSiguiente(ym);
+  return ym;
+}
+
+function gf_calcularEstadoMes(mesAnio){
+  const mes = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
+  if(!mes) return 'sin_configurar';
+  if(!mes.alquiler.montoEstimado && !mes.tarjeta.montoEstimado) return 'sin_configurar';
+
+  const hoy     = new Date();
+  const [y,m]   = mesAnio.split('-').map(Number);
+  const dia10   = new Date(y, m-1, 10);
+  const dia1    = new Date(y, m-1, 1);
+
+  const alqPagado = mes.alquiler.estado === 'pagado';
+  const tarPagado = mes.tarjeta.estado  === 'pagado';
+
+  if(alqPagado && tarPagado) return 'completo';
+
+  const rec = gf_calcularRecomendacion(mesAnio);
+  if(hoy > dia10 && rec.fondoFaltante > 0) return 'vencido';
+  if(hoy >= dia1 && rec.fondoFaltante > 0 && rec.sabadosRestantes <= 1) return 'urgente';
+  return 'en_curso';
+}
+
+function gf_contarSabadosHasta(fechaLimite){
+  const hoy  = new Date();
+  hoy.setHours(0,0,0,0);
+  let count  = 0;
+  const lim  = new Date(fechaLimite);
+  lim.setHours(23,59,59,0);
+  let cur    = new Date(hoy);
+  // Avanzar al próximo sábado (o hoy si es sábado)
+  const diaSem = cur.getDay(); // 0=dom, 6=sab
+  if(diaSem !== 6){
+    cur.setDate(cur.getDate() + (6 - diaSem));
+  }
+  while(cur <= lim){
+    count++;
+    cur.setDate(cur.getDate() + 7);
+  }
+  return count;
+}
+
+function gf_calcularRecomendacion(mesAnio){
+  const mes = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
+  if(!mes) return { fondoNecesario:0, fondoAcumulado:0, fondoFaltante:0, sabadosRestantes:0, recomendacionPorSabado:0 };
+
+  const alqMonto = mes.alquiler.estado === 'pagado' ? 0 : (mes.alquiler.montoEstimado || 0);
+  const tarMonto = mes.tarjeta.estado  === 'pagado' ? 0 : (mes.tarjeta.montoEstimado  || 0);
+  const fondoNecesario = alqMonto + tarMonto;
+
+  const saldos       = gf_getSaldos();
+  const fondoAcumulado = saldos.separado;
+  const fondoFaltante  = Math.max(0, fondoNecesario - fondoAcumulado);
+
+  const [y,m]        = mesAnio.split('-').map(Number);
+  const dia10        = new Date(y, m-1, 10);
+  const sabadosRestantes = gf_contarSabadosHasta(dia10);
+  const recomendacionPorSabado = sabadosRestantes > 0 ? Math.ceil(fondoFaltante / sabadosRestantes) : fondoFaltante;
+
+  return { fondoNecesario, fondoAcumulado, fondoFaltante, sabadosRestantes, recomendacionPorSabado };
+}
+
+async function gf_transferirSaldo(origen, destino, monto, concepto){
+  const saldos = gf_getSaldos();
+  if(origen === 'disponible' && saldos.disponible < monto){
+    toast('Saldo disponible insuficiente', 'err'); return false;
+  }
+  if(origen === 'separado' && saldos.separado < monto){
+    toast('Saldo separado insuficiente', 'err'); return false;
+  }
+  const entrada = {
+    id: Date.now(),
+    fecha: new Date().toISOString().split('T')[0],
+    origen,
+    destino,
+    monto,
+    concepto: concepto || '',
+  };
+  gf_transferenciasSaldo.push(entrada);
+  await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
+  return true;
+}
+
+async function gf_marcarComoPagado(mesAnio, tipo){
+  const mes = gf_getOrCreateMes(mesAnio);
+  const item = mes[tipo];
+  if(!item) return;
+
+  const monto = (tipo === 'tarjeta' && item.montoReal != null) ? item.montoReal : item.montoEstimado;
+  if(!monto){ toast('Configurá el monto primero', 'err'); return; }
+
+  const ok = await gf_transferirSaldo('separado', 'pagado', monto, `Pago ${tipo} ${gf_nombreMes(mesAnio)}`);
+  if(!ok) return;
+
+  item.estado = 'pagado';
+  await S.set('gastosFijos', gf_gastosFijos);
+  toast(`✓ ${tipo.charAt(0).toUpperCase()+tipo.slice(1)} marcado como pagado`);
+  gf_renderGastosFijos();
+}
+
+async function gf_registrarSeparacion(){
+  const montoEl = document.getElementById('gf-sep-monto');
+  const monto   = parseFloat(montoEl?.value);
+  if(!monto || monto <= 0){ toast('Ingresá un monto válido', 'err'); return; }
+
+  const ok = await gf_transferirSaldo('disponible', 'separado', monto, 'Separación semanal gastos fijos');
+  if(!ok) return;
+
+  const entrada = {
+    id: Date.now(),
+    fecha: new Date().toISOString().split('T')[0],
+    monto,
+    mesAnio: gf_getMesActivo(),
+  };
+  gf_separacionesSemana.push(entrada);
+  await S.set('gf_separacionesSemana', gf_separacionesSemana);
+
+  if(montoEl) montoEl.value = '';
+  toast('✓ Separación registrada');
+  gf_renderGastosFijos();
+}
+
+async function gf_hacerTransferencia(){
+  const dirEl   = document.getElementById('gf-transf-dir');
+  const montoEl = document.getElementById('gf-transf-monto');
+  const concEl  = document.getElementById('gf-transf-concepto');
+  const dir     = dirEl?.value; // 'disp-sep' | 'sep-disp'
+  const monto   = parseFloat(montoEl?.value);
+  if(!monto || monto <= 0){ toast('Ingresá un monto válido', 'err'); return; }
+  const origen  = dir === 'disp-sep' ? 'disponible' : 'separado';
+  const destino = dir === 'disp-sep' ? 'separado'   : 'disponible';
+  const ok = await gf_transferirSaldo(origen, destino, monto, concEl?.value || '');
+  if(!ok) return;
+  if(montoEl) montoEl.value = '';
+  if(concEl)  concEl.value  = '';
+  toast('✓ Transferencia realizada');
+  gf_renderGastosFijos();
+}
+
+function gf_abrirModalConfig(mesAnio){
+  const mes = gf_getOrCreateMes(mesAnio);
+  document.getElementById('gf-modal-config-mes').value    = mesAnio;
+  document.getElementById('gf-modal-alquiler').value      = mes.alquiler.montoEstimado || '';
+  document.getElementById('gf-modal-tarjeta-est').value   = mes.tarjeta.montoEstimado  || '';
+  document.getElementById('gf-modal-config').style.display = 'flex';
+}
+
+function gf_cerrarModalConfig(){
+  document.getElementById('gf-modal-config').style.display = 'none';
+}
+
+async function gf_guardarConfigMes(){
+  const mesAnio  = document.getElementById('gf-modal-config-mes').value;
+  const alquiler = parseFloat(document.getElementById('gf-modal-alquiler').value)    || 0;
+  const tarjeta  = parseFloat(document.getElementById('gf-modal-tarjeta-est').value) || 0;
+  const mes = gf_getOrCreateMes(mesAnio);
+  mes.alquiler.montoEstimado = alquiler;
+  mes.tarjeta.montoEstimado  = tarjeta;
+  if(mes.estado === 'sin_configurar') mes.estado = 'en_curso';
+  await S.set('gastosFijos', gf_gastosFijos);
+  gf_cerrarModalConfig();
+  toast('✓ Configuración guardada');
+  gf_renderGastosFijos();
+}
+
+function gf_abrirModalCierreTarjeta(mesAnio){
+  const mes = gf_getOrCreateMes(mesAnio);
+  document.getElementById('gf-modal-cierre-mes').value        = mesAnio;
+  document.getElementById('gf-modal-cierre-prev').textContent = `Estimado: ${fmt(mes.tarjeta.montoEstimado || 0)}`;
+  document.getElementById('gf-modal-tarjeta-real').value      = mes.tarjeta.montoReal != null ? mes.tarjeta.montoReal : '';
+  document.getElementById('gf-modal-cierre-tarjeta').style.display = 'flex';
+}
+
+function gf_cerrarModalCierre(){
+  document.getElementById('gf-modal-cierre-tarjeta').style.display = 'none';
+}
+
+async function gf_confirmarCierreTarjeta(){
+  const mesAnio   = document.getElementById('gf-modal-cierre-mes').value;
+  const montoReal = parseFloat(document.getElementById('gf-modal-tarjeta-real').value);
+  if(!montoReal || montoReal <= 0){ toast('Ingresá el monto real del cierre', 'err'); return; }
+
+  const mes = gf_getOrCreateMes(mesAnio);
+  mes.tarjeta.montoReal        = montoReal;
+  mes.tarjeta.cierreRealizado  = true;
+
+  const estimado = mes.tarjeta.montoEstimado || 0;
+  if(montoReal > estimado){
+    const diff = montoReal - estimado;
+    toast(`⚠ Tarjeta superó lo estimado en ${fmt(diff)}. Ajustá el separado si es necesario.`, 'err');
+  } else {
+    // Liberar excedente al disponible
+    const excedente = estimado - montoReal;
+    if(excedente > 0){
+      await gf_transferirSaldo('separado', 'disponible', excedente, `Excedente tarjeta ${gf_nombreMes(mesAnio)}`);
+      toast(`✓ Cierre registrado. Se liberaron ${fmt(excedente)} al disponible.`);
+    } else {
+      toast('✓ Cierre de tarjeta registrado');
+    }
+  }
+  mes.tarjeta.montoEstimado = montoReal; // ajustar estimado al real
+  await S.set('gastosFijos', gf_gastosFijos);
+  gf_cerrarModalCierre();
+  gf_renderGastosFijos();
+}
+
+function gf_renderAlertas(mesAnio){
+  const el = document.getElementById('gf-alertas');
+  if(!el) return;
+  const alertas = [];
+  const estado  = gf_calcularEstadoMes(mesAnio);
+  const rec     = gf_calcularRecomendacion(mesAnio);
+  const mes     = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
+
+  if(estado === 'sin_configurar'){
+    alertas.push({ tipo:'warn', texto:'Configurá los montos del mes para empezar a planificar.' });
+  }
+  if(estado === 'vencido'){
+    alertas.push({ tipo:'err', texto:'Ya pasó el día 10 y todavía falta cubrir gastos fijos.' });
+  }
+  if(estado === 'urgente' || (estado === 'en_curso' && rec.fondoFaltante > 0 && rec.sabadosRestantes <= 1)){
+    alertas.push({ tipo:'warn', texto:`Quedan ${rec.sabadosRestantes} sábado${rec.sabadosRestantes!==1?'s':''} para completar el fondo. Separar ${fmt(rec.recomendacionPorSabado)}.` });
+  }
+  if(mes && mes.tarjeta.cierreRealizado === false && mes.tarjeta.montoEstimado > 0){
+    const hoy  = new Date();
+    const [y,m] = mesAnio.split('-').map(Number);
+    const dia5  = new Date(y, m-1, 5);
+    if(hoy >= dia5){
+      alertas.push({ tipo:'warn', texto:'Recordá registrar el cierre real de la tarjeta.' });
+    }
+  }
+  if(estado === 'completo'){
+    alertas.push({ tipo:'ok', texto:`Mes cubierto: alquiler y tarjeta pagados. ¡Todo en orden!` });
+  }
+
+  el.innerHTML = alertas.map(a => {
+    const color = a.tipo==='err' ? 'var(--red)' : a.tipo==='ok' ? 'var(--green)' : 'var(--orange,#f59e0b)';
+    const icon  = a.tipo==='err' ? '🔴' : a.tipo==='ok' ? '✅' : '⚠';
+    return `<div class="gf-alerta gf-alerta-${a.tipo}">${icon} ${a.texto}</div>`;
+  }).join('') || '';
+}
+
+function gf_renderMesPanel(mesAnio){
+  const el     = document.getElementById('gf-mes-panel');
+  if(!el) return;
+  const mes    = gf_getOrCreateMes(mesAnio);
+  const estado = gf_calcularEstadoMes(mesAnio);
+  const rec    = gf_calcularRecomendacion(mesAnio);
+  const estadoLabels = { sin_configurar:'Sin configurar', en_curso:'En curso', urgente:'Urgente', vencido:'Vencido', completo:'Completo' };
+  const estadoClass  = { sin_configurar:'gf-estado-gris', en_curso:'gf-estado-azul', urgente:'gf-estado-naranja', vencido:'gf-estado-rojo', completo:'gf-estado-verde' };
+
+  const fila = (label, item, tipo) => {
+    const monto      = (tipo === 'tarjeta' && item.montoReal != null) ? item.montoReal : item.montoEstimado;
+    const pagado     = item.estado === 'pagado';
+    const esTarjeta  = tipo === 'tarjeta';
+    return `
+      <div class="gf-item-fila">
+        <div class="gf-item-label">${label}</div>
+        <div class="gf-item-monto">${monto ? fmt(monto) : '<span style="color:var(--muted)">—</span>'}</div>
+        <div class="gf-item-acciones">
+          ${pagado
+            ? `<span class="gf-badge-pagado">✓ Pagado</span>`
+            : `${esTarjeta ? `<button class="btn btn-sm gf-btn-cierre" onclick="gf_abrirModalCierreTarjeta('${mesAnio}')">Cierre</button>` : ''}
+               <button class="btn btn-sm gf-btn-pagar" onclick="gf_marcarComoPagado('${mesAnio}','${tipo}')">Marcar pagado</button>`
+          }
+        </div>
+      </div>`;
+  };
+
+  el.innerHTML = `
+    <div class="gf-card">
+      <div class="gf-mes-header">
+        <div>
+          <div class="gf-mes-nombre">${gf_nombreMes(mesAnio)}</div>
+          <div class="gf-mes-estado ${estadoClass[estado]||''}">${estadoLabels[estado]||estado}</div>
+        </div>
+        <button class="btn btn-sm" onclick="gf_abrirModalConfig('${mesAnio}')">Configurar</button>
+      </div>
+      <div class="gf-items-lista">
+        ${fila('Alquiler', mes.alquiler, 'alquiler')}
+        ${fila('Tarjeta', mes.tarjeta, 'tarjeta')}
+      </div>
+      <div class="gf-rec-panel">
+        <div class="gf-rec-row">
+          <span>Fondo necesario</span>
+          <span class="gf-val">${fmt(rec.fondoNecesario)}</span>
+        </div>
+        <div class="gf-rec-row">
+          <span>Separado acumulado</span>
+          <span class="gf-val" style="color:var(--green)">${fmt(rec.fondoAcumulado)}</span>
+        </div>
+        <div class="gf-rec-row" style="font-weight:600;color:var(--text)">
+          <span>Faltante</span>
+          <span class="gf-val" style="color:${rec.fondoFaltante>0?'var(--red)':'var(--green)'}">${fmt(rec.fondoFaltante)}</span>
+        </div>
+        ${rec.sabadosRestantes > 0 ? `
+        <div class="gf-rec-row gf-rec-recomendacion">
+          <span>Separar por sábado</span>
+          <span class="gf-val">${fmt(rec.recomendacionPorSabado)}</span>
+        </div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function gf_renderHistorialMes(mesAnio){
+  const el = document.getElementById('gf-historial-mes');
+  if(!el) return;
+  const separaciones = gf_separacionesSemana.filter(s => s.mesAnio === mesAnio);
+  const transferencias = gf_transferenciasSaldo.filter(t => {
+    const [y,m] = mesAnio.split('-').map(Number);
+    const d = new Date(t.fecha+'T12:00');
+    return d.getFullYear() === y && d.getMonth()+1 === m;
+  });
+
+  const rows = [
+    ...separaciones.map(s => ({ fecha: s.fecha, tipo: 'Separación semanal', monto: s.monto, dir: 'entrada' })),
+    ...transferencias.map(t => ({
+      fecha: t.fecha,
+      tipo: t.concepto || `${t.origen} → ${t.destino}`,
+      monto: t.monto,
+      dir: t.destino === 'separado' ? 'entrada' : 'salida',
+    })),
+  ].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+
+  const rowsHtml = rows.length
+    ? rows.map(r => `
+        <div class="gf-hist-row">
+          <div>
+            <div style="font-size:13px">${r.tipo}</div>
+            <div style="font-size:11px;color:var(--muted)">${r.fecha}</div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:600;color:${r.dir==='entrada'?'var(--green)':'var(--red)'}">
+            ${r.dir==='entrada'?'+':'−'}${fmt(r.monto)}
+          </div>
+        </div>`).join('')
+    : '<p style="color:var(--muted);font-size:13px;padding:4px 0">Sin movimientos este mes.</p>';
+  el.innerHTML = `
+    <div class="gf-card">
+      <div class="gf-card-header"><span class="gf-card-title">Movimientos del mes</span></div>
+      ${rowsHtml}
+    </div>`;
+}
+
+function gf_renderHistorialMeses(){
+  const el = document.getElementById('gf-historial-meses');
+  if(!el) return;
+  const meses = gf_gastosFijos.filter(m => m.estado === 'completo').sort((a,b) => b.mesAnio.localeCompare(a.mesAnio));
+  const mesesHtml = meses.length
+    ? meses.map(m => `
+        <div class="gf-hist-mes-item">
+          <div style="font-weight:600;font-size:14px">${gf_nombreMes(m.mesAnio)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">
+            Alquiler: ${fmt(m.alquiler.montoEstimado)} ·
+            Tarjeta: ${fmt(m.tarjeta.montoReal ?? m.tarjeta.montoEstimado)}
+          </div>
+        </div>`).join('')
+    : '<p style="color:var(--muted);font-size:13px;padding:4px 0">Aún no hay meses completados.</p>';
+  el.innerHTML = `
+    <div class="gf-card">
+      <div class="gf-card-header"><span class="gf-card-title">Meses anteriores</span></div>
+      ${mesesHtml}
+    </div>`;
+}
+
+function gf_renderHint(){
+  const saldos = gf_getSaldos();
+  const el     = document.getElementById('gf-sep-hint');
+  if(!el) return;
+  el.textContent = `Disponible: ${fmt(saldos.disponible)} · Separado: ${fmt(saldos.separado)}`;
+}
+
+function gf_renderGastosFijos(){
+  const mesAnio = gf_getMesActivo();
+  gf_renderAlertas(mesAnio);
+  gf_renderMesPanel(mesAnio);
+  renderTareas();
+  gf_renderHistorialMes(mesAnio);
+  gf_renderHistorialMeses();
+  gf_renderHint();
 }
 
 // ── FCI / CEDEARs ─────────────────────────────────────────
@@ -2333,7 +2906,7 @@ function renderResumen(){
   const pctGasto     = totalCobrado > 0 ? Math.round(totalGastado/totalCobrado*100) : 0;
 
   // ── Saldos + semáforo ─────────────────────────────────
-  const saldos = _getSaldoReservas();
+  const saldos = gf_getSaldos();
   const tareasMes = tareas.filter(t=>{ const d=new Date(t.venc+'T12:00'); return d.getMonth()===mes&&d.getFullYear()===anio; });
   // ── Cards ─────────────────────────────────────────────
   const cobrosN = delMes.filter(m=>m.tipo==='cobro').length;
@@ -2343,16 +2916,21 @@ function renderResumen(){
         <span style="font-size:13px;font-weight:500;color:var(--green)">Disponible</span>
         <span style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--green)">${fmt(saldos.disponible)}</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr">
         <div style="padding:12px 16px;border-right:1px solid var(--border)">
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Cobrado</div>
           <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--green)">${fmt(totalCobrado)}</div>
           <div style="font-size:10px;color:var(--muted);margin-top:2px">${cobrosN} cobro${cobrosN!==1?'s':''}</div>
         </div>
-        <div style="padding:12px 16px">
+        <div style="padding:12px 16px;border-right:1px solid var(--border)">
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Gastado</div>
           <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--red)">${fmt(totalGastado)}</div>
           <div style="font-size:10px;color:var(--muted);margin-top:2px">${pctGasto}% del ingreso</div>
+        </div>
+        <div style="padding:12px 16px;cursor:pointer" onclick="showPage('gastos-fijos')">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Separado GF</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--accent)">${fmt(saldos.separado)}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">gastos fijos</div>
         </div>
       </div>
     </div>
@@ -4463,6 +5041,10 @@ async function exportarDatos(){
     planMensual,
     inversiones,
     transferencias,
+    gastosFijos:            gf_gastosFijos,
+    gf_separacionesSemana:  gf_separacionesSemana,
+    gf_transferenciasSaldo: gf_transferenciasSaldo,
+    gf_ingresosEspeciales:  gf_ingresosEspeciales,
   };
   const json     = JSON.stringify(datos, null, 2);
   const blob     = new Blob([json], { type:'application/json' });
@@ -4515,9 +5097,13 @@ async function importarDatos(event){
   adelantosEmpresa = datos.adelantosEmpresa || [];
   if(datos.tarifaHora)    tarifaHora = datos.tarifaHora;
   if(datos.fijos_tarjeta) FIJOS_TARJETA = datos.fijos_tarjeta;
-  if(datos.inversiones)   inversiones   = datos.inversiones;
-  if(datos.transferencias) transferencias = datos.transferencias;
-  if(datos.planMensual)   planMensual   = datos.planMensual;
+  if(datos.inversiones)             inversiones             = datos.inversiones;
+  if(datos.transferencias)          transferencias          = datos.transferencias;
+  if(datos.planMensual)             planMensual             = datos.planMensual;
+  if(datos.gastosFijos)             gf_gastosFijos          = datos.gastosFijos;
+  if(datos.gf_separacionesSemana)   gf_separacionesSemana   = datos.gf_separacionesSemana;
+  if(datos.gf_transferenciasSaldo)  gf_transferenciasSaldo  = datos.gf_transferenciasSaldo;
+  if(datos.gf_ingresosEspeciales)   gf_ingresosEspeciales   = datos.gf_ingresosEspeciales;
 
   await S.set('movimientos',   movimientos);
   await S.set('historialUSD',  historialUSD);
@@ -4531,9 +5117,13 @@ async function importarDatos(event){
   await S.set('pagosMatisa',      pagosMatisa);
   await S.set('adelantosEmpresa', adelantosEmpresa);
   await S.set('tarifaHora',       tarifaHora);
-  await S.set('inversiones',      inversiones);
-  await S.set('transferencias',   transferencias);
-  await S.set('planMensual',      planMensual);
+  await S.set('inversiones',             inversiones);
+  await S.set('transferencias',          transferencias);
+  await S.set('planMensual',             planMensual);
+  await S.set('gastosFijos',             gf_gastosFijos);
+  await S.set('gf_separacionesSemana',   gf_separacionesSemana);
+  await S.set('gf_transferenciasSaldo',  gf_transferenciasSaldo);
+  await S.set('gf_ingresosEspeciales',   gf_ingresosEspeciales);
   if(datos.historial_meses) await S.set('historial_meses', datos.historial_meses);
   renderResumen();
   renderHistorial();
