@@ -1896,6 +1896,12 @@ async function gf_marcarComoPagado(mesAnio, tipo){
   }
 
   item.estado = 'pagado';
+
+  // Cerrar el mes si ambos gastos fijos ya están pagados
+  if(mes.alquiler.estado === 'pagado' && mes.tarjeta.estado === 'pagado'){
+    mes.estado = 'completo';
+  }
+
   await S.set('gastosFijos', gf_gastosFijos);
 
   // Completar automáticamente la tarea de alquiler/tarjeta del mes, si existe
@@ -1907,10 +1913,13 @@ async function gf_marcarComoPagado(mesAnio, tipo){
   }
 
   const label = tipo.charAt(0).toUpperCase() + tipo.slice(1);
-  toast(gastoYaRegistrado
-    ? `✓ ${label} marcado como pagado (gasto previo detectado, sin mover separado)`
-    : `✓ ${label} marcado como pagado`
-  );
+  const esCierre = mes.estado === 'completo';
+  const extra = gastoYaRegistrado ? ' (gasto previo detectado)' : '';
+  if(esCierre){
+    toast(`✓ ${label} pagado${extra} · Mes completo — configurá ${gf_nombreMes(gf_getMesActivo())}`, 'ok', 6000);
+  } else {
+    toast(`✓ ${label} marcado como pagado${extra}`);
+  }
   gf_renderGastosFijos();
   renderResumen();
   renderPlanMes('plan-mes-resumen');
