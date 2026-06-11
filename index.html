@@ -1882,8 +1882,18 @@ async function gf_marcarComoPagado(mesAnio, tipo){
   const monto = (tipo === 'tarjeta' && item.montoReal != null) ? item.montoReal : item.montoEstimado;
   if(!monto){ toast('Configurá el monto primero', 'err'); return; }
 
-  const ok = await gf_transferirSaldo('separado', 'pagado', monto, `Pago ${tipo} ${gf_nombreMes(mesAnio)}`);
-  if(!ok) return;
+  // Si ya hay un gasto registrado para esta categoría en el mes, el saldo fue
+  // deducido por esa vía — no hacer la transferencia para evitar doble descuento.
+  const [y, m] = mesAnio.split('-');
+  const gastoYaRegistrado = movimientos.find(mv =>
+    mv.tipo === 'gasto' && mv.categoria === tipo &&
+    mv.fecha >= `${y}-${m}-01` && mv.fecha <= `${y}-${m}-31`
+  );
+
+  if(!gastoYaRegistrado){
+    const ok = await gf_transferirSaldo('separado', 'pagado', monto, `Pago ${tipo} ${gf_nombreMes(mesAnio)}`);
+    if(!ok) return;
+  }
 
   item.estado = 'pagado';
   await S.set('gastosFijos', gf_gastosFijos);
@@ -1896,7 +1906,11 @@ async function gf_marcarComoPagado(mesAnio, tipo){
     renderTareas();
   }
 
-  toast(`✓ ${tipo.charAt(0).toUpperCase()+tipo.slice(1)} marcado como pagado`);
+  const label = tipo.charAt(0).toUpperCase() + tipo.slice(1);
+  toast(gastoYaRegistrado
+    ? `✓ ${label} marcado como pagado (gasto previo detectado, sin mover separado)`
+    : `✓ ${label} marcado como pagado`
+  );
   gf_renderGastosFijos();
   renderResumen();
   renderPlanMes('plan-mes-resumen');
