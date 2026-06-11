@@ -846,15 +846,8 @@
                 <label>Ingreso mensual base ($)</label>
                 <input type="number" id="cfg-ingreso-base" placeholder="1550000" min="1">
               </div>
-              <div class="form-group">
-                <label>Separar por cobro semanal a Obligaciones ($)</label>
-                <input type="number" id="cfg-cobro-semanal" placeholder="200000" min="0">
-              </div>
-              <div class="form-group">
-                <label>Alquiler mensual ($)</label>
-                <input type="number" id="cfg-alquiler" placeholder="450000" min="0">
-              </div>
             </div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">Alquiler y tarjeta se configuran en <button onclick="showPage('gastos-fijos')" style="background:none;border:none;color:var(--blue);font-weight:600;cursor:pointer;text-decoration:underline;padding:0;font-size:inherit;font-family:inherit">G. Fijos</button> por mes.</div>
             <div style="margin-top:14px">
               <div style="font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em">Clientes mensuales fijos</div>
               <div id="cfg-clientes-form"></div>
@@ -1894,8 +1887,19 @@ async function gf_marcarComoPagado(mesAnio, tipo){
 
   item.estado = 'pagado';
   await S.set('gastosFijos', gf_gastosFijos);
+
+  // Completar automáticamente la tarea de alquiler/tarjeta del mes, si existe
+  const tarea = tareas.find(t => t.cat === tipo && !t.done);
+  if(tarea){
+    tarea.done = true;
+    await S.set('tareas', tareas);
+    renderTareas();
+  }
+
   toast(`✓ ${tipo.charAt(0).toUpperCase()+tipo.slice(1)} marcado como pagado`);
   gf_renderGastosFijos();
+  renderResumen();
+  renderPlanMes('plan-mes-resumen');
 }
 
 async function gf_registrarSeparacion(){
@@ -2002,6 +2006,48 @@ async function gf_confirmarCierreTarjeta(){
   await S.set('gastosFijos', gf_gastosFijos);
   gf_cerrarModalCierre();
   gf_renderGastosFijos();
+}
+
+async function gf_eliminarSeparacion(id){
+  if(_pendingUndo){ clearTimeout(_pendingUndo.timer); _pendingUndo = null; }
+  const sepIdx   = gf_separacionesSemana.findIndex(s => s.id === id);
+  if(sepIdx === -1) return;
+  const sep      = gf_separacionesSemana[sepIdx];
+  // Buscar la transferencia de saldo vinculada (misma fecha, monto y hacia 'separado')
+  const transfIdx = gf_transferenciasSaldo.findIndex(t =>
+    t.fecha === sep.fecha && t.monto === sep.monto && t.destino === 'separado' &&
+    t.concepto === 'Separación semanal gastos fijos'
+  );
+  const transf = transfIdx !== -1 ? gf_transferenciasSaldo[transfIdx] : null;
+
+  gf_separacionesSemana.splice(sepIdx, 1);
+  if(transfIdx !== -1) gf_transferenciasSaldo.splice(transfIdx, 1);
+  await S.set('gf_separacionesSemana',  gf_separacionesSemana);
+  await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
+  gf_renderGastosFijos();
+
+  const timer = setTimeout(() => { _pendingUndo = null; }, 4500);
+  _pendingUndo = {
+    timer,
+    async restore(){
+      gf_separacionesSemana.splice(sepIdx, 0, sep);
+      if(transf) gf_transferenciasSaldo.splice(transfIdx, 0, transf);
+      await S.set('gf_separacionesSemana',  gf_separacionesSemana);
+      await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
+      gf_renderGastosFijos();
+    }
+  };
+  toast(`Separación eliminada · <button onclick="undoDelete()" style="background:none;border:none;color:var(--text);font-weight:600;cursor:pointer;text-decoration:underline;padding:0 0 0 6px;font-size:inherit;font-family:inherit">Deshacer</button>`, 'warn', 4800);
+}
+
+async function gf_eliminarTransferenciaSaldo(id){
+  await softDelete({
+    arr:     gf_transferenciasSaldo,
+    id,
+    setKey:  'gf_transferenciasSaldo',
+    render:  gf_renderGastosFijos,
+    label:   'Transferencia',
+  });
 }
 
 function gf_renderAlertas(mesAnio){
@@ -2114,8 +2160,9 @@ function gf_renderHistorialMes(mesAnio){
   });
 
   const rows = [
-    ...separaciones.map(s => ({ fecha: s.fecha, tipo: 'Separación semanal', monto: s.monto, dir: 'entrada' })),
+    ...separaciones.map(s => ({ _tipo:'sep',   _id: s.id, fecha: s.fecha, tipo: 'Separación semanal', monto: s.monto, dir: 'entrada' })),
     ...transferencias.map(t => ({
+      _tipo:'transf', _id: t.id,
       fecha: t.fecha,
       tipo: t.concepto || `${t.origen} → ${t.destino}`,
       monto: t.monto,
@@ -2124,16 +2171,20 @@ function gf_renderHistorialMes(mesAnio){
   ].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
   const rowsHtml = rows.length
-    ? rows.map(r => `
+    ? rows.map(r => {
+        const delFn = r._tipo === 'sep' ? `gf_eliminarSeparacion(${r._id})` : `gf_eliminarTransferenciaSaldo(${r._id})`;
+        return `
         <div class="gf-hist-row">
-          <div>
+          <div style="flex:1;min-width:0">
             <div style="font-size:13px">${r.tipo}</div>
             <div style="font-size:11px;color:var(--muted)">${r.fecha}</div>
           </div>
-          <div style="font-family:'JetBrains Mono',monospace;font-weight:600;color:${r.dir==='entrada'?'var(--green)':'var(--red)'}">
+          <div style="font-family:'JetBrains Mono',monospace;font-weight:600;color:${r.dir==='entrada'?'var(--green)':'var(--red)'};flex-shrink:0">
             ${r.dir==='entrada'?'+':'−'}${fmt(r.monto)}
           </div>
-        </div>`).join('')
+          <button class="btn btn-danger btn-sm" onclick="${delFn}" style="flex-shrink:0;padding:2px 8px;font-size:12px">×</button>
+        </div>`;
+      }).join('')
     : '<p style="color:var(--muted);font-size:13px;padding:4px 0">Sin movimientos este mes.</p>';
   el.innerHTML = `
     <div class="gf-card">
@@ -2216,15 +2267,20 @@ function calcDistribucion(montoCobro){
   const tipo = document.getElementById('cobro-tipo')?.value || 'semanal';
 
   if(tipo === 'semanal' || tipo === 'sueldo'){
-    const metaOblig = planMensual.cobroSemanalOblig || 200000;
-    const aOblig    = Math.min(montoCobro, metaOblig);
-    const aDisp     = Math.max(0, montoCobro - aOblig);
+    const mesAnio = gf_getMesActivo();
+    const rec     = gf_calcularRecomendacion(mesAnio);
+    const aOblig  = Math.min(montoCobro, rec.recomendacionPorSabado);
+    const aDisp   = Math.max(0, montoCobro - aOblig);
+    const gfLabel = rec.fondoNecesario > 0
+      ? `Separar para G. Fijos (${fmt(rec.fondoFaltante)} faltante)`
+      : 'Separar para G. Fijos';
     return {
       tipo,
       total: montoCobro,
       paraVida: aDisp,
+      gfSinConfigurar: rec.fondoNecesario === 0,
       asignaciones: aOblig > 0
-        ? [{ key:'obligaciones', label:'Obligaciones (alquiler + tarjeta)', monto:aOblig, target:metaOblig }]
+        ? [{ key:'obligaciones', label: gfLabel, monto: aOblig, target: rec.recomendacionPorSabado }]
         : [],
     };
   }
@@ -2272,12 +2328,15 @@ function calcularDistribucion(){
 
   const vidaColor = dist.paraVida > 0 ? 'dist-vida' : 'color:var(--muted)';
   const phaseNote = dist.faseLabel ? `<div style="font-size:11px;color:var(--blue);margin-bottom:10px">📊 ${dist.faseLabel}</div>` : '';
+  const gfWarn   = dist.gfSinConfigurar
+    ? `<div style="font-size:11px;color:var(--amber);margin-bottom:10px;padding:8px 10px;background:var(--amber-bg);border-radius:8px;border:1px solid var(--amber-border)">⚠ G. Fijos sin configurar — no hay separación sugerida. <button onclick="showPage('gastos-fijos')" style="background:none;border:none;color:var(--amber);font-weight:600;cursor:pointer;text-decoration:underline;padding:0;font-size:inherit;font-family:inherit">Configurar mes</button></div>`
+    : '';
   box.style.display = 'block';
   if(btnDefault) btnDefault.style.display = 'none';
   box.innerHTML = `
     <div class="instruccion blue" style="margin-top:0">
       <h3 style="color:var(--blue)">Distribución recomendada</h3>
-      ${phaseNote}
+      ${phaseNote}${gfWarn}
       ${rowsHTML}
       ${dist.paraVida > 0 ? `
       <div class="dist-row" style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px">
@@ -2751,6 +2810,38 @@ async function registrarGasto(){
 
 // Guarda el gasto y emite el toast correspondiente
 async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId }){
+  // Alquiler y tarjeta se gestionan desde G. Fijos para evitar doble descuento del separado
+  if(cat === 'alquiler' || cat === 'tarjeta'){
+    const mesAnio  = gf_getMesActivo();
+    const label    = cat === 'alquiler' ? 'Alquiler' : 'Tarjeta';
+    const overlay  = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.display = 'flex';
+    overlay.innerHTML = `
+      <div class="modal-content" style="width:min(340px,92vw);text-align:center">
+        <div style="font-size:32px;margin-bottom:10px">💡</div>
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:8px">${label}</h3>
+        <p style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:20px">
+          Este pago se gestiona desde <strong style="color:var(--text)">G. Fijos → Marcar pagado</strong>
+          para descontar del fondo separado correctamente.<br><br>
+          Si lo registrás como gasto igual, se va a descontar del separado dos veces.
+        </p>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-primary" id="_gf-ir">Ir a G. Fijos</button>
+          <button class="btn" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted)" id="_gf-igual">Registrar igual</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const cerrar = () => { overlay.remove(); };
+    document.getElementById('_gf-ir').onclick = () => { cerrar(); showPage('gastos-fijos'); };
+    document.getElementById('_gf-igual').onclick = async () => {
+      cerrar();
+      await _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId });
+    };
+    overlay.addEventListener('click', e => { if(e.target === overlay) cerrar(); });
+    return;
+  }
+
   const desvio = _getDesvioInfo(cat, monto); // ANTES de pushear
 
   const gasto = { id: Date.now(), tipo:'gasto', monto, categoria: cat, fecha, nota: desc };
@@ -2762,6 +2853,52 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId }){
       t.done = true;
       tareaCompletada = t;
       gasto.tareaId = tareaId; // guardamos la referencia para poder revertirla si se borra el gasto
+      await S.set('tareas', tareas);
+    }
+  }
+
+  movimientos.push(gasto);
+  await S.set('movimientos', movimientos);
+
+  document.getElementById('gasto-monto').value = '';
+  document.getElementById('gasto-desc').value  = '';
+  document.getElementById('gasto-tarea').value = '';
+
+  const tareaMsg = tareaCompletada ? ` · "${tareaCompletada.desc}" completada ✓` : '';
+
+  if(desvio){
+    const desvioMsg = desvio.tipo === 'no-asignado'
+      ? `Sin asignación para ${desvio.label}`
+      : `${desvio.label} excede en ${fmt(desvio.exceso)} lo asignado`;
+    const otros = desvio.pendingOtros.map(x => `${desvio.LABELS[x.k]} ${fmt(x.falta)}`).join(', ');
+    toast(`⚠ Desvío${tareaMsg} · ${desvioMsg}${otros ? ` — pendiente: ${otros}` : ''}`, 'warn', 7000);
+  } else {
+    const sDisp = _getSaldoReservas().disponible;
+    if(sDisp < 0){
+      toast(`⚠ Gasto registrado${tareaMsg} · Disponible: ${fmt(sDisp)} (excedido)`, 'err', 5000);
+    } else {
+      toast(`✓ Gasto registrado${tareaMsg} · Disponible: ${fmt(sDisp)}`);
+    }
+  }
+
+  renderTareasSelect();
+  renderResumen();
+  renderHistorial();
+  if(tareaCompletada) renderTareas();
+}
+
+async function _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId }){
+  const desvio = _getDesvioInfo(cat, monto);
+
+  const gasto = { id: Date.now(), tipo:'gasto', monto, categoria: cat, fecha, nota: desc };
+
+  let tareaCompletada = null;
+  if(tareaId){
+    const t = tareas.find(t => t.id === tareaId);
+    if(t && !t.done){
+      t.done = true;
+      tareaCompletada = t;
+      gasto.tareaId = tareaId;
       await S.set('tareas', tareas);
     }
   }
@@ -3056,84 +3193,114 @@ function actualizarPresupuesto(){
   renderPresupuesto(monto, cat);
 }
 
-// ── PLAN DEL MES ─────────────────────────────────────────
+// ── PLAN DEL MES (fuente: Gastos Fijos) ──────────────────
 function renderPlanMes(elId){
   const el = document.getElementById(elId);
   if(!el) return;
 
-  const saldos = _getSaldoReservas();
-  const tarjetaTask  = tareas.find(t => t.cat === 'tarjeta');
-  const alqVenc      = tareas.find(t => t.cat === 'alquiler');
-  const alquilerMonto = planMensual.alquilerMonto || 450000;
-  const tarjetaMonto  = tarjetaTask?.monto || 0;
+  const mesAnio = gf_getMesActivo();
+  const mes     = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
+  const rec     = gf_calcularRecomendacion(mesAnio);
+  const estado  = gf_calcularEstadoMes(mesAnio);
 
-  const tarjetaPagada  = tarjetaTask?.done === true;
-  const alquilerPagado = alqVenc?.done === true;
+  // GF sin configurar → card simple invitando a configurar
+  if(!mes || estado === 'sin_configurar'){
+    const hoyPlan   = new Date();
+    const tareasMes = tareas.filter(t => {
+      const d = new Date(t.venc+'T12:00');
+      return d.getMonth()===hoyPlan.getMonth() && d.getFullYear()===hoyPlan.getFullYear();
+    });
+    const tareasPagas = tareasMes.filter(t => t.done).length;
+    el.innerHTML = `
+      <div class="plan-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin:0">Gastos Fijos</h3>
+          <button class="btn btn-sm" onclick="showPage('gastos-fijos')" style="font-size:11px">Configurar mes →</button>
+        </div>
+        <div style="font-size:13px;color:var(--muted)">Configurá alquiler y tarjeta en G. Fijos para ver el progreso aquí.</div>
+        ${tareasMes.length > 0 ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding-top:10px;border-top:1px solid var(--border);margin-top:12px">
+          <span style="color:var(--muted)">Tareas del mes</span>
+          <span style="color:${tareasPagas===tareasMes.length?'var(--green)':'var(--text)'}">
+            ${tareasPagas} / ${tareasMes.length}${tareasPagas===tareasMes.length?' ✓':''}
+          </span>
+        </div>` : ''}
+      </div>`;
+    return;
+  }
 
-  // Solo incluir en la meta lo que todavía no está pagado
-  const metaPendiente = (alquilerPagado ? 0 : alquilerMonto) + (tarjetaPagada ? 0 : tarjetaMonto);
-  const acumulado = saldos.obligaciones;
-  const pct   = metaPendiente > 0 ? Math.min(100, Math.round(acumulado / metaPendiente * 100)) : 100;
-  const falta = Math.max(0, metaPendiente - acumulado);
+  const alqPagado  = mes.alquiler.estado === 'pagado';
+  const tarPagado  = mes.tarjeta.estado  === 'pagado';
+  const todosPagado = alqPagado && tarPagado;
 
-  const alqLabel  = alqVenc ? `vence ${vencLabel(alqVenc.venc, false)}` : `$${(alquilerMonto/1000).toFixed(0)}k fijo`;
-  const tarjLabel = tarjetaTask
-    ? (tarjetaMonto > 0 ? `${fmt(tarjetaMonto)} · vence ${vencLabel(tarjetaTask.venc, false)}` : 'monto pendiente')
-    : 'sin configurar';
+  const acumulado  = rec.fondoAcumulado;
+  const necesario  = rec.fondoNecesario;
+  const faltante   = rec.fondoFaltante;
+  const pct = necesario > 0 ? Math.min(100, Math.round(acumulado / necesario * 100)) : 100;
 
-  const hoyPlan = new Date();
-  const tareasMesAll = tareas.filter(t => {
+  const estadoColors = { en_curso:'var(--blue)', urgente:'var(--amber)', vencido:'var(--red)', completo:'var(--green)' };
+  const fillColor = estadoColors[estado] || 'var(--blue)';
+
+  const alqMonto  = (mes.alquiler.montoReal ?? mes.alquiler.montoEstimado) || 0;
+  const tarMonto  = (mes.tarjeta.montoReal  ?? mes.tarjeta.montoEstimado)  || 0;
+
+  const alqTask   = tareas.find(t => t.cat === 'alquiler' && !t.done);
+  const tarTask   = tareas.find(t => t.cat === 'tarjeta'  && !t.done);
+  const alqVencTxt = alqTask ? ` · vence ${vencLabel(alqTask.venc, false)}` : '';
+  const tarVencTxt = tarTask ? ` · vence ${vencLabel(tarTask.venc, false)}` : '';
+
+  const hoyPlan   = new Date();
+  const tareasMes = tareas.filter(t => {
     const d = new Date(t.venc+'T12:00');
     return d.getMonth()===hoyPlan.getMonth() && d.getFullYear()===hoyPlan.getFullYear();
   });
-  const tareasTotal = tareasMesAll.length;
-  const tareasPagas = tareasMesAll.filter(t => t.done).length;
-
-  const todosPagado = tarjetaPagada && alquilerPagado;
-  const fillColor   = (todosPagado || pct >= 100) ? 'var(--green)' : falta > acumulado ? 'var(--amber)' : 'var(--blue)';
-  const statusLabel = todosPagado
-    ? `<span style="color:var(--green)">✓ obligaciones del mes cubiertas</span>`
-    : pct >= 100
-      ? `<span style="color:var(--green)">✓ cubierto</span>`
-      : `Acumulado ${fmt(acumulado)} · falta <strong>${fmt(falta)}</strong>`;
-
-  const headerLabel = todosPagado ? 'Obligaciones del mes' :
-    (!alquilerPagado && !tarjetaPagada) ? 'Alquiler + tarjeta' :
-    (!alquilerPagado) ? 'Alquiler' : 'Tarjeta';
+  const tareasPagas = tareasMes.filter(t => t.done).length;
 
   el.innerHTML = `
     <div class="plan-section">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px">
-        <h3 style="margin:0">Obligaciones del mes</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <h3 style="margin:0">Gastos Fijos</h3>
+        <button class="btn btn-sm" onclick="showPage('gastos-fijos')" style="font-size:11px">Ver detalle →</button>
       </div>
       <div class="plan-obl-row">
         <div class="plan-obl-info" style="flex:1">
           ${!todosPagado ? `
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-            <span class="plan-obl-label">${headerLabel}</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${fillColor}">${fmt(acumulado)} / ${fmt(metaPendiente)}</span>
+            <span class="plan-obl-label">Fondo ${gf_nombreMes(mesAnio)}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:${fillColor}">${fmt(acumulado)} / ${fmt(necesario)}</span>
           </div>
-          <div class="plan-obl-bar" style="margin-bottom:6px"><div class="plan-obl-fill" style="transform:scaleX(${pct/100});background:${fillColor}"></div></div>
-          ` : ''}
-          <div class="plan-obl-nums">${statusLabel}</div>
-          <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
+          <div class="plan-obl-bar" style="margin-bottom:8px"><div class="plan-obl-fill" style="transform:scaleX(${pct/100});background:${fillColor}"></div></div>
+          <div class="plan-obl-nums" style="margin-bottom:8px">
+            ${todosPagado
+              ? `<span style="color:var(--green)">✓ obligaciones del mes cubiertas</span>`
+              : faltante === 0
+                ? `<span style="color:var(--green)">✓ fondo completo — pendiente de pago</span>`
+                : `Separado ${fmt(acumulado)} · falta <strong>${fmt(faltante)}</strong>`
+            }
+          </div>` : `
+          <div class="plan-obl-nums" style="margin-bottom:8px">
+            <span style="color:var(--green)">✓ obligaciones del mes cubiertas</span>
+          </div>`}
+          <div style="display:flex;flex-direction:column;gap:5px">
             <div style="display:flex;justify-content:space-between;font-size:12px">
               <span style="color:var(--muted)">Alquiler</span>
-              ${alquilerPagado
-                ? `<span style="color:var(--green);font-weight:600">Pagado ✓ · ${fmt(alquilerMonto)}</span>`
-                : `<span style="color:var(--text)">${fmt(alquilerMonto)} · ${alqLabel}</span>`}
+              ${alqPagado
+                ? `<span style="color:var(--green);font-weight:600">Pagado ✓ · ${fmt(alqMonto)}</span>`
+                : `<span style="color:var(--text)">${fmt(alqMonto)}${alqVencTxt}</span>`}
             </div>
             <div style="display:flex;justify-content:space-between;font-size:12px">
               <span style="color:var(--muted)">Tarjeta</span>
-              ${tarjetaPagada
-                ? `<span style="color:var(--green);font-weight:600">Pagada ✓ · ${fmt(tarjetaMonto)}</span>`
-                : `<span style="color:var(--text)">${tarjLabel}</span>`}
+              ${tarPagado
+                ? `<span style="color:var(--green);font-weight:600">Pagada ✓ · ${fmt(tarMonto)}</span>`
+                : `<span style="color:var(--text)">${tarMonto ? fmt(tarMonto) : '—'}${tarVencTxt}</span>`}
             </div>
           </div>
-          ${tareasTotal > 0 ? `
+          ${tareasMes.length > 0 ? `
           <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding-top:8px;border-top:1px solid var(--border);margin-top:10px">
             <span style="color:var(--muted)">Tareas del mes</span>
-            <span style="color:${tareasPagas===tareasTotal?'var(--green)':'var(--text)'};font-weight:${tareasPagas===tareasTotal?'600':'400'}">${tareasPagas} de ${tareasTotal} pagadas${tareasPagas===tareasTotal?' ✓':''}</span>
+            <span style="color:${tareasPagas===tareasMes.length?'var(--green)':'var(--text)'}">
+              ${tareasPagas} / ${tareasMes.length}${tareasPagas===tareasMes.length?' ✓':''}
+            </span>
           </div>` : ''}
         </div>
       </div>
@@ -3969,9 +4136,7 @@ async function resetCategoriasConfig(){
 
 function renderConfig(){
   if(!document.getElementById('cfg-ingreso-base')) return;
-  document.getElementById('cfg-ingreso-base').value  = planMensual.ingresoBase || '';
-  document.getElementById('cfg-cobro-semanal').value = planMensual.cobroSemanalOblig || '';
-  document.getElementById('cfg-alquiler').value      = planMensual.alquilerMonto || '';
+  document.getElementById('cfg-ingreso-base').value = planMensual.ingresoBase || '';
 
   // Mostrar checkpoint activo
   const siEl = document.getElementById('si-actual');
@@ -4002,15 +4167,9 @@ function renderConfig(){
 }
 
 async function guardarConfig(){
-  const ingresoBase     = parseFloat(document.getElementById('cfg-ingreso-base').value);
-  const cobroSemanal    = parseFloat(document.getElementById('cfg-cobro-semanal').value);
-  const alquilerMonto   = parseFloat(document.getElementById('cfg-alquiler').value);
-  if(!(ingresoBase > 0))   { toast('Ingresá un ingreso base mayor que cero', 'err'); return; }
-  if(!(cobroSemanal >= 0)) { toast('El monto semanal no puede ser negativo', 'err'); return; }
-  if(!(alquilerMonto >= 0)){ toast('El alquiler no puede ser negativo', 'err'); return; }
-  planMensual.ingresoBase       = ingresoBase;
-  planMensual.cobroSemanalOblig = cobroSemanal;
-  planMensual.alquilerMonto     = alquilerMonto;
+  const ingresoBase = parseFloat(document.getElementById('cfg-ingreso-base').value);
+  if(!(ingresoBase > 0)){ toast('Ingresá un ingreso base mayor que cero', 'err'); return; }
+  planMensual.ingresoBase = ingresoBase;
   const clientes = planMensual.clientesMensuales || [];
   clientes.forEach((c,i) => {
     const el = document.getElementById(`cfg-cliente-monto-${i}`);
