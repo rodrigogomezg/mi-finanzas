@@ -1503,9 +1503,6 @@ async function init(){
   inversiones    = await S.get('inversiones')    || [];
   transferencias = await S.get('transferencias') || [];
   planMensual   = await S.get('planMensual')   || JSON.parse(JSON.stringify(PLAN_DEFAULT));
-  // Migrar: asegurar campos del nuevo modelo
-  if(!planMensual.cobroSemanalOblig) planMensual.cobroSemanalOblig = PLAN_DEFAULT.cobroSemanalOblig;
-  if(!planMensual.alquilerMonto)     planMensual.alquilerMonto     = PLAN_DEFAULT.alquilerMonto;
   if(!planMensual.clientesMensuales) planMensual.clientesMensuales = JSON.parse(JSON.stringify(PLAN_DEFAULT.clientesMensuales));
 
   // Seed inicial de inversiones con saldos reales si aún no hay registros
@@ -2315,9 +2312,11 @@ function calcDistribucion(montoCobro){
   if(!montoCobro) return null;
   const tipo = document.getElementById('cobro-tipo')?.value || 'semanal';
 
+  const mesAnio = gf_getMesActivo();
+  const rec     = gf_calcularRecomendacion(mesAnio);
+  const fase    = _getCurrentPhase();
+
   if(tipo === 'semanal' || tipo === 'sueldo'){
-    const mesAnio = gf_getMesActivo();
-    const rec     = gf_calcularRecomendacion(mesAnio);
     const aOblig  = Math.min(montoCobro, rec.recomendacionPorSabado);
     const aDisp   = Math.max(0, montoCobro - aOblig);
     const gfLabel = rec.fondoNecesario > 0
@@ -2328,27 +2327,36 @@ function calcDistribucion(montoCobro){
       total: montoCobro,
       paraVida: aDisp,
       gfSinConfigurar: rec.fondoNecesario === 0,
-      asignaciones: aOblig > 0
-        ? [{ key:'obligaciones', label: gfLabel, monto: aOblig, target: rec.recomendacionPorSabado }]
-        : [],
+      asignaciones: [
+        ...(aOblig > 0 ? [{ key:'obligaciones', label: gfLabel, monto: aOblig, target: rec.recomendacionPorSabado }] : []),
+        { key:'fci',     label:'FCI Money Market', monto: 0, target: 0 },
+        { key:'cedears', label:'CEDEARs (USD)',     monto: 0, target: 0 },
+      ],
     };
   }
 
-  // mensual_fijo y extra: fase automática
-  const fase = _getCurrentPhase();
-  const asignaciones = [];
+  // extra / mensual_fijo: inversión por fase + opción GF
+  const invAsig = [];
   if(fase === 1){
-    asignaciones.push({ key:'fci', label:'FCI Money Market', monto:montoCobro, target:montoCobro });
+    invAsig.push({ key:'fci', label:'FCI Money Market', monto:montoCobro, target:montoCobro });
   } else if(fase === 2){
     const aCedears = Math.round(montoCobro * 0.75 / 1000) * 1000;
     const aFCI     = montoCobro - aCedears;
-    if(aCedears > 0) asignaciones.push({ key:'cedears', label:'CEDEARs', monto:aCedears, target:aCedears });
-    if(aFCI     > 0) asignaciones.push({ key:'fci',    label:'FCI Money Market', monto:aFCI, target:aFCI });
+    if(aCedears > 0) invAsig.push({ key:'cedears', label:'CEDEARs',         monto:aCedears, target:aCedears });
+    if(aFCI     > 0) invAsig.push({ key:'fci',    label:'FCI Money Market', monto:aFCI,     target:aFCI });
   } else {
-    asignaciones.push({ key:'cedears', label:'CEDEARs', monto:montoCobro, target:montoCobro });
+    invAsig.push({ key:'cedears', label:'CEDEARs', monto:montoCobro, target:montoCobro });
   }
   const faseLabel = ['', 'Fase 1 — todo al FCI', 'Fase 2 — 75% CEDEARs + 25% FCI', 'Fase 3 — todo a CEDEARs'][fase];
-  return { tipo, total: montoCobro, paraVida: 0, asignaciones, faseLabel };
+  const gfLabel   = rec.fondoFaltante > 0 ? `G. Fijos (${fmt(rec.fondoFaltante)} pendiente)` : 'G. Fijos';
+  return {
+    tipo, total: montoCobro, paraVida: 0, faseLabel,
+    gfDeficit: rec.fondoFaltante,
+    asignaciones: [
+      { key:'obligaciones', label: gfLabel, monto: 0, target: 0 },
+      ...invAsig,
+    ],
+  };
 }
 
 function calcularDistribucion(){
@@ -2369,7 +2377,7 @@ function calcularDistribucion(){
   }
   _distData = dist;
 
-  const rowsHTML = dist.asignaciones.map(a => `
+  const rowsHTML = dist.asignaciones.filter(a => a.monto > 0).map(a => `
     <div class="dist-row">
       <div><div class="dist-label">${a.label}</div></div>
       <div class="dist-monto dist-oblig">${fmt(a.monto)}</div>
@@ -2377,15 +2385,21 @@ function calcularDistribucion(){
 
   const vidaColor = dist.paraVida > 0 ? 'dist-vida' : 'color:var(--muted)';
   const phaseNote = dist.faseLabel ? `<div style="font-size:11px;color:var(--blue);margin-bottom:10px">📊 ${dist.faseLabel}</div>` : '';
-  const gfWarn   = dist.gfSinConfigurar
+  const gfWarn = dist.gfSinConfigurar
     ? `<div style="font-size:11px;color:var(--amber);margin-bottom:10px;padding:8px 10px;background:var(--amber-bg);border-radius:8px;border:1px solid var(--amber-border)">⚠ G. Fijos sin configurar — no hay separación sugerida. <button onclick="showPage('gastos-fijos')" style="background:none;border:none;color:var(--amber);font-weight:600;cursor:pointer;text-decoration:underline;padding:0;font-size:inherit;font-family:inherit">Configurar mes</button></div>`
+    : '';
+  // Hint cruzado: semanal con sobrante → sugerir invertir; extra con déficit GF → sugerir aportar
+  const crossHint = (dist.paraVida > 0 && !dist.gfSinConfigurar)
+    ? `<div style="font-size:11px;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:var(--surface2);border-radius:8px">Sobran ${fmt(dist.paraVida)} — si querés invertir parte, usá <strong style="color:var(--text)">Editar</strong></div>`
+    : (dist.gfDeficit > 0)
+    ? `<div style="font-size:11px;color:var(--amber);margin-bottom:10px;padding:7px 10px;background:var(--amber-bg);border-radius:8px;border:1px solid var(--amber-border)">G. Fijos tiene ${fmt(dist.gfDeficit)} pendiente — podés asignarle parte con <strong>Editar</strong></div>`
     : '';
   box.style.display = 'block';
   if(btnDefault) btnDefault.style.display = 'none';
   box.innerHTML = `
     <div class="instruccion blue" style="margin-top:0">
       <h3 style="color:var(--blue)">Distribución recomendada</h3>
-      ${phaseNote}${gfWarn}
+      ${phaseNote}${gfWarn}${crossHint}
       ${rowsHTML}
       ${dist.paraVida > 0 ? `
       <div class="dist-row" style="margin-top:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px">
@@ -2525,11 +2539,13 @@ async function registrarCobro(conDistribucion = true){
   if(_saving) return;
   _saving = true;
   try {
+    let _distrib = null;
     if(conDistribucion){
       const dist = calcDistribucion(monto);
       if(dist){
         const distribucion = Object.fromEntries(dist.asignaciones.map(a => [a.key, a.monto]));
         movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion });
+        _distrib = distribucion;
       } else {
         movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota });
       }
@@ -2540,6 +2556,22 @@ async function registrarCobro(conDistribucion = true){
     }
 
     await S.set('movimientos', movimientos);
+
+    // Registrar inversiones cuando la distribución incluye FCI o CEDEARs
+    if(_distrib){
+      let invChanged = false;
+      if(_distrib.fci > 0){
+        inversiones.push({ id: Date.now() + 1, tipo:'fci', monto: _distrib.fci, fecha, nota: `De cobro ${tipo}` });
+        invChanged = true;
+      }
+      if(_distrib.cedears > 0){
+        const tc = _getTCActual();
+        const montoUSD = Math.round((_distrib.cedears / tc) * 100) / 100;
+        inversiones.push({ id: Date.now() + 2, tipo:'cedears', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(_distrib.cedears)} ARS @ $${tc})` });
+        invChanged = true;
+      }
+      if(invChanged) await S.set('inversiones', inversiones);
+    }
 
     document.getElementById('cobro-monto').value = '';
     document.getElementById('cobro-nota').value  = '';
