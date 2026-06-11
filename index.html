@@ -1462,6 +1462,31 @@ const PLAN_DEFAULT = {
 };
 let planMensual = JSON.parse(JSON.stringify(PLAN_DEFAULT));
 
+// ── MIGRACIONES DE DATOS ──────────────────────────────────
+async function _migrarGastosFijos(){
+  let dirty = false;
+
+  for(const mes of gf_gastosFijos){
+    // 1. Cerrar meses donde ambos GF están pagados pero mes.estado no es 'completo'
+    if(mes.alquiler?.estado === 'pagado' && mes.tarjeta?.estado === 'pagado' && mes.estado !== 'completo'){
+      mes.estado = 'completo';
+      dirty = true;
+    }
+
+    // 2. montoReal sospechoso: valor < 100 cuando el estimado es > 1000 → probablemente error tipeo
+    if(mes.tarjeta?.montoReal != null && mes.tarjeta.montoReal < 100 && (mes.tarjeta.montoEstimado || 0) > 1000){
+      mes.tarjeta.montoReal = null;
+      dirty = true;
+    }
+    if(mes.alquiler?.montoReal != null && mes.alquiler.montoReal < 100 && (mes.alquiler.montoEstimado || 0) > 1000){
+      mes.alquiler.montoReal = null;
+      dirty = true;
+    }
+  }
+
+  if(dirty) await S.set('gastosFijos', gf_gastosFijos);
+}
+
 // ── INIT ─────────────────────────────────────────────────
 async function init(){
   const hoy = new Date().toISOString().split('T')[0];
@@ -1503,6 +1528,7 @@ async function init(){
   gf_separacionesSemana  = await S.get('gf_separacionesSemana')  || [];
   gf_transferenciasSaldo = await S.get('gf_transferenciasSaldo') || [];
   gf_ingresosEspeciales  = await S.get('gf_ingresosEspeciales')  || [];
+  await _migrarGastosFijos();
   const savedCats = await S.get('categorias_config');
   if(savedCats){ Object.assign(categoriasConfig, savedCats); }
   _syncCatConfig();
