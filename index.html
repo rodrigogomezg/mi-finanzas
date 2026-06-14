@@ -1491,7 +1491,7 @@ const S = (() => {
       try{
         const { initializeApp, getApps } =
           await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
-        const { getAuth, signInWithPopup, signInWithRedirect,
+        const { getAuth, signInWithPopup,
                 getRedirectResult, onAuthStateChanged, GoogleAuthProvider } =
           await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
         const { getFirestore, doc, getDoc, setDoc } =
@@ -1527,11 +1527,7 @@ const S = (() => {
           });
 
           const provider = new GoogleAuthProvider();
-          const isMob = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-          (isMob
-            ? signInWithRedirect(auth, provider)
-            : signInWithPopup(auth, provider)
-          ).catch(e => {
+          signInWithPopup(auth, provider).catch(e => {
             console.warn('Sign-in failed:', e);
             _setSyncUI('noauth');
             unsub();
