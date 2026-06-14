@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0e1828"/>
+      <stop offset="100%" stop-color="#07101c"/>
+    </linearGradient>
+    <linearGradient id="col" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2a549a"/>
+      <stop offset="40%" stop-color="#4a7ed4"/>
+      <stop offset="100%" stop-color="#2a549a"/>
+    </linearGradient>
+    <linearGradient id="pedGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1c3460"/>
+      <stop offset="100%" stop-color="#162848"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- Top meander band -->
+  <rect x="0" y="0" width="512" height="48" fill="#0d1a30"/>
+  <rect x="0" y="0" width="512" height="3" fill="#4878c8"/>
+  <!-- Top meander path (Greek key, repeating every 80px, 6 units) -->
+  <path d="M0,8 L0,44 L28,44 L28,26 L56,26 L56,8 L80,8 L80,44 L108,44 L108,26 L136,26 L136,8 L160,8 L160,44 L188,44 L188,26 L216,26 L216,8 L240,8 L240,44 L268,44 L268,26 L296,26 L296,8 L320,8 L320,44 L348,44 L348,26 L376,26 L376,8 L400,8 L400,44 L428,44 L428,26 L456,26 L456,8 L480,8 L480,44 L512,44"
+        fill="none" stroke="#4878c8" stroke-width="3.5" stroke-linecap="square" stroke-linejoin="miter"/>
+  <rect x="0" y="45" width="512" height="3" fill="#4878c8" opacity="0.45"/>
+
+  <!-- Temple -->
+  <!-- Pediment (triangle) -->
+  <polygon points="256,76 440,162 72,162" fill="url(#pedGrad)" stroke="#4878c8" stroke-width="4.5" stroke-linejoin="miter"/>
+  <!-- Acroterion at peak -->
+  <rect x="249" y="68" width="14" height="14" fill="#4878c8" transform="rotate(45 256 75)"/>
+  <!-- Side acroteria -->
+  <rect x="68" y="155" width="9" height="9" fill="#4878c8" transform="rotate(45 72.5 159.5)"/>
+  <rect x="434" y="155" width="9" height="9" fill="#4878c8" transform="rotate(45 438.5 159.5)"/>
+
+  <!-- Entablature (frieze) -->
+  <rect x="64" y="162" width="384" height="34" fill="#4878c8"/>
+  <!-- Triglyphs (vertical cuts in frieze) -->
+  <rect x="80"  y="165" width="13" height="28" fill="#0d1828"/>
+  <rect x="97"  y="165" width="4"  height="28" fill="#0d1828"/>
+  <rect x="156" y="165" width="13" height="28" fill="#0d1828"/>
+  <rect x="173" y="165" width="4"  height="28" fill="#0d1828"/>
+  <rect x="236" y="165" width="13" height="28" fill="#0d1828"/>
+  <rect x="253" y="165" width="4"  height="28" fill="#0d1828"/>
+  <rect x="316" y="165" width="13" height="28" fill="#0d1828"/>
+  <rect x="333" y="165" width="4"  height="28" fill="#0d1828"/>
+  <rect x="396" y="165" width="13" height="28" fill="#0d1828"/>
+  <rect x="413" y="165" width="4"  height="28" fill="#0d1828"/>
+  <!-- Regula dots under triglyphs -->
+  <rect x="80" y="193" width="13" height="3" fill="#3060a0"/>
+  <rect x="156" y="193" width="13" height="3" fill="#3060a0"/>
+  <rect x="236" y="193" width="13" height="3" fill="#3060a0"/>
+  <rect x="316" y="193" width="13" height="3" fill="#3060a0"/>
+  <rect x="396" y="193" width="13" height="3" fill="#3060a0"/>
+
+  <!-- 4 Columns (Doric) -->
+  <!-- Abacus (flat slab at top of capital) -->
+  <rect x="88"  y="196" width="44" height="9" fill="#7aA0e8"/>
+  <rect x="196" y="196" width="44" height="9" fill="#7aA0e8"/>
+  <rect x="284" y="196" width="44" height="9" fill="#7aA0e8"/>
+  <rect x="380" y="196" width="44" height="9" fill="#7aA0e8"/>
+  <!-- Echinus (curved profile - simplified as tapered rect) -->
+  <rect x="92"  y="205" width="36" height="8" fill="#6898e8"/>
+  <rect x="200" y="205" width="36" height="8" fill="#6898e8"/>
+  <rect x="288" y="205" width="36" height="8" fill="#6898e8"/>
+  <rect x="384" y="205" width="36" height="8" fill="#6898e8"/>
+
+  <!-- Column shafts -->
+  <rect x="96"  y="213" width="28" height="196" fill="url(#col)"/>
+  <rect x="204" y="213" width="28" height="196" fill="url(#col)"/>
+  <rect x="292" y="213" width="28" height="196" fill="url(#col)"/>
+  <rect x="388" y="213" width="28" height="196" fill="url(#col)"/>
+  <!-- Shaft highlight (left edge glint) -->
+  <rect x="96"  y="213" width="5" height="196" fill="#88b0f0" opacity="0.35"/>
+  <rect x="204" y="213" width="5" height="196" fill="#88b0f0" opacity="0.35"/>
+  <rect x="292" y="213" width="5" height="196" fill="#88b0f0" opacity="0.35"/>
+  <rect x="388" y="213" width="5" height="196" fill="#88b0f0" opacity="0.35"/>
+  <!-- Shaft shadow (right edge) -->
+  <rect x="119" y="213" width="5" height="196" fill="#142040" opacity="0.4"/>
+  <rect x="227" y="213" width="5" height="196" fill="#142040" opacity="0.4"/>
+  <rect x="315" y="213" width="5" height="196" fill="#142040" opacity="0.4"/>
+  <rect x="411" y="213" width="5" height="196" fill="#142040" opacity="0.4"/>
+
+  <!-- Column bases -->
+  <rect x="92"  y="409" width="36" height="8" fill="#6898e8"/>
+  <rect x="200" y="409" width="36" height="8" fill="#6898e8"/>
+  <rect x="288" y="409" width="36" height="8" fill="#6898e8"/>
+  <rect x="384" y="409" width="36" height="8" fill="#6898e8"/>
+  <rect x="88"  y="417" width="44" height="7" fill="#7aA0e8"/>
+  <rect x="196" y="417" width="44" height="7" fill="#7aA0e8"/>
+  <rect x="284" y="417" width="44" height="7" fill="#7aA0e8"/>
+  <rect x="380" y="417" width="44" height="7" fill="#7aA0e8"/>
+
+  <!-- Stylobate (3 platform steps) -->
+  <rect x="64"  y="424" width="384" height="14" fill="#4878c8"/>
+  <rect x="48"  y="438" width="416" height="13" fill="#3060a0"/>
+  <rect x="32"  y="451" width="448" height="12" fill="#1e3868"/>
+
+  <!-- Bottom meander band -->
+  <rect x="0" y="466" width="512" height="46" fill="#0d1a30"/>
+  <rect x="0" y="466" width="512" height="3" fill="#4878c8" opacity="0.45"/>
+  <!-- Bottom meander path (flipped: starts at bottom) -->
+  <path d="M0,504 L0,468 L28,468 L28,486 L56,486 L56,504 L80,504 L80,468 L108,468 L108,486 L136,486 L136,504 L160,504 L160,468 L188,468 L188,486 L216,486 L216,504 L240,504 L240,468 L268,468 L268,486 L296,486 L296,504 L320,504 L320,468 L348,468 L348,486 L376,486 L376,504 L400,504 L400,468 L428,468 L428,486 L456,486 L456,504 L480,504 L480,468 L512,468"
+        fill="none" stroke="#4878c8" stroke-width="3.5" stroke-linecap="square" stroke-linejoin="miter"/>
+  <rect x="0" y="509" width="512" height="3" fill="#4878c8"/>
+</svg>
