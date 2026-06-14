@@ -404,13 +404,21 @@
     .form-grid { grid-template-columns:1fr; gap:8px; }
     .fg-3col { grid-template-columns:1fr; }
     .fg-4col { grid-template-columns:1fr; }
-    /* form-pair: mantiene 2 col pero gap reducido */
+    /* form-pair: 2 col con celdas contenidas */
     .form-pair { gap:8px; }
+    .form-pair > * { min-width:0; }
     /* inline-action: apila verticalmente — input arriba, botón ancho completo */
     .form-group.inline-action { flex-direction:column; align-items:stretch; gap:8px; }
     .form-group.inline-action > button,
     .form-group.inline-action > select { width:100%; }
-    .form-group input, .form-group select { font-size:16px; } /* evita zoom iOS */
+    /* inputs y selects: ancho contenido, sin desborde */
+    .form-group { min-width:0; }
+    .form-group input, .form-group select, .form-group textarea {
+      font-size:16px; /* evita zoom iOS */
+      width:100%;
+      min-width:0;
+      box-sizing:border-box;
+    }
 
     /* Tabs */
     .tab-bar { gap:2px; padding:4px; }
@@ -446,6 +454,11 @@
     .gf-card { padding:16px 14px; border-radius:14px; }
     .gf-item-label { font-size:13px; }
     .gf-item-monto { font-size:14px; }
+    /* Fila alquiler/tarjeta: label+monto arriba, botones abajo juntos */
+    .gf-item-fila { align-items:center; }
+    .gf-item-acciones { flex-basis:100%; margin-top:4px; }
+    .gf-item-acciones .btn { flex:1; text-align:center; }
+    .gf-item-acciones .gf-badge-pagado { margin-left:auto; }
     .gf-rec-panel { padding:13px 14px; }
     .gf-rec-row { font-size:13px; }
 
