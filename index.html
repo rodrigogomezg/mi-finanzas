@@ -1101,10 +1101,6 @@ service cloud.firestore {
               </div>
               <div class="form-group full" style="display:flex;align-items:center;gap:10px">
                 <span id="trab-calc-preview" style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;flex:1">— hs × $0 = $0</span>
-                <label style="display:flex;align-items:center;cursor:pointer;user-select:none;flex-shrink:0">
-                  <input type="checkbox" id="trab-feriado" onchange="calcHorasTrab()" style="display:none">
-                  <span id="trab-feriado-pill" style="font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);background:transparent;transition:color 150ms var(--ease-out),border-color 150ms var(--ease-out),background 150ms var(--ease-out)">Feriado</span>
-                </label>
               </div>
               <div class="form-group inline-action full">
                 <input type="text" id="trab-nota" placeholder="Nota (opcional)">
@@ -5371,21 +5367,11 @@ function _fillTimeSelects(){
 function calcHorasTrab(){
   const e = _timeToH(document.getElementById('trab-entrada').value);
   const s = _timeToH(document.getElementById('trab-salida').value);
-  const pre  = document.getElementById('trab-calc-preview');
-  const pill = document.getElementById('trab-feriado-pill');
-  const esFeriado = document.getElementById('trab-feriado')?.checked;
-  if(pill){
-    pill.style.color           = esFeriado ? 'var(--amber)' : 'var(--muted)';
-    pill.style.borderColor     = esFeriado ? 'var(--amber)' : 'var(--border)';
-    pill.style.background      = esFeriado ? 'oklch(78% 0.16 75 / 0.1)' : 'transparent';
-  }
+  const pre = document.getElementById('trab-calc-preview');
   if(isNaN(e) || isNaN(s) || s <= e){ pre.textContent = '— hs × $0 = $0'; return; }
   const hs    = Math.round((s - e) * 100) / 100;
-  const multi = esFeriado ? 2 : 1;
-  const monto = Math.round(hs * tarifaHora * multi);
-  pre.textContent = esFeriado
-    ? `${hs} hs × ${fmt(tarifaHora)} × 2 = ${fmt(monto)}`
-    : `${hs} hs × ${fmt(tarifaHora)} = ${fmt(monto)}`;
+  const monto = Math.round(hs * tarifaHora);
+  pre.textContent = `${hs} hs × ${fmt(tarifaHora)} = ${fmt(monto)}`;
 }
 
 async function actualizarTarifaHora(){
@@ -5408,20 +5394,17 @@ async function agregarRegistroDia(){
   const nota     = document.getElementById('trab-nota').value.trim();
   if(!fecha)           { toast('Elegí una fecha', 'err'); return; }
   if(isNaN(entrada) || isNaN(salida) || salida <= entrada){ toast('Revisá los horarios', 'err'); return; }
-  const horas     = Math.round((salida - entrada) * 100) / 100;
-  const esFeriado = document.getElementById('trab-feriado')?.checked || false;
-  const monto     = Math.round(horas * tarifaHora * (esFeriado ? 2 : 1));
-  const rec       = { id: Date.now(), fecha, entrada: entStr, salida: salStr, horas, monto, nota };
-  if(esFeriado) rec.feriado = true;
+  const horas = Math.round((salida - entrada) * 100) / 100;
+  const monto = Math.round(horas * tarifaHora);
+  const rec   = { id: Date.now(), fecha, entrada: entStr, salida: salStr, horas, monto, nota };
   registrosDiarios.push(rec);
   await S.set('registrosDiarios', registrosDiarios);
   document.getElementById('trab-entrada').value = '';
   document.getElementById('trab-salida').value  = '';
   document.getElementById('trab-nota').value    = '';
-  if(document.getElementById('trab-feriado')) document.getElementById('trab-feriado').checked = false;
   document.getElementById('trab-calc-preview').textContent = '— hs × $0 = $0';
   calcHorasTrab();
-  toast(esFeriado ? `Feriado registrado: ${horas}h × 2 → ${fmt(monto)}` : `Registrado: ${horas}h → ${fmt(monto)}`);
+  toast(`Registrado: ${horas}h → ${fmt(monto)}`);
   renderTrabajo();
 }
 
@@ -5599,7 +5582,7 @@ function renderTrabajoHistorial(){
           return `<tr>
             <td>${d}${r.nota?' <span style="color:var(--muted);font-size:11px">· '+r.nota+'</span>':''}</td>
             <td style="color:var(--muted);font-family:'JetBrains Mono',monospace">${horario}</td>
-            <td style="font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--green);text-align:right">${r.feriado?`<span style="font-size:9px;font-family:inherit;font-weight:700;color:var(--amber);margin-right:3px">×2</span>`:''} ${fmt(r.monto)}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--green);text-align:right">${fmt(r.monto)}</td>
             <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarRegistroDia(${r.id})">×</button></td>
           </tr>`;
         }).join('')}</tbody>
