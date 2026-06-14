@@ -1005,10 +1005,11 @@
             <label>Config JSON de Firebase</label>
             <textarea id="cfg-firebase" rows="4" placeholder='{"apiKey":"AIza...","authDomain":"tu-app.firebaseapp.com","projectId":"tu-app",...}' style="border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-size:12px;font-family:'JetBrains Mono',monospace;background:var(--surface2);color:var(--text);width:100%;resize:vertical;outline:none;line-height:1.5;min-height:100px;transition:border-color 150ms ease"></textarea>
           </div>
-          <div style="display:flex;gap:8px;margin-bottom:18px">
+          <div style="display:flex;gap:8px;margin-bottom:8px">
             <button class="btn btn-primary" onclick="guardarFirebaseConfig()" style="flex:1">Conectar</button>
             <button class="btn" onclick="desconectarFirebase()" style="background:transparent;border:1px solid var(--border);color:var(--muted)">Desconectar</button>
           </div>
+          <button class="btn" onclick="forzarSubidaFirebase()" style="width:100%;margin-bottom:18px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:13px">↑ Subir datos de este dispositivo → Nube</button>
 
           <details style="font-size:12px;color:var(--muted)">
             <summary style="cursor:pointer;font-weight:600;color:var(--text);margin-bottom:10px">Cómo configurar Firebase →</summary>
@@ -1438,11 +1439,16 @@ const S = (() => {
     if(!_db || !_uid || !Object.keys(_dirty).length) return;
     const payload = { ..._dirty };
     _dirty = {};
+    // Always stamp sync time so conflict resolution works
+    const now = Date.now();
+    payload[PFX + '_lastSync'] = now;
     try{
       await _setDocFn(_docFn(_db, 'users', _uid), payload, { merge: true });
+      localStorage.setItem(PFX + '_lastSync', JSON.stringify(now));
       _setSyncUI('ok');
     }catch(e){
       console.warn('Firestore write failed:', e);
+      delete payload[PFX + '_lastSync'];
       Object.assign(_dirty, payload);
       _setSyncUI('err');
     }
@@ -1455,27 +1461,45 @@ const S = (() => {
   }
 
   async function _loadOrPush(db, docFn, getDocFn, setDocFn, uid){
-    try{
-      const ref  = docFn(db, 'users', uid);
-      const snap = await getDocFn(ref);
-      if(snap.exists() && Object.keys(snap.data() || {}).length > 0){
-        // Remote has data → pull into localStorage (remote wins)
-        Object.entries(snap.data()).forEach(([k,v]) => {
-          if(k.startsWith(PFX)) localStorage.setItem(k, JSON.stringify(v));
-        });
-      } else {
-        // Remote empty → push all local data up
-        const payload = {};
-        for(const k of Object.keys(localStorage)){
-          if(k.startsWith(PFX)){
-            try{ payload[k] = JSON.parse(localStorage.getItem(k)); }catch(e){}
-          }
-        }
-        if(Object.keys(payload).length > 0) await setDocFn(ref, payload);
-      }
-    }catch(e){
-      console.warn('Firestore load/push error:', e);
+    // Throws on Firestore error so caller can skip activating sync
+    const ref      = docFn(db, 'users', uid);
+    const snap     = await getDocFn(ref);
+    const remote   = snap.exists() ? (snap.data() || {}) : {};
+    const remKeys  = Object.keys(remote).filter(k => k.startsWith(PFX));
+    const locKeys  = Object.keys(localStorage).filter(k => k.startsWith(PFX));
+
+    const remoteTs = typeof remote[PFX+'_lastSync'] === 'number' ? remote[PFX+'_lastSync'] : 0;
+    const localTsRaw = localStorage.getItem(PFX+'_lastSync');
+    const localTs  = localTsRaw ? (JSON.parse(localTsRaw) || 0) : 0;
+
+    if(remKeys.length === 0 && locKeys.length === 0) return; // nothing anywhere
+
+    if(remKeys.length === 0){
+      // Remote empty → push all local data + stamp timestamp
+      const payload = {};
+      for(const k of locKeys){ try{ payload[k] = JSON.parse(localStorage.getItem(k)); }catch(e){} }
+      const now = Date.now();
+      payload[PFX+'_lastSync'] = now;
+      await setDocFn(ref, payload);
+      localStorage.setItem(PFX+'_lastSync', JSON.stringify(now));
+      return;
     }
+
+    if(locKeys.length === 0 || remoteTs >= localTs){
+      // Local empty OR remote is same-age/newer → pull remote
+      Object.entries(remote).forEach(([k,v]) => {
+        if(k.startsWith(PFX)) localStorage.setItem(k, JSON.stringify(v));
+      });
+      return;
+    }
+
+    // Local is strictly newer → push local data
+    const payload = {};
+    for(const k of locKeys){ try{ payload[k] = JSON.parse(localStorage.getItem(k)); }catch(e){} }
+    const now = Date.now();
+    payload[PFX+'_lastSync'] = now;
+    await setDocFn(ref, payload);
+    localStorage.setItem(PFX+'_lastSync', JSON.stringify(now));
   }
 
   return {
@@ -1484,6 +1508,11 @@ const S = (() => {
     async set(k, v){
       _lsSet(k, v);
       if(_db && _uid){ _dirty[PFX+k] = v; _scheduleFlush(); }
+    },
+
+    async forcePush(payload){
+      if(!_db || !_uid) throw new Error('No hay conexión Firebase activa. Conectate primero.');
+      await _setDocFn(_docFn(_db, 'users', _uid), payload);
     },
 
     async initFirebase(config){
@@ -1509,9 +1538,14 @@ const S = (() => {
         if(!user) user = auth.currentUser;
 
         if(user){
-          await _loadOrPush(db, doc, getDoc, setDoc, user.uid);
-          _db = db; _uid = user.uid;
-          _setSyncUI('ok');
+          try{
+            await _loadOrPush(db, doc, getDoc, setDoc, user.uid);
+            _db = db; _uid = user.uid;
+            _setSyncUI('ok');
+          }catch(e){
+            console.warn('Firestore load/push error (sync disabled):', e);
+            _setSyncUI('err');
+          }
           return { ok: true };
         }
 
@@ -1520,9 +1554,14 @@ const S = (() => {
           const unsub = onAuthStateChanged(auth, async u => {
             if(!u) return;
             unsub();
-            await _loadOrPush(db, doc, getDoc, setDoc, u.uid);
-            _db = db; _uid = u.uid;
-            _setSyncUI('ok');
+            try{
+              await _loadOrPush(db, doc, getDoc, setDoc, u.uid);
+              _db = db; _uid = u.uid;
+              _setSyncUI('ok');
+            }catch(e){
+              console.warn('Firestore load/push error (sync disabled):', e);
+              _setSyncUI('err');
+            }
             resolve({ ok: true });
           });
 
@@ -4600,6 +4639,28 @@ function desconectarFirebase(){
   localStorage.removeItem('FIREBASE_CONFIG');
   toast('Firebase desconectado. Recargando…');
   setTimeout(() => location.reload(), 1500);
+}
+
+async function forzarSubidaFirebase(){
+  if(!confirm('¿Subir todos los datos de ESTE dispositivo a la nube? Esto sobreescribirá los datos en Firestore con lo que tenés acá.')) return;
+  const PFX = 'mf_';
+  const payload = {};
+  for(const k of Object.keys(localStorage)){
+    if(k.startsWith(PFX)){
+      try{ payload[k] = JSON.parse(localStorage.getItem(k)); }catch(e){}
+    }
+  }
+  if(Object.keys(payload).length === 0){ toast('No hay datos locales para subir.', 'err'); return; }
+  // Mark as newest so other devices pull this version
+  const now = Date.now();
+  payload[PFX+'_lastSync'] = now;
+  localStorage.setItem(PFX+'_lastSync', JSON.stringify(now));
+  try{
+    await S.forcePush(payload);
+    toast('✓ Datos subidos a la nube. Los otros dispositivos bajarán esta versión al reconectarse.', 'ok', 5000);
+  }catch(e){
+    toast('Error al subir: ' + e.message, 'err', 6000);
+  }
 }
 
 async function guardarConfig(){
