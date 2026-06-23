@@ -664,6 +664,124 @@
   .gf-hist-row:last-child { border-bottom:none; }
   .gf-hist-mes-item { padding:14px 0; border-bottom:0.5px solid var(--border); }
   .gf-hist-mes-item:last-child { border-bottom:none; }
+
+  /* ── FAB ─────────────────────────────────────────────── */
+  #fab-root {
+    position:fixed; right:24px; bottom:24px; z-index:260;
+    display:flex; flex-direction:column; align-items:flex-end; gap:12px;
+  }
+  @media(max-width:640px){
+    #fab-root { right:16px; bottom:calc(56px + 14px + env(safe-area-inset-bottom)); }
+  }
+
+  #fab-btn {
+    width:52px; height:52px; border-radius:50%;
+    background:var(--green); border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 4px 20px oklch(67% 0.22 258 / 0.4), 0 2px 8px oklch(5% 0.04 258 / 0.5);
+    transition:box-shadow 200ms var(--ease-out), transform 140ms var(--ease-out);
+    -webkit-tap-highlight-color:transparent; flex-shrink:0;
+  }
+  #fab-btn:active { transform:scale(0.91); }
+  @media(hover:hover) and (pointer:fine){
+    #fab-btn:hover { box-shadow:0 6px 28px oklch(67% 0.22 258 / 0.55), 0 2px 10px oklch(5% 0.04 258 / 0.5); }
+  }
+  #fab-btn-icon {
+    width:22px; height:22px; color:oklch(14% 0.04 258);
+    transition:transform 280ms var(--ease-out);
+  }
+  #fab-root[data-open] #fab-btn-icon { transform:rotate(45deg); }
+
+  #fab-menu {
+    display:flex; flex-direction:column; align-items:flex-end;
+    gap:10px; pointer-events:none;
+  }
+  #fab-root[data-open] #fab-menu { pointer-events:auto; }
+
+  .fab-opt {
+    display:flex; align-items:center; gap:10px;
+    background:none; border:none; cursor:pointer; padding:0;
+    opacity:0; transform:translateY(8px);
+    transition:opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+    -webkit-tap-highlight-color:transparent;
+  }
+  #fab-root[data-open] .fab-opt:nth-child(1){ opacity:1; transform:none; transition-delay:80ms; }
+  #fab-root[data-open] .fab-opt:nth-child(2){ opacity:1; transform:none; transition-delay:45ms; }
+  #fab-root[data-open] .fab-opt:nth-child(3){ opacity:1; transform:none; transition-delay:10ms; }
+
+  .fab-opt-label {
+    font-size:13px; font-weight:600; color:var(--text);
+    background:var(--surface); border:1px solid var(--border);
+    padding:6px 12px; border-radius:20px; white-space:nowrap;
+    box-shadow:0 2px 10px oklch(5% 0.04 258 / 0.4); user-select:none;
+  }
+  .fab-opt-icon {
+    width:40px; height:40px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; box-shadow:0 2px 10px oklch(5% 0.04 258 / 0.4);
+    transition:transform 130ms var(--ease-out), background 130ms;
+    color:var(--muted);
+  }
+  .fab-opt:active .fab-opt-icon { transform:scale(0.90); }
+  @media(hover:hover) and (pointer:fine){
+    .fab-opt:hover .fab-opt-icon { background:var(--surface2); }
+    .fab-opt:hover .fab-opt-label { border-color:var(--green-border); }
+  }
+  .fab-opt-icon svg { width:17px; height:17px; }
+  .fab-opt-icon.cobro { color:var(--green); }
+  .fab-opt-icon.gasto { color:var(--red); }
+  .fab-opt-icon.transf { color:var(--blue); }
+
+  /* Backdrop */
+  #fab-backdrop {
+    position:fixed; inset:0;
+    background:oklch(5% 0.03 258 / 0.65);
+    backdrop-filter:blur(4px) saturate(0.8);
+    z-index:245; opacity:0; pointer-events:none;
+    transition:opacity 220ms var(--ease-out);
+  }
+  #fab-backdrop.visible { opacity:1; pointer-events:auto; }
+
+  /* FAB sheets */
+  .fab-sheet {
+    position:fixed; inset:0; z-index:250;
+    display:flex; align-items:flex-end;
+    pointer-events:none;
+  }
+  .fab-sheet-inner {
+    width:100%; max-width:580px; margin:0 auto;
+    background:var(--surface); border-top:2px solid var(--green-border);
+    padding:22px 24px calc(28px + env(safe-area-inset-bottom));
+    max-height:92vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    box-shadow:0 -8px 40px oklch(5% 0.04 258 / 0.5);
+    transform:translateY(100%); opacity:0; pointer-events:none;
+    transition:transform 320ms var(--ease-drawer), opacity 180ms ease;
+  }
+  .fab-sheet.visible .fab-sheet-inner {
+    transform:translateY(0); opacity:1; pointer-events:auto;
+  }
+  .fab-sheet.closing .fab-sheet-inner {
+    transform:translateY(100%); opacity:0;
+    transition:transform 220ms cubic-bezier(0.4,0,1,1), opacity 160ms ease;
+  }
+  .fab-sheet-header {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:20px;
+  }
+  .fab-sheet-header h3 { font-size:16px; font-weight:700; letter-spacing:-0.02em; }
+  .fab-sheet-close {
+    width:30px; height:30px; border-radius:50%;
+    background:var(--surface2); border:1px solid var(--border);
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    color:var(--muted); line-height:1;
+    transition:transform 130ms var(--ease-out), background 130ms;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .fab-sheet-close:active { transform:scale(0.90); }
+  @media(hover:hover) and (pointer:fine){
+    .fab-sheet-close:hover { color:var(--text); background:var(--border); }
+  }
 </style>
 </head>
 <body>
@@ -797,87 +915,8 @@
     <!-- MOVIMIENTOS -->
     <div id="page-movimientos" class="page">
       <div class="page-title">Movimientos</div>
-      <div class="page-sub">Registrá cobros y gastos del mes</div>
+      <div class="page-sub">Historial de cobros y gastos — usá el <strong style="color:var(--green)">+</strong> para registrar</div>
 
-      <div class="tab-group" id="tg-mov">
-      <div class="tab-bar">
-        <button class="tab-btn active" data-tab="cobro" onclick="switchTab('movimientos','cobro',this)">Cobré dinero</button>
-        <button class="tab-btn" data-tab="gasto" onclick="switchTab('movimientos','gasto',this)">Registrar gasto</button>
-      </div>
-
-      <div id="tab-movimientos-cobro" class="tab-pane active">
-        <div class="form-card">
-          <div class="form-grid">
-            <div class="form-group">
-              <input type="number" id="cobro-monto" placeholder="Monto ($)" min="1" oninput="calcularDistribucion()">
-            </div>
-            <div class="form-group">
-              <select id="cobro-tipo" onchange="calcularDistribucion()">
-                <option value="sueldo">Pago de sueldo</option>
-                <option value="semanal">Cobro semanal (otro)</option>
-                <option value="mensual_fijo">Cobro mensual fijo</option>
-                <option value="extra">Ingreso extra / ventas</option>
-              </select>
-            </div>
-            <div class="form-pair">
-              <div class="form-group">
-                <select id="cobro-metodo">
-                  <option value="transferencia">Transferencia</option>
-                  <option value="efectivo">Efectivo</option>
-                  <option value="otro">Otro</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <input type="date" id="cobro-fecha">
-              </div>
-            </div>
-            <div class="form-group inline-action full">
-              <input type="text" id="cobro-nota" placeholder="Nota (opcional)">
-              <button class="btn btn-primary" id="cobro-btn-default" onclick="registrarCobro(true)">Registrar</button>
-            </div>
-          </div>
-        </div>
-
-        <div id="instruccion-box" style="display:none"></div>
-      </div>
-
-      <div id="tab-movimientos-gasto" class="tab-pane">
-        <div class="form-card">
-          <div class="form-grid">
-            <div class="form-group">
-              <input type="number" id="gasto-monto" placeholder="Monto ($)" min="1">
-            </div>
-            <div class="form-group">
-              <input type="text" id="gasto-desc" placeholder="Descripción (ej: Gas mayo)">
-            </div>
-            <div class="form-pair">
-              <div class="form-group">
-                <select id="gasto-cat">
-                  <option value="comida">Comida / supermercado</option>
-                  <option value="servicios">Servicios (luz, gas, agua...)</option>
-                  <option value="combustible">Combustible</option>
-                  <option value="alquiler">Alquiler</option>
-                  <option value="tarjeta">Tarjeta</option>
-                  <option value="otro">Otro</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <input type="date" id="gasto-fecha">
-              </div>
-            </div>
-            <div class="form-group inline-action full">
-              <select id="gasto-tarea" onchange="seleccionarTareaGasto()" style="flex:1">
-                <option value="">Vincular a tarea (opcional)</option>
-              </select>
-              <button class="btn btn-primary" onclick="registrarGasto()">Registrar</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      </div><!-- /tg-mov -->
-
-      <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border)">
         <div class="tab-group" id="tg-hist">
           <div class="tab-bar">
             <button class="tab-btn active" data-tab="lista" onclick="switchTab('historial','lista',this)">Lista</button>
@@ -928,7 +967,6 @@
             </div>
           </div>
         </div><!-- /tg-hist -->
-      </div>
     </div>
 
     <!-- INVERSIONES -->
@@ -1254,29 +1292,6 @@ service cloud.firestore {
           <button class="btn btn-primary" onclick="gf_registrarSeparacion()">Separar</button>
         </div>
         <div id="gf-sep-hint" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
-      </div>
-
-      <div class="gf-card">
-        <div class="gf-card-header">
-          <span class="gf-card-title">Transferencia manual</span>
-        </div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Monto ($)</label>
-            <input type="number" id="gf-transf-monto" placeholder="0" min="1">
-          </div>
-          <div class="form-group">
-            <label>Dirección</label>
-            <select id="gf-transf-dir">
-              <option value="disp-sep">Disponible → Separado</option>
-              <option value="sep-disp">Separado → Disponible</option>
-            </select>
-          </div>
-          <div class="form-group inline-action full">
-            <input type="text" id="gf-transf-concepto" placeholder="Concepto (opcional)">
-            <button class="btn btn-primary" onclick="gf_hacerTransferencia()">Transferir</button>
-          </div>
-        </div>
       </div>
 
       <div id="gf-historial-mes"></div>
@@ -1983,6 +1998,16 @@ async function init(){
       if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
     });
   });
+
+  const lastPage = localStorage.getItem('last_page') || 'resumen';
+  showPage(lastPage);
+  [
+    { page:'historial',   group:'tg-hist' },
+    { page:'config',      group:'tg-config' },
+  ].forEach(({page, group}) => {
+    const saved = localStorage.getItem('last_tab_' + page);
+    if(saved) activateTab(page, saved, group);
+  });
 }
 
 function tareasIniciales(){
@@ -2015,9 +2040,10 @@ function showPage(id){
   if(navItem) navItem.classList.add('active');
   const bnavItem = document.querySelector(`.bnav-item[data-page="${id}"]`);
   if(bnavItem) bnavItem.classList.add('active');
+  localStorage.setItem('last_page', id);
   window.scrollTo(0, 0);
   if(id==='resumen')    renderResumen();
-  if(id==='movimientos'){ activateTab('movimientos','cobro','tg-mov'); activateTab('historial','lista','tg-hist'); calcularDistribucion(); renderHistorial(); }
+  if(id==='movimientos'){ activateTab('historial','lista','tg-hist'); renderHistorial(); }
   if(id==='registros')  renderRegistros();
   if(id==='tarjeta')    renderTarjeta();
   if(id==='config')   { activateTab('config','plan','tg-config'); renderConfig(); }
@@ -2040,6 +2066,7 @@ function switchTab(page, tab, btn){
   root.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(`tab-${page}-${tab}`).classList.add('active');
+  localStorage.setItem('last_tab_' + page, tab);
   if(page==='movimientos' && tab==='cobro') calcularDistribucion();
   if(page==='movimientos' && tab==='gasto') renderTareasSelect();
   if(page==='config'      && tab==='plan')       renderConfig();
@@ -2397,6 +2424,7 @@ async function gf_hacerTransferencia(){
   if(montoEl) montoEl.value = '';
   if(concEl)  concEl.value  = '';
   toast('✓ Transferencia realizada');
+  fabCloseSheet();
   gf_renderGastosFijos();
 }
 
@@ -2998,6 +3026,7 @@ async function registrarCobro(conDistribucion = true){
     box.style.display = 'none';
     const btnDefault = document.getElementById('cobro-btn-default');
     if(btnDefault) btnDefault.style.display = 'block';
+    fabCloseSheet();
     renderResumen();
     renderPlanMes('plan-mes-resumen');
     if(tipo === 'sueldo') renderTrabajo();
@@ -3368,6 +3397,7 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId }){
     }
   }
 
+  fabCloseSheet();
   renderTareasSelect();
   renderResumen();
   renderHistorial();
@@ -3414,6 +3444,7 @@ async function _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId 
     }
   }
 
+  fabCloseSheet();
   renderTareasSelect();
   renderResumen();
   renderHistorial();
@@ -5859,6 +5890,55 @@ async function importarDatos(event){
 }
 
 init();
+
+// ── FAB ──────────────────────────────────────────────────
+let _fabMenuOpen = false;
+let _fabSheetOpen = null;
+
+function fabToggle(){
+  if(_fabSheetOpen){ fabCloseSheet(); return; }
+  _fabMenuOpen ? _fabSetMenu(false) : _fabSetMenu(true);
+}
+
+function _fabSetMenu(open){
+  _fabMenuOpen = open;
+  const root = document.getElementById('fab-root');
+  const bd   = document.getElementById('fab-backdrop');
+  if(open){
+    root.setAttribute('data-open','');
+    bd.classList.add('visible');
+  } else {
+    root.removeAttribute('data-open');
+    if(!_fabSheetOpen) bd.classList.remove('visible');
+  }
+}
+
+function fabBackdropClick(){
+  if(_fabSheetOpen) fabCloseSheet();
+  else _fabSetMenu(false);
+}
+
+function fabOpenSheet(type){
+  _fabSetMenu(false);
+  const sheet = document.getElementById('fab-sheet-' + type);
+  if(!sheet) return;
+  _fabSheetOpen = type;
+  sheet.classList.remove('closing');
+  sheet.classList.add('visible');
+  document.getElementById('fab-backdrop').classList.add('visible');
+  if(type === 'gasto') renderTareasSelect();
+}
+
+function fabCloseSheet(){
+  if(!_fabSheetOpen) return;
+  const type  = _fabSheetOpen;
+  _fabSheetOpen = null;
+  const sheet = document.getElementById('fab-sheet-' + type);
+  if(!sheet) return;
+  document.getElementById('fab-backdrop').classList.remove('visible');
+  sheet.classList.add('closing');
+  setTimeout(() => sheet.classList.remove('visible','closing'), 320);
+}
 </script>
 <script>
 if ('serviceWorker' in navigator) {
@@ -5867,5 +5947,145 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+
+<!-- FAB BACKDROP -->
+<div id="fab-backdrop" onclick="fabBackdropClick()"></div>
+
+<!-- SHEET: COBRO -->
+<div id="fab-sheet-cobro" class="fab-sheet">
+  <div class="fab-sheet-inner">
+    <div class="fab-sheet-header">
+      <h3>Cobré dinero</h3>
+      <button class="fab-sheet-close" onclick="fabCloseSheet()" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <input type="number" id="cobro-monto" placeholder="Monto ($)" min="1" oninput="calcularDistribucion()">
+      </div>
+      <div class="form-group">
+        <select id="cobro-tipo" onchange="calcularDistribucion()">
+          <option value="sueldo">Pago de sueldo</option>
+          <option value="semanal">Cobro semanal (otro)</option>
+          <option value="mensual_fijo">Cobro mensual fijo</option>
+          <option value="extra">Ingreso extra / ventas</option>
+        </select>
+      </div>
+      <div class="form-pair">
+        <div class="form-group">
+          <select id="cobro-metodo">
+            <option value="transferencia">Transferencia</option>
+            <option value="efectivo">Efectivo</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <input type="date" id="cobro-fecha">
+        </div>
+      </div>
+      <div class="form-group inline-action full">
+        <input type="text" id="cobro-nota" placeholder="Nota (opcional)">
+        <button class="btn btn-primary" id="cobro-btn-default" onclick="registrarCobro(true)">Registrar</button>
+      </div>
+    </div>
+    <div id="instruccion-box" style="display:none;margin-top:16px"></div>
+  </div>
+</div>
+
+<!-- SHEET: GASTO -->
+<div id="fab-sheet-gasto" class="fab-sheet">
+  <div class="fab-sheet-inner">
+    <div class="fab-sheet-header">
+      <h3>Registrar gasto</h3>
+      <button class="fab-sheet-close" onclick="fabCloseSheet()" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <input type="number" id="gasto-monto" placeholder="Monto ($)" min="1">
+      </div>
+      <div class="form-group">
+        <input type="text" id="gasto-desc" placeholder="Descripción (ej: Gas mayo)">
+      </div>
+      <div class="form-pair">
+        <div class="form-group">
+          <select id="gasto-cat">
+            <option value="comida">Comida / supermercado</option>
+            <option value="servicios">Servicios (luz, gas, agua...)</option>
+            <option value="combustible">Combustible</option>
+            <option value="alquiler">Alquiler</option>
+            <option value="tarjeta">Tarjeta</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <input type="date" id="gasto-fecha">
+        </div>
+      </div>
+      <div class="form-group inline-action full">
+        <select id="gasto-tarea" onchange="seleccionarTareaGasto()" style="flex:1">
+          <option value="">Vincular a tarea (opcional)</option>
+        </select>
+        <button class="btn btn-primary" onclick="registrarGasto()">Registrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SHEET: TRANSFERENCIA -->
+<div id="fab-sheet-transf" class="fab-sheet">
+  <div class="fab-sheet-inner">
+    <div class="fab-sheet-header">
+      <h3>Transferencia</h3>
+      <button class="fab-sheet-close" onclick="fabCloseSheet()" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <input type="number" id="gf-transf-monto" placeholder="Monto ($)" min="1">
+      </div>
+      <div class="form-group">
+        <select id="gf-transf-dir">
+          <option value="disp-sep">Disponible → Separado</option>
+          <option value="sep-disp">Separado → Disponible</option>
+        </select>
+      </div>
+      <div class="form-group inline-action full">
+        <input type="text" id="gf-transf-concepto" placeholder="Concepto (opcional)">
+        <button class="btn btn-primary" onclick="gf_hacerTransferencia()">Transferir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FAB ROOT -->
+<div id="fab-root">
+  <div id="fab-menu">
+    <button class="fab-opt" onclick="fabOpenSheet('transf')" type="button">
+      <span class="fab-opt-label">Transferencia</span>
+      <div class="fab-opt-icon transf">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>
+      </div>
+    </button>
+    <button class="fab-opt" onclick="fabOpenSheet('gasto')" type="button">
+      <span class="fab-opt-label">Registrar gasto</span>
+      <div class="fab-opt-icon gasto">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="5 12 12 19 19 12"/></svg>
+      </div>
+    </button>
+    <button class="fab-opt" onclick="fabOpenSheet('cobro')" type="button">
+      <span class="fab-opt-label">Cobré dinero</span>
+      <div class="fab-opt-icon cobro">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </div>
+    </button>
+  </div>
+  <button id="fab-btn" onclick="fabToggle()" type="button" aria-label="Agregar movimiento">
+    <svg id="fab-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+</div>
 </body>
 </html>
