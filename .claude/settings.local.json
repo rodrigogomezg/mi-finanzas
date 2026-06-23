@@ -21,7 +21,9 @@
       "Bash(node -e \"const fs=require\\('fs'\\);const h=fs.readFileSync\\('c:/Users/Rodrigo/OneDrive/Desktop/Repositorios/mi-finanzas/index.html','utf8'\\);console.log\\('Lines:',h.split\\('\\\\n'\\).length\\);const opens=\\(h.match\\(/<div/g\\)||[]\\).length;const closes=\\(h.match\\(/<\\\\/div>/g\\)||[]\\).length;console.log\\('div open:',opens,'div close:',closes,'diff:',opens-closes\\);\")",
       "Bash(node \"C:\\\\Users\\\\Rodrigo\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\critique-storage.mjs\" slug \"c:\\\\Users\\\\Rodrigo\\\\OneDrive\\\\Desktop\\\\Repositorios\\\\mi-finanzas\\\\index.html\")",
       "Bash(node \"C:\\\\Users\\\\Rodrigo\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\detect.mjs\" --json \"c:\\\\Users\\\\Rodrigo\\\\OneDrive\\\\Desktop\\\\Repositorios\\\\mi-finanzas\\\\index.html\")",
-      "Read(//c/Users/Rodrigo/Downloads/**)"
+      "Read(//c/Users/Rodrigo/Downloads/**)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }

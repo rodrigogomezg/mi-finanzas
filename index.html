@@ -500,6 +500,10 @@
     .modal-overlay.closing .modal-content { transform:translateY(100%); opacity:1; }
     @starting-style { .modal-overlay .modal-content { transform:translateY(100%); opacity:1; } }
 
+    /* ── Hist totales pills ───────────────────────────────── */
+    .hist-total-pill { padding:5px 8px !important; gap:4px !important; font-size:12px !important; }
+    .hist-totales-row { gap:5px !important; flex-wrap:nowrap !important; }
+
     /* ── Toast ────────────────────────────────────────────── */
     #toast-container { left:14px; right:14px; bottom:calc(64px + env(safe-area-inset-bottom)); }
     .toast { max-width:100%; font-size:13px; padding:11px 16px; border-radius:0; }
@@ -4093,16 +4097,16 @@ function renderHistorial(){
         <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${tipoVal==='gasto'?'var(--red)':'var(--green)'}">${tipoVal==='gasto'?'−':'+'}${fmt(montoFiltro)}</span>
       </div>`;
     } else if(!hayFiltro && (sumaC > 0 || sumaG > 0)){
-      totalesEl.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px">
-        <span style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px">
+      totalesEl.innerHTML = `<div class="hist-totales-row" style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px">
+        <span class="hist-total-pill" style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px">
           <span style="color:var(--muted)">Cobros</span>
           <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green)">+${fmt(sumaC)}</span>
         </span>
-        <span style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px">
+        <span class="hist-total-pill" style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px">
           <span style="color:var(--muted)">Gastos</span>
           <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--red)">−${fmt(sumaG)}</span>
         </span>
-        <span style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px">
+        <span class="hist-total-pill" style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px">
           <span style="color:var(--muted)">Saldo</span>
           <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':'−'}${fmt(Math.abs(saldo))}</span>
         </span>
