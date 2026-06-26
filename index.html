@@ -669,6 +669,7 @@
   #fab-root {
     position:fixed; right:24px; bottom:24px; z-index:260;
     display:flex; flex-direction:column; align-items:flex-end; gap:12px;
+    pointer-events:none;
   }
   @media(max-width:640px){
     #fab-root { right:16px; bottom:calc(56px + 14px + env(safe-area-inset-bottom)); }
@@ -681,6 +682,7 @@
     box-shadow:0 4px 20px oklch(67% 0.22 258 / 0.4), 0 2px 8px oklch(5% 0.04 258 / 0.5);
     transition:box-shadow 200ms var(--ease-out), transform 140ms var(--ease-out);
     -webkit-tap-highlight-color:transparent; flex-shrink:0;
+    pointer-events:auto;
   }
   #fab-btn:active { transform:scale(0.91); }
   @media(hover:hover) and (pointer:fine){
@@ -4336,14 +4338,15 @@ function renderTarjeta(){
 
   const snapsSorted = [...inv_snapshots].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
   const latest  = snapsSorted[0] || null;
-  const prev    = snapsSorted[1] || null;
 
-  const fciSaldo = latest ? latest.fci    : 0;
-  const cedUSD   = latest ? latest.cedears : 0;
+  // Saldo real = último snapshot manual + depósitos automáticos (cobros con distribución a FCI/CEDEARs)
+  const fciSaldo = _getFCISaldo();
+  const cedUSD   = _getCedearsSaldoUSD();
   const cedARS   = Math.round(cedUSD * tc);
 
-  const deltaFCI = (latest && prev) ? fciSaldo - prev.fci    : null;
-  const deltaCED = (latest && prev) ? cedUSD   - prev.cedears : null;
+  // Delta vs el último snapshot confirmado — refleja aportes aún no "confirmados" con un saldo manual
+  const deltaFCI = latest ? fciSaldo - latest.fci    : (fciSaldo > 0 ? fciSaldo : null);
+  const deltaCED = latest ? cedUSD   - latest.cedears : (cedUSD   > 0 ? cedUSD   : null);
 
   function deltaChip(delta, isFCI){
     if(delta === null) return '';
@@ -4364,7 +4367,8 @@ function renderTarjeta(){
     3: { label:'Fase 3 · Inversión máxima', color:'var(--green)', desc:'Todo a CEDEARs. El colchón FCI está completo.' },
   }[fase];
 
-  const noData = !latest
+  const hayDatos = !!latest || fciSaldo > 0 || cedUSD > 0;
+  const noData = !hayDatos
     ? `<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin datos aún — registrá tu primer saldo abajo</div>`
     : '';
 
@@ -4376,7 +4380,7 @@ function renderTarjeta(){
         <div style="font-size:12px;color:var(--muted);margin-top:2px">${faseInfo.desc}</div>
       </div>
       ${noData}
-      ${latest ? `
+      ${hayDatos ? `
       <div style="padding:14px 16px;border-bottom:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
           <span style="font-size:12px;font-weight:600;letter-spacing:-0.01em">FCI Money Market</span>
