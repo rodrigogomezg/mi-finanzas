@@ -500,9 +500,28 @@
     .modal-overlay.closing .modal-content { transform:translateY(100%); opacity:1; }
     @starting-style { .modal-overlay .modal-content { transform:translateY(100%); opacity:1; } }
 
-    /* ── Hist totales pills ───────────────────────────────── */
-    .hist-total-pill { padding:5px 8px !important; gap:4px !important; font-size:12px !important; }
-    .hist-totales-row { gap:5px !important; flex-wrap:nowrap !important; }
+    /* ── Movimientos: filtros en una sola fila ────────────── */
+    .hist-filtros { flex-wrap:nowrap !important; gap:6px !important; }
+    .hist-filtros-label { display:none; }
+    .hist-filtros .select-inline {
+      flex:1 1 0; min-width:0; padding:6px 4px !important; font-size:11px !important;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+
+    /* ── Movimientos: ocultar tabs Lista/Calendario y "Limpiar todo" ── */
+    .hist-tab-bar { display:none; }
+    #tab-historial-flujo { display:none !important; }
+    .limpiar-todo-btn { display:none !important; }
+
+    /* ── Hist totales pills: label arriba, monto abajo, una sola fila ── */
+    .hist-totales-row { gap:6px !important; flex-wrap:nowrap !important; }
+    .hist-total-pill {
+      flex:1 1 0; min-width:0;
+      flex-direction:column !important; align-items:center !important; justify-content:center;
+      gap:2px !important; padding:10px 4px !important;
+    }
+    .hist-total-label { font-size:10px !important; text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap; }
+    .hist-total-val { font-size:17px !important; font-weight:800 !important; white-space:nowrap; }
 
     /* ── Toast ────────────────────────────────────────────── */
     #toast-container { left:14px; right:14px; bottom:calc(64px + env(safe-area-inset-bottom)); }
@@ -920,14 +939,14 @@
       <div class="page-sub">Historial de cobros y gastos — usá el <strong style="color:var(--green)">+</strong> para registrar</div>
 
         <div class="tab-group" id="tg-hist">
-          <div class="tab-bar">
+          <div class="tab-bar hist-tab-bar">
             <button class="tab-btn active" data-tab="lista" onclick="switchTab('historial','lista',this)">Lista</button>
             <button class="tab-btn" data-tab="flujo" onclick="switchTab('historial','flujo',this)">Calendario</button>
           </div>
 
           <div id="tab-historial-lista" class="tab-pane active">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-              <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Período</span>
+            <div class="hist-filtros" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+              <span class="hist-filtros-label" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Período</span>
               <select id="hist-mes-sel" onchange="renderHistorial()" class="select-inline">
                 <option value="actual">Mes actual</option>
               </select>
@@ -944,7 +963,7 @@
             <div class="table-wrap">
               <div class="table-header">
                 <h3>Movimientos</h3>
-                <button class="btn btn-danger btn-sm" onclick="confirmarLimpiar()">Limpiar todo</button>
+                <button class="btn btn-danger btn-sm limpiar-todo-btn" onclick="confirmarLimpiar()">Limpiar todo</button>
               </div>
               <div id="tabla-movimientos"></div>
             </div>
@@ -2721,13 +2740,26 @@ function gf_renderGastosFijos(){
 }
 
 // ── FCI / CEDEARs ─────────────────────────────────────────
+// Base = último snapshot manual de saldo (si existe) — si no hay, cae al ajuste legado 'fci_saldo'.
+// Sobre esa base se suman los depósitos automáticos (de cobros) posteriores a esa fecha.
+function _ultimoSnapshotInv(){
+  const snaps = [...inv_snapshots].sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+  return snaps.length > 0 ? snaps[snaps.length-1] : null;
+}
+
 function _getFCISaldo(){
-  const ajustes = inversiones.filter(i => i.tipo === 'fci_saldo').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
   let base = 0, desdeDate = new Date(0);
-  if(ajustes.length > 0){
-    const last = ajustes[ajustes.length-1];
-    base = last.monto;
-    desdeDate = new Date(last.fecha+'T12:00');
+  const snap = _ultimoSnapshotInv();
+  if(snap){
+    base = snap.fci;
+    desdeDate = new Date(snap.fecha+'T12:00');
+  } else {
+    const ajustes = inversiones.filter(i => i.tipo === 'fci_saldo').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    if(ajustes.length > 0){
+      const last = ajustes[ajustes.length-1];
+      base = last.monto;
+      desdeDate = new Date(last.fecha+'T12:00');
+    }
   }
   const depositos = inversiones
     .filter(i => i.tipo === 'fci' && new Date(i.fecha+'T12:00') > desdeDate)
@@ -2736,7 +2768,16 @@ function _getFCISaldo(){
 }
 
 function _getCedearsSaldoUSD(){
-  return inversiones.filter(i => i.tipo === 'cedears').reduce((s, i) => s + i.monto, 0);
+  let base = 0, desdeDate = new Date(0);
+  const snap = _ultimoSnapshotInv();
+  if(snap){
+    base = snap.cedears;
+    desdeDate = new Date(snap.fecha+'T12:00');
+  }
+  const depositos = inversiones
+    .filter(i => i.tipo === 'cedears' && new Date(i.fecha+'T12:00') > desdeDate)
+    .reduce((s, i) => s + i.monto, 0);
+  return base + depositos;
 }
 
 function _getCurrentPhase(){
@@ -4125,23 +4166,25 @@ function renderHistorial(){
     const label = catVal ? (catLabels[catVal] || catVal) : (tipoVal === 'cobro' ? 'Cobros' : tipoVal === 'gasto' ? 'Gastos' : null);
     if(hayFiltro && label && (sumaC > 0 || sumaG > 0)){
       const montoFiltro = tipoVal === 'cobro' ? sumaC : tipoVal === 'gasto' ? sumaG : (sumaC || sumaG);
-      totalesEl.innerHTML = `<div style="display:inline-flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;font-size:13px">
-        <span style="color:var(--muted)">${label}</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${tipoVal==='gasto'?'var(--red)':'var(--green)'}">${tipoVal==='gasto'?'−':'+'}${fmt(montoFiltro)}</span>
+      totalesEl.innerHTML = `<div class="hist-totales-row" style="display:inline-flex;align-items:center;gap:10px;font-size:13px">
+        <span class="hist-total-pill" style="display:inline-flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px">
+          <span class="hist-total-label" style="color:var(--muted)">${label}</span>
+          <span class="hist-total-val" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${tipoVal==='gasto'?'var(--red)':'var(--green)'}">${tipoVal==='gasto'?'−':'+'}${fmt(montoFiltro)}</span>
+        </span>
       </div>`;
     } else if(!hayFiltro && (sumaC > 0 || sumaG > 0)){
       totalesEl.innerHTML = `<div class="hist-totales-row" style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px">
         <span class="hist-total-pill" style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px">
-          <span style="color:var(--muted)">Cobros</span>
-          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green)">+${fmt(sumaC)}</span>
+          <span class="hist-total-label" style="color:var(--muted)">Cobros</span>
+          <span class="hist-total-val" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--green)">+${fmt(sumaC)}</span>
         </span>
         <span class="hist-total-pill" style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px">
-          <span style="color:var(--muted)">Gastos</span>
-          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--red)">−${fmt(sumaG)}</span>
+          <span class="hist-total-label" style="color:var(--muted)">Gastos</span>
+          <span class="hist-total-val" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--red)">−${fmt(sumaG)}</span>
         </span>
         <span class="hist-total-pill" style="display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px">
-          <span style="color:var(--muted)">Saldo</span>
-          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':'−'}${fmt(Math.abs(saldo))}</span>
+          <span class="hist-total-label" style="color:var(--muted)">Saldo</span>
+          <span class="hist-total-val" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':'−'}${fmt(Math.abs(saldo))}</span>
         </span>
       </div>`;
     } else {
