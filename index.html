@@ -1323,72 +1323,7 @@ service cloud.firestore {
 </div>
 <div id="toast-container"></div>
 
-<!-- Modal confirmación de inversión -->
-<div id="modal-inv" class="modal-overlay" style="display:none">
-  <div class="modal-content" style="width:340px">
-    <h3 id="modal-inv-titulo" style="font-size:15px;font-weight:600;margin-bottom:4px"></h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:18px">No se registra como gasto — queda separado como inversión confirmada.</p>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div>
-        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Monto ($)</label>
-        <input type="number" id="modal-inv-monto" min="1" style="width:100%;border:1px solid var(--border);border-radius:0;padding:9px 12px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif">
-      </div>
-      <div>
-        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Fecha</label>
-        <input type="date" id="modal-inv-fecha" style="width:100%;border:1px solid var(--border);border-radius:0;padding:9px 12px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif">
-      </div>
-      <div>
-        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Estado</label>
-        <select id="modal-inv-estado" style="width:100%;border:1px solid var(--border);border-radius:0;padding:9px 12px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif">
-          <option value="realizada">Ya realizada — compré los activos</option>
-          <option value="reservada">Reservada — tengo el dinero separado</option>
-        </select>
-      </div>
-      <div>
-        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Nota (opcional)</label>
-        <input type="text" id="modal-inv-nota" placeholder="Ej: compra CEDEAR AAPL" style="width:100%;border:1px solid var(--border);border-radius:0;padding:9px 12px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif">
-      </div>
-    </div>
-    <input type="hidden" id="modal-inv-tipo">
-    <div style="display:flex;gap:8px;margin-top:20px">
-      <button class="btn btn-primary" onclick="guardarInversion()" style="flex:1">Confirmar</button>
-      <button class="btn" onclick="cerrarModalInv()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text)">Cancelar</button>
-    </div>
-  </div>
-</div>
 
-<!-- Modal transferencia entre reservas -->
-<div id="modal-transf" class="modal-overlay" style="display:none">
-  <div class="modal-content" style="width:360px">
-    <h3 style="font-size:15px;font-weight:600;margin-bottom:4px">Transferir entre reservas</h3>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:18px">Mové plata de una reserva a otra sin registrar un gasto.</p>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div>
-          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">De</label>
-          <select id="transf-de" onchange="actualizarDisponibleTransf()" style="width:100%;border:1px solid var(--border);border-radius:0;padding:9px 12px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif"></select>
-        </div>
-        <div>
-          <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">A</label>
-          <select id="transf-a" style="width:100%;border:1px solid var(--border);border-radius:0;padding:9px 12px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif"></select>
-        </div>
-      </div>
-      <div id="transf-disponible" style="font-size:11px;color:var(--muted)"></div>
-      <div>
-        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Monto ($)</label>
-        <input type="number" id="transf-monto" placeholder="0" min="1" style="width:100%;border:1px solid var(--border);border-radius:0;padding:9px 12px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif">
-      </div>
-      <div>
-        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Nota (opcional)</label>
-        <input type="text" id="transf-nota" placeholder="Ej: necesito más para vivir esta semana" style="width:100%;border:1px solid var(--border);border-radius:0;padding:9px 12px;font-size:13px;background:var(--surface2);color:var(--text);outline:none;font-family:'Manrope',sans-serif">
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:20px">
-      <button class="btn btn-primary" onclick="guardarTransferencia()" style="flex:1">Transferir</button>
-      <button class="btn" onclick="cerrarModalTransf()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text)">Cancelar</button>
-    </div>
-  </div>
-</div>
 
 
 <!-- MODAL CIERRE MENSUAL -->
@@ -1454,6 +1389,14 @@ service cloud.firestore {
       <div class="form-group">
         <label>Tarjeta — monto estimado ($)</label>
         <input type="number" id="gf-modal-tarjeta-est" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>Día límite para tener el fondo listo</label>
+        <input type="number" id="gf-modal-dia-vencimiento" placeholder="10" min="1" max="28">
+      </div>
+      <div class="form-group">
+        <label>Día de alerta cierre de tarjeta</label>
+        <input type="number" id="gf-modal-dia-alerta" placeholder="5" min="1" max="28">
       </div>
     </div>
     <input type="hidden" id="gf-modal-config-mes">
@@ -1909,8 +1852,9 @@ async function _migrarGastosFijos(){
       mes.tarjeta.montoReal = null;
       dirty = true;
     }
-    if(mes.alquiler?.montoReal != null && mes.alquiler.montoReal < 100 && (mes.alquiler.montoEstimado || 0) > 1000){
-      mes.alquiler.montoReal = null;
+    // 3. alquiler no tiene flujo de "cierre real" — el campo montoReal quedó sin uso, se limpia
+    if(mes.alquiler && 'montoReal' in mes.alquiler){
+      delete mes.alquiler.montoReal;
       dirty = true;
     }
   }
@@ -2260,7 +2204,7 @@ function gf_getOrCreateMes(mesAnio){
   if(!mes){
     mes = {
       mesAnio,
-      alquiler:  { montoEstimado: 0, montoReal: null, estado: 'pendiente' },
+      alquiler:  { montoEstimado: 0, estado: 'pendiente' },
       tarjeta:   { montoEstimado: 0, montoReal: null, cierreRealizado: false, estado: 'pendiente' },
       estado:    'sin_configurar',
     };
@@ -2284,7 +2228,7 @@ function gf_calcularEstadoMes(mesAnio){
 
   const hoy     = new Date();
   const [y,m]   = mesAnio.split('-').map(Number);
-  const dia10   = new Date(y, m-1, 10);
+  const dia10   = new Date(y, m-1, mes.diaVencimientoFondo || 10);
   const dia1    = new Date(y, m-1, 1);
 
   const alqPagado = mes.alquiler.estado === 'pagado';
@@ -2330,14 +2274,14 @@ function gf_calcularRecomendacion(mesAnio){
   const fondoFaltante  = Math.max(0, fondoNecesario - fondoAcumulado);
 
   const [y,m]        = mesAnio.split('-').map(Number);
-  const dia10        = new Date(y, m-1, 10);
+  const dia10        = new Date(y, m-1, mes.diaVencimientoFondo || 10);
   const sabadosRestantes = gf_contarSabadosHasta(dia10);
   const recomendacionPorSabado = sabadosRestantes > 0 ? Math.ceil(fondoFaltante / sabadosRestantes) : fondoFaltante;
 
   return { fondoNecesario, fondoAcumulado, fondoFaltante, sabadosRestantes, recomendacionPorSabado };
 }
 
-async function gf_transferirSaldo(origen, destino, monto, concepto){
+async function gf_transferirSaldo(origen, destino, monto, concepto, tipo){
   const saldos = gf_getSaldos();
   if(origen === 'disponible' && saldos.disponible < monto){
     toast('Saldo disponible insuficiente', 'err'); return false;
@@ -2352,6 +2296,7 @@ async function gf_transferirSaldo(origen, destino, monto, concepto){
     destino,
     monto,
     concepto: concepto || '',
+    tipo: tipo || 'transferencia',
   };
   gf_transferenciasSaldo.push(entrada);
   await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
@@ -2409,22 +2354,31 @@ async function gf_marcarComoPagado(mesAnio, tipo){
   renderPlanMes('plan-mes-resumen');
 }
 
+// Cuando se registra un gasto de alquiler/tarjeta por fuera de "Marcar pagado" (override manual
+// desde el form de gasto, o una tarea de esa categoría completada), refleja el pago en el estado
+// del mes para que las alertas de Gastos Fijos no sigan marcando vencido/urgente. No vuelve a
+// descontar el saldo separado — el gasto ya lo hizo vía gf_getSaldos().
+async function gf_sincronizarEstadoDesdeGasto(gasto){
+  if(gasto.categoria !== 'alquiler' && gasto.categoria !== 'tarjeta') return;
+  const mesAnio = gasto.fecha.slice(0, 7);
+  const mes  = gf_getOrCreateMes(mesAnio);
+  const item = mes[gasto.categoria];
+  if(item.estado === 'pagado') return;
+  item.estado = 'pagado';
+  if(gasto.categoria === 'tarjeta' && gasto.monto > 0) item.montoReal = gasto.monto;
+  if(mes.alquiler.estado === 'pagado' && mes.tarjeta.estado === 'pagado') mes.estado = 'completo';
+  await S.set('gastosFijos', gf_gastosFijos);
+}
+
 async function gf_registrarSeparacion(){
   const montoEl = document.getElementById('gf-sep-monto');
   const monto   = parseFloat(montoEl?.value);
   if(!monto || monto <= 0){ toast('Ingresá un monto válido', 'err'); return; }
 
-  const ok = await gf_transferirSaldo('disponible', 'separado', monto, 'Separación semanal gastos fijos');
+  // Se registra una sola vez en gf_transferenciasSaldo (tipo:'separacion').
+  // gf_separacionesSemana queda solo para mostrar el historial de separaciones viejas.
+  const ok = await gf_transferirSaldo('disponible', 'separado', monto, 'Separación semanal gastos fijos', 'separacion');
   if(!ok) return;
-
-  const entrada = {
-    id: Date.now(),
-    fecha: new Date().toISOString().split('T')[0],
-    monto,
-    mesAnio: gf_getMesActivo(),
-  };
-  gf_separacionesSemana.push(entrada);
-  await S.set('gf_separacionesSemana', gf_separacionesSemana);
 
   if(montoEl) montoEl.value = '';
   toast('✓ Separación registrada');
@@ -2451,9 +2405,11 @@ async function gf_hacerTransferencia(){
 
 function gf_abrirModalConfig(mesAnio){
   const mes = gf_getOrCreateMes(mesAnio);
-  document.getElementById('gf-modal-config-mes').value    = mesAnio;
-  document.getElementById('gf-modal-alquiler').value      = mes.alquiler.montoEstimado || '';
-  document.getElementById('gf-modal-tarjeta-est').value   = mes.tarjeta.montoEstimado  || '';
+  document.getElementById('gf-modal-config-mes').value      = mesAnio;
+  document.getElementById('gf-modal-alquiler').value        = mes.alquiler.montoEstimado || '';
+  document.getElementById('gf-modal-tarjeta-est').value     = mes.tarjeta.montoEstimado  || '';
+  document.getElementById('gf-modal-dia-vencimiento').value = mes.diaVencimientoFondo || '';
+  document.getElementById('gf-modal-dia-alerta').value      = mes.diaAlertaTarjeta    || '';
   document.getElementById('gf-modal-config').style.display = 'flex';
 }
 
@@ -2465,9 +2421,13 @@ async function gf_guardarConfigMes(){
   const mesAnio  = document.getElementById('gf-modal-config-mes').value;
   const alquiler = parseFloat(document.getElementById('gf-modal-alquiler').value)    || 0;
   const tarjeta  = parseFloat(document.getElementById('gf-modal-tarjeta-est').value) || 0;
+  const diaVto   = parseInt(document.getElementById('gf-modal-dia-vencimiento').value, 10);
+  const diaAlerta = parseInt(document.getElementById('gf-modal-dia-alerta').value, 10);
   const mes = gf_getOrCreateMes(mesAnio);
   mes.alquiler.montoEstimado = alquiler;
   mes.tarjeta.montoEstimado  = tarjeta;
+  mes.diaVencimientoFondo = (diaVto >= 1 && diaVto <= 28) ? diaVto : null;
+  mes.diaAlertaTarjeta    = (diaAlerta >= 1 && diaAlerta <= 28) ? diaAlerta : null;
   if(mes.estado === 'sin_configurar') mes.estado = 'en_curso';
   await S.set('gastosFijos', gf_gastosFijos);
   gf_cerrarModalConfig();
@@ -2558,6 +2518,38 @@ async function gf_eliminarTransferenciaSaldo(id){
   });
 }
 
+function gf_abrirModalEditarTransf(id){
+  const t = gf_transferenciasSaldo.find(x => x.id === id);
+  if(!t) return;
+  const GF_LABELS = { disponible:'Disponible', separado:'Separado' };
+  const label = esc(t.concepto) || `${GF_LABELS[t.origen]||t.origen} → ${GF_LABELS[t.destino]||t.destino}`;
+  _movModalOpen(`<div class="modal-content" style="width:300px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="font-size:15px;font-weight:600;margin:0">Editar movimiento</h3>
+      <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:10px">${label}</p>
+    <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Monto</label>
+    <input type="number" id="gf-edit-transf-monto" value="${t.monto}" min="1" style="margin-bottom:16px;width:100%">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-sm" onclick="_movModalClose()">Cancelar</button>
+      <button class="btn btn-primary btn-sm" onclick="gf_guardarEditTransf(${id})">Guardar</button>
+    </div>
+  </div>`);
+}
+
+async function gf_guardarEditTransf(id){
+  const monto = parseFloat(document.getElementById('gf-edit-transf-monto')?.value);
+  if(!monto || monto <= 0){ toast('Ingresá un monto válido', 'err'); return; }
+  const t = gf_transferenciasSaldo.find(x => x.id === id);
+  if(!t) return;
+  t.monto = monto;
+  await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
+  _movModalClose();
+  toast('✓ Movimiento actualizado');
+  gf_renderGastosFijos();
+}
+
 function gf_renderAlertas(mesAnio){
   const el = document.getElementById('gf-alertas');
   if(!el) return;
@@ -2570,7 +2562,7 @@ function gf_renderAlertas(mesAnio){
     alertas.push({ tipo:'warn', texto:'Configurá los montos del mes para empezar a planificar.' });
   }
   if(estado === 'vencido'){
-    alertas.push({ tipo:'err', texto:'Ya pasó el día 10 y todavía falta cubrir gastos fijos.' });
+    alertas.push({ tipo:'err', texto:`Ya pasó el día ${mes?.diaVencimientoFondo || 10} y todavía falta cubrir gastos fijos.` });
   }
   if(estado === 'urgente' || (estado === 'en_curso' && rec.fondoFaltante > 0 && rec.sabadosRestantes <= 1)){
     alertas.push({ tipo:'warn', texto:`Quedan ${rec.sabadosRestantes} sábado${rec.sabadosRestantes!==1?'s':''} para completar el fondo. Separar ${fmt(rec.recomendacionPorSabado)}.` });
@@ -2578,7 +2570,7 @@ function gf_renderAlertas(mesAnio){
   if(mes && mes.tarjeta.cierreRealizado === false && mes.tarjeta.montoEstimado > 0){
     const hoy  = new Date();
     const [y,m] = mesAnio.split('-').map(Number);
-    const dia5  = new Date(y, m-1, 5);
+    const dia5  = new Date(y, m-1, mes.diaAlertaTarjeta || 5);
     if(hoy >= dia5){
       alertas.push({ tipo:'warn', texto:'Recordá registrar el cierre real de la tarjeta.' });
     }
@@ -2681,6 +2673,9 @@ function gf_renderHistorialMes(mesAnio){
   const rowsHtml = rows.length
     ? rows.map(r => {
         const delFn = r._tipo === 'sep' ? `gf_eliminarSeparacion(${r._id})` : `gf_eliminarTransferenciaSaldo(${r._id})`;
+        const editBtn = r._tipo === 'transf'
+          ? `<button class="btn btn-sm" onclick="gf_abrirModalEditarTransf(${r._id})" style="flex-shrink:0;padding:2px 8px;font-size:12px">✎</button>`
+          : '';
         return `
         <div class="gf-hist-row">
           <div style="flex:1;min-width:0">
@@ -2690,6 +2685,7 @@ function gf_renderHistorialMes(mesAnio){
           <div style="font-family:'JetBrains Mono',monospace;font-weight:600;color:${r.dir==='entrada'?'var(--green)':'var(--red)'};flex-shrink:0">
             ${r.dir==='entrada'?'+':'−'}${fmt(r.monto)}
           </div>
+          ${editBtn}
           <button class="btn btn-danger btn-sm" onclick="${delFn}" style="flex-shrink:0;padding:2px 8px;font-size:12px">×</button>
         </div>`;
       }).join('')
@@ -3261,24 +3257,6 @@ function seleccionarTareaGasto(){
 }
 
 // ── INVERSIONES CONFIRMADAS ───────────────────────────────
-function abrirModalInversion(tipo, montoSugerido){
-  const labels = { cedears: 'CEDEARs', fci: 'FCI / colchón' };
-  document.getElementById('modal-inv-titulo').textContent = `Confirmar inversión — ${labels[tipo]||tipo}`;
-  document.getElementById('modal-inv-tipo').value  = tipo;
-  document.getElementById('modal-inv-monto').value = montoSugerido > 0 ? montoSugerido : '';
-  document.getElementById('modal-inv-fecha').value = new Date().toISOString().slice(0,10);
-  document.getElementById('modal-inv-nota').value  = '';
-  document.getElementById('modal-inv-estado').value = 'realizada';
-  const m = document.getElementById('modal-inv');
-  m.style.display = 'flex';
-}
-
-function cerrarModalInv(){
-  const m = document.getElementById('modal-inv');
-  m.classList.add('closing');
-  setTimeout(() => { m.style.display='none'; m.classList.remove('closing'); }, 220);
-}
-
 async function guardarSnapshotInv(){
   const fci    = parseFloat(document.getElementById('inv-snap-fci').value);
   const cedears = parseFloat(document.getElementById('inv-snap-ced').value);
@@ -3314,8 +3292,6 @@ async function eliminarSnapshotInv(id){
   toast('Snapshot eliminado', 'undo');
   renderTarjeta();
 }
-
-async function guardarInversion(){ toast('Usá el formulario de saldos semanales', 'err'); }
 
 async function eliminarInversion(id){
   await softDelete({ arr: inversiones, id, setKey: 'inversiones', render: _refreshInvPlans, label: 'Inversión' });
@@ -3499,6 +3475,7 @@ async function _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId 
 
   movimientos.push(gasto);
   await S.set('movimientos', movimientos);
+  await gf_sincronizarEstadoDesdeGasto(gasto);
 
   document.getElementById('gasto-monto').value = '';
   document.getElementById('gasto-desc').value  = '';
@@ -3530,67 +3507,6 @@ async function _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId 
 
 
 // ── TRANSFERENCIAS ENTRE RESERVAS ─────────────────────────
-function abrirModalTransferencia(){
-  const saldos = _getSaldoReservas();
-  const opts = Object.entries(RESERVA_LABELS).map(([k, label]) => {
-    const disp = saldos[k] || 0;
-    return `<option value="${k}">${label} — ${fmt(disp)} disp.</option>`;
-  }).join('');
-  document.getElementById('transf-de').innerHTML = opts;
-  document.getElementById('transf-a').innerHTML  = Object.entries(RESERVA_LABELS)
-    .map(([k, label]) => `<option value="${k}">${label}</option>`).join('');
-  // Default: de la reserva con más saldo, a vida
-  const deMax = Object.entries(saldos).sort((a,b) => b[1]-a[1])[0]?.[0] || 'alquiler';
-  document.getElementById('transf-de').value = deMax;
-  document.getElementById('transf-a').value  = 'vida';
-  document.getElementById('transf-monto').value = '';
-  document.getElementById('transf-nota').value  = '';
-  actualizarDisponibleTransf();
-  document.getElementById('modal-transf').style.display = 'flex';
-}
-
-function actualizarDisponibleTransf(){
-  const k = document.getElementById('transf-de').value;
-  const saldos = _getSaldoReservas();
-  const disp = saldos[k] || 0;
-  document.getElementById('transf-disponible').textContent =
-    `Disponible en ${RESERVA_LABELS[k]||k}: ${fmt(disp)}`;
-}
-
-function cerrarModalTransf(){
-  const m = document.getElementById('modal-transf');
-  m.classList.add('closing');
-  setTimeout(() => { m.style.display='none'; m.classList.remove('closing'); }, 220);
-}
-
-async function guardarTransferencia(){
-  const de    = document.getElementById('transf-de').value;
-  const a     = document.getElementById('transf-a').value;
-  const monto = parseFloat(document.getElementById('transf-monto').value);
-  const nota  = document.getElementById('transf-nota').value;
-  if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
-  if(de === a){ toast('Origen y destino no pueden ser iguales', 'err'); return; }
-  if(_saving) return;
-
-  const saldos = _getSaldoReservas();
-  if(monto > (saldos[de] || 0) + 50){
-    if(!confirm(`El saldo de ${RESERVA_LABELS[de]} es ${fmt(saldos[de]||0)}, menor que ${fmt(monto)}. ¿Transferir igual?`)) return;
-  }
-
-  _saving = true;
-  try {
-    const fecha = new Date().toISOString().slice(0,10);
-    transferencias.push({ id: Date.now(), fecha, de, a, monto, nota });
-    await S.set('transferencias', transferencias);
-    cerrarModalTransf();
-    renderResumen();
-    renderHistorial();
-    toast(`✓ ${fmt(monto)} de ${RESERVA_LABELS[de]} → ${RESERVA_LABELS[a]}`);
-  } finally {
-    _saving = false;
-  }
-}
-
 async function eliminarTransferencia(id){
   await softDelete({ arr: transferencias, id, setKey: 'transferencias', render: () => { renderResumen(); renderHistorial(); }, label: 'Transferencia' });
 }
@@ -3836,8 +3752,8 @@ function renderPlanMes(elId){
   const estadoColors = { en_curso:'var(--blue)', urgente:'var(--amber)', vencido:'var(--red)', completo:'var(--green)' };
   const fillColor = estadoColors[estado] || 'var(--blue)';
 
-  const alqMonto  = (mes.alquiler.montoReal ?? mes.alquiler.montoEstimado) || 0;
-  const tarMonto  = (mes.tarjeta.montoReal  ?? mes.tarjeta.montoEstimado)  || 0;
+  const alqMonto  = mes.alquiler.montoEstimado || 0;
+  const tarMonto  = (mes.tarjeta.montoReal ?? mes.tarjeta.montoEstimado) || 0;
 
   const alqTask   = tareas.find(t => t.cat === 'alquiler' && !t.done);
   const tarTask   = tareas.find(t => t.cat === 'tarjeta'  && !t.done);
@@ -4667,14 +4583,28 @@ async function toggleTarea(id){
   renderResumen();
 }
 
+async function _registrarGastoDesdeTarea(t){
+  const hoy = new Date().toISOString().split('T')[0];
+  const gasto = { id: Date.now(), tipo:'gasto', monto: t.monto, categoria: t.cat, fecha: hoy, nota: t.desc, tareaId: t.id };
+  movimientos.push(gasto);
+  await S.set('movimientos', movimientos);
+  await gf_sincronizarEstadoDesdeGasto(gasto);
+  renderHistorial();
+  renderResumen();
+  toast(`✓ Gasto de ${fmt(t.monto)} registrado · ${esc(t.desc)}`);
+}
+
 function _mostrarConfirmGasto(t){
-  const catLabel = { alquiler:'Alquiler', tarjeta:'Tarjeta', servicios:'Servicios', monotributo:'Monotributo', otro:'Otro' };
+  // Aportes a FCI/CEDEARs no son un gasto: se gestionan desde la pestaña Inversiones
+  // para que el progreso quede reflejado ahí (ver _mostrarAvisoInversionTarea).
+  if(t.cat === 'inversion' || t.cat === 'fci'){ _mostrarAvisoInversionTarea(t); return; }
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal-content" style="width:320px;text-align:center">
       <h3 style="font-size:15px;font-weight:600;margin-bottom:8px">${esc(t.desc)}</h3>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:18px">¿Registrar gasto de <strong style="color:var(--text)">${fmt(t.monto)}</strong> en <strong style="color:var(--text)">${catLabel[t.cat]||t.cat}</strong>?</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:18px">¿Registrar gasto de <strong style="color:var(--text)">${fmt(t.monto)}</strong> en <strong style="color:var(--text)">${categoriasConfig[t.cat]?.label || t.cat}</strong>?</p>
       <div style="display:flex;gap:10px;justify-content:center">
         <button class="btn btn-primary" id="_cgasto-si">Sí, registrar</button>
         <button class="btn" style="background:var(--surface2);border:1px solid var(--border)" id="_cgasto-no">No</button>
@@ -4682,17 +4612,33 @@ function _mostrarConfirmGasto(t){
     </div>`;
   document.body.appendChild(overlay);
   const cerrar = () => { overlay.classList.add('closing'); setTimeout(()=>overlay.remove(), 250); };
-  document.getElementById('_cgasto-si').onclick = async () => {
-    cerrar();
-    const hoy = new Date().toISOString().split('T')[0];
-    const gasto = { id: Date.now(), tipo:'gasto', monto: t.monto, categoria: t.cat, fecha: hoy, nota: t.desc, tareaId: t.id };
-    movimientos.push(gasto);
-    await S.set('movimientos', movimientos);
-    renderHistorial();
-    renderResumen();
-    toast(`✓ Gasto de ${fmt(t.monto)} registrado · ${esc(t.desc)}`);
-  };
+  document.getElementById('_cgasto-si').onclick = async () => { cerrar(); await _registrarGastoDesdeTarea(t); };
   document.getElementById('_cgasto-no').onclick = cerrar;
+  overlay.addEventListener('click', e => { if(e.target === overlay) cerrar(); });
+}
+
+function _mostrarAvisoInversionTarea(t){
+  const label = categoriasConfig[t.cat]?.label || t.cat;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content" style="width:min(340px,92vw);text-align:center">
+      <div style="font-size:32px;margin-bottom:10px">💡</div>
+      <h3 style="font-size:15px;font-weight:600;margin-bottom:8px">${esc(t.desc)}</h3>
+      <p style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:20px">
+        Este aporte a <strong style="color:var(--text)">${label}</strong> se gestiona desde
+        <strong style="color:var(--text)">Inversiones → Saldo semanal</strong> para que quede reflejado en tu progreso.<br><br>
+        Si lo registrás como gasto, vas a perder de vista el aporte en la pestaña Inversiones.
+      </p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary" id="_tinv-ir">Ir a Inversiones</button>
+        <button class="btn" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted)" id="_tinv-igual">Registrar como gasto igual</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const cerrar = () => overlay.remove();
+  document.getElementById('_tinv-ir').onclick = () => { cerrar(); showPage('tarjeta'); };
+  document.getElementById('_tinv-igual').onclick = async () => { cerrar(); await _registrarGastoDesdeTarea(t); };
   overlay.addEventListener('click', e => { if(e.target === overlay) cerrar(); });
 }
 
