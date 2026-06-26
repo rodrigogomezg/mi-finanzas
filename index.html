@@ -2810,6 +2810,40 @@ function _getEvolucionPuntos(){
   return [...snaps, ...autoPuntos];
 }
 
+// Aportado a FCI/CEDEARs durante el mes calendario anterior (snapshots + depósitos automáticos),
+// usado como ritmo de referencia para proyectar cuánto falta para cada objetivo.
+function _getAporteMesAnterior(){
+  const hoy           = new Date();
+  const inicioMesAnt  = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1);
+  const finMesAnt     = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23,59,59);
+  const puntos        = _getEvolucionPuntos();
+
+  const valorAl = (limite) => {
+    const previos = puntos.filter(p => new Date(p.fecha+'T12:00') <= limite);
+    const last = previos[previos.length-1];
+    return last ? { fci: last.fci, cedears: last.cedears } : { fci:0, cedears:0 };
+  };
+
+  const inicio = valorAl(inicioMesAnt);
+  const fin    = valorAl(finMesAnt);
+
+  return {
+    fci:     Math.max(0, fin.fci     - inicio.fci),
+    cedears: Math.max(0, fin.cedears - inicio.cedears),
+  };
+}
+
+// Texto de proyección: a cuántos meses, al ritmo del mes anterior, se completa lo que falta.
+function _proyeccionLinea(restante, aporteMensual, fmtFn){
+  if(restante <= 0) return '';
+  if(!aporteMensual || aporteMensual <= 0){
+    return `<div style="font-size:10px;color:var(--muted);margin-top:3px">Sin aportes el mes pasado para proyectar</div>`;
+  }
+  const meses = restante / aporteMensual;
+  const mesesTxt = meses < 1 ? 'menos de 1 mes' : `~${Math.ceil(meses)} mes${Math.ceil(meses)!==1?'es':''}`;
+  return `<div style="font-size:10px;color:var(--muted);margin-top:3px">Al ritmo de ${fmtFn(aporteMensual)}/mes (mes pasado) faltan ${mesesTxt}</div>`;
+}
+
 function _getCurrentPhase(){
   let fci;
   if(inv_snapshots.length > 0){
@@ -4344,6 +4378,12 @@ function renderTarjeta(){
   const pct30  = Math.min(100, Math.round(cedUSD   / 30000       * 100));
   const pct100 = Math.min(100, Math.round(cedUSD   / 100000      * 100));
 
+  const aporteMesAnt = _getAporteMesAnterior();
+  const proy1   = _proyeccionLinea(FCI_META_1 - fciSaldo, aporteMesAnt.fci,     fmt);
+  const proy2   = _proyeccionLinea(FCI_META_2 - fciSaldo, aporteMesAnt.fci,     fmt);
+  const proy30  = _proyeccionLinea(30000      - cedUSD,   aporteMesAnt.cedears, fmtU);
+  const proy100 = _proyeccionLinea(100000     - cedUSD,   aporteMesAnt.cedears, fmtU);
+
   const faseInfo = {
     1: { label:'Fase 1 · Construcción del colchón FCI', color:'var(--purple)', desc:'Todo lo que ingresa va al FCI hasta alcanzar $650.000.' },
     2: { label:'Fase 2 · Acumulación CEDEARs', color:'var(--blue)', desc:'75% a CEDEARs + 25% a FCI en cada ingreso.' },
@@ -4380,6 +4420,7 @@ function renderTarjeta(){
           <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
             <div style="height:100%;transform:scaleX(${pct1/100});transform-origin:left;background:${pct1>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
           </div>
+          ${proy1}
         </div>
         <div>
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
@@ -4389,6 +4430,7 @@ function renderTarjeta(){
           <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
             <div style="height:100%;transform:scaleX(${pct2/100});transform-origin:left;background:${pct2>=100?'var(--green)':'var(--purple)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
           </div>
+          ${proy2}
         </div>
       </div>
       <div style="padding:14px 16px">
@@ -4408,6 +4450,7 @@ function renderTarjeta(){
           <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
             <div style="height:100%;transform:scaleX(${pct30/100});transform-origin:left;background:${pct30>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
           </div>
+          ${proy30}
         </div>
         <div>
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
@@ -4417,6 +4460,7 @@ function renderTarjeta(){
           <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
             <div style="height:100%;transform:scaleX(${pct100/100});transform-origin:left;background:${pct100>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
           </div>
+          ${proy100}
         </div>
         ${latest ? `<div style="font-size:11px;color:var(--muted);margin-top:8px">Actualizado: ${new Date(latest.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'})}</div>` : ''}
       </div>` : ''}
