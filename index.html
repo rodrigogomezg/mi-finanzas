@@ -2780,6 +2780,40 @@ function _getCedearsSaldoUSD(){
   return base + depositos;
 }
 
+// Puntos para "Evolución de tenencias": snapshots manuales + un punto sintético por cada
+// depósito automático (cobro con distribución a FCI/CEDEARs) posterior al último snapshot.
+function _getEvolucionPuntos(){
+  const snaps = [...inv_snapshots]
+    .map(s => ({ ...s, auto:false }))
+    .sort((a,b) => new Date(a.fecha+'T12:00') - new Date(b.fecha+'T12:00'));
+
+  let fci = 0, ced = 0, desdeDate = new Date(0);
+  const lastSnap = snaps[snaps.length-1] || null;
+  if(lastSnap){
+    fci = lastSnap.fci;
+    ced = lastSnap.cedears;
+    desdeDate = new Date(lastSnap.fecha+'T12:00');
+  } else {
+    const ajustes = inversiones.filter(i => i.tipo === 'fci_saldo').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    if(ajustes.length > 0){
+      const last = ajustes[ajustes.length-1];
+      fci = last.monto;
+      desdeDate = new Date(last.fecha+'T12:00');
+    }
+  }
+
+  const depositos = inversiones
+    .filter(i => (i.tipo === 'fci' || i.tipo === 'cedears') && new Date(i.fecha+'T12:00') > desdeDate)
+    .sort((a,b) => new Date(a.fecha+'T12:00') - new Date(b.fecha+'T12:00'));
+
+  const autoPuntos = depositos.map(d => {
+    if(d.tipo === 'fci') fci += d.monto; else ced += d.monto;
+    return { id:`auto-${d.id}`, fecha:d.fecha, fci, cedears:ced, nota:d.nota || '', auto:true };
+  });
+
+  return [...snaps, ...autoPuntos];
+}
+
 function _getCurrentPhase(){
   let fci;
   if(inv_snapshots.length > 0){
@@ -4482,10 +4516,10 @@ function renderTarjeta(){
       </div>` : ''}
     </div>`;
 
-  // ── Evolución + historial de snapshots ───────────────────
+  // ── Evolución + historial: snapshots manuales + depósitos automáticos ──
   if(!cartera) return;
 
-  const crono = snapsSorted.slice().reverse();
+  const crono = _getEvolucionPuntos();
   const showChart = typeof Chart !== 'undefined' && crono.length >= 2;
 
   const snapRows = crono.length
@@ -4494,12 +4528,18 @@ function renderTarjeta(){
         const dFCI    = p ? s.fci - p.fci : null;
         const dCED    = p ? s.cedears - p.cedears : null;
         const fmtD    = (v, isFCI) => v === null ? '' : `<span style="font-size:11px;color:${v>=0?'var(--green)':'var(--red)'}">${v>=0?'+':''}${isFCI?fmt(v):fmtU(v)}</span>`;
+        const notaTxt = s.auto
+          ? `<span style="color:var(--blue);font-weight:600">Auto</span>${s.nota ? ' · '+esc(s.nota) : ''}`
+          : esc(s.nota||'');
+        const accion  = s.auto
+          ? `<span style="font-size:11px;color:var(--muted)">—</span>`
+          : `<button class="btn btn-danger btn-sm" onclick="eliminarSnapshotInv(${s.id})">×</button>`;
         return `<tr>
           <td style="white-space:nowrap">${new Date(s.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
           <td style="font-family:'JetBrains Mono',monospace;color:var(--purple)">${fmt(s.fci)} ${fmtD(dFCI,true)}</td>
           <td style="font-family:'JetBrains Mono',monospace;color:var(--blue)">${fmtU(s.cedears)} ${fmtD(dCED,false)}</td>
-          <td style="color:var(--muted);font-size:12px">${esc(s.nota||'')}</td>
-          <td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="eliminarSnapshotInv(${s.id})">×</button></td>
+          <td style="color:var(--muted);font-size:12px">${notaTxt}</td>
+          <td style="text-align:right">${accion}</td>
         </tr>`;
       }).join('')
     : `<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin registros aún</td></tr>`;
