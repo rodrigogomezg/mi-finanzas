@@ -2808,7 +2808,7 @@ function _getEvolucionPuntos(){
 
   const autoPuntos = depositos.map(d => {
     if(d.tipo === 'fci') fci += d.monto; else ced += d.monto;
-    return { id:`auto-${d.id}`, fecha:d.fecha, fci, cedears:ced, nota:d.nota || '', auto:true };
+    return { id:d.id, fecha:d.fecha, fci, cedears:ced, nota:d.nota || '', auto:true };
   });
 
   return [...snaps, ...autoPuntos];
@@ -4158,9 +4158,9 @@ function renderHistorial(){
   const mesAtual = `${hoyDate.getFullYear()}-${String(hoyDate.getMonth()+1).padStart(2,'0')}`;
   const filtroMes = selVal === 'actual' ? mesAtual : selVal;
 
-  const invItems    = inversiones.map(i => ({ ...i, _esInversion: true }));
+  // Las inversiones (aportes a FCI/CEDEARs) no se listan acá — se ven en la solapa Inversiones.
   const transfItems = transferencias.map(t => ({ ...t, _esTransferencia: true }));
-  const baseMes = [...movimientos, ...invItems, ...transfItems]
+  const baseMes = [...movimientos, ...transfItems]
     .filter(m => (m.fecha || '').startsWith(filtroMes))
     .sort((a,b) => new Date(b.fecha+'T12:00') - new Date(a.fecha+'T12:00'));
 
@@ -4231,7 +4231,6 @@ function renderHistorial(){
     return;
   }
 
-  const invLabels = { cedears: 'CEDEARs', fci: 'FCI / colchón' };
   const _MS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const fmtFecha = f => { const d = new Date(f+'T12:00'); return `<b>${String(d.getDate()).padStart(2,'0')}</b>${_MS[d.getMonth()]}`; };
   const rows = sorted.map((m, idx) => {
@@ -4242,15 +4241,6 @@ function renderHistorial(){
         <div class="mov-date">${fmtFecha(m.fecha)}</div>
         <div><div class="mov-desc">${label}</div><div class="mov-cat"><span class="badge badge-purple">Transferencia</span></div></div>
         <div class="mov-amt" style="color:var(--purple)">${fmt(m.monto)}</div>
-      </div>`;
-    }
-    if(m._esInversion){
-      const invLabel = invLabels[m.tipo] || m.tipo;
-      const reservada = m.estado === 'reservada' ? ` <span style="color:var(--amber);font-size:10px">· reservada</span>` : '';
-      return `<div class="mov-row" ${si} onclick="abrirModalInv(${m.id})">
-        <div class="mov-date">${fmtFecha(m.fecha)}</div>
-        <div><div class="mov-desc">${esc(m.nota)||'Inversión'}</div><div class="mov-cat"><span class="badge badge-blue">${invLabel}</span>${reservada}</div></div>
-        <div class="mov-amt" style="color:var(--blue)">+${fmt(m.monto)}</div>
       </div>`;
     }
     if(m.tipo === 'saldo_inicial'){
@@ -4532,7 +4522,7 @@ function renderTarjeta(){
           ? `<span style="color:var(--blue);font-weight:600">Auto</span>${s.nota ? ' · '+esc(s.nota) : ''}`
           : esc(s.nota||'');
         const accion  = s.auto
-          ? `<span style="font-size:11px;color:var(--muted)">—</span>`
+          ? `<button class="btn btn-sm" style="background:transparent;border:1px solid var(--blue-border);color:var(--blue)" onclick="abrirModalInv(${s.id})">Ver</button>`
           : `<button class="btn btn-danger btn-sm" onclick="eliminarSnapshotInv(${s.id})">×</button>`;
         return `<tr>
           <td style="white-space:nowrap">${new Date(s.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
