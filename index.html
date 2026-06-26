@@ -15,7 +15,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    /* ── Estructura: azul Egeo + blanco mármol ── */
+    /* ── Estructura: azul Egeo + blanco mármol — se mantiene como base dominante ── */
 
     /* Fondos (azul marino profundo) */
     --bg:       oklch(14% 0.04 258);
@@ -27,32 +27,35 @@
     --text:  oklch(96% 0.012 80);   /* marfil cálido — mármol griego */
     --muted: oklch(62% 0.04 258);   /* gris azulado */
 
-    /* ── Escala de azul Egeo (hue 258) ── */
+    /* ── Acentos semánticos: hues reales y distintos entre sí, para que el
+       estado financiero (ingreso/gasto/alerta/inversión) se lea de un vistazo
+       sin depender del texto. El azul (hue 258) se reserva como color de marca
+       para navegación y foco — el resto NO comparte ese hue. ── */
 
-    /* Primario: vivido — cobros, acciones, activo */
-    --green:        oklch(67% 0.22 258);
-    --green-bg:     oklch(21% 0.07 258);
-    --green-border: oklch(35% 0.10 258);
+    /* Verde real — ingresos, saldos positivos, confirmaciones */
+    --green:        oklch(72% 0.19 145);
+    --green-bg:     oklch(23% 0.07 145);
+    --green-border: oklch(37% 0.10 145);
 
-    /* Secundario: azul medio — info, etiquetas */
-    --blue:        oklch(75% 0.15 258);
-    --blue-bg:     oklch(21% 0.055 258);
-    --blue-border: oklch(34% 0.08 258);
+    /* Azul de marca — navegación, foco, info, CEDEARs */
+    --blue:        oklch(74% 0.16 258);
+    --blue-bg:     oklch(21% 0.06 258);
+    --blue-border: oklch(34% 0.09 258);
 
-    /* Suave: azul pálido — próximo, advertencia leve */
-    --amber:        oklch(83% 0.09 258);
-    --amber-bg:     oklch(22% 0.04 258);
-    --amber-border: oklch(35% 0.06 258);
+    /* Ámbar real — advertencias, vencimientos próximos */
+    --amber:        oklch(80% 0.16 75);
+    --amber-bg:     oklch(24% 0.06 75);
+    --amber-border: oklch(38% 0.09 75);
 
-    /* Profundo: azul oscuro — ahorros, inversiones */
-    --purple:        oklch(52% 0.21 258);
-    --purple-bg:     oklch(20% 0.065 258);
-    --purple-border: oklch(32% 0.09 258);
+    /* Violeta real — ahorro/inversión (FCI), destacados */
+    --purple:        oklch(68% 0.20 300);
+    --purple-bg:     oklch(23% 0.08 300);
+    --purple-border: oklch(36% 0.11 300);
 
-    /* ── Mármol (hue 80, marfil) — contraste: gastos, peligro ── */
-    --red:        oklch(88% 0.009 80);
-    --red-bg:     oklch(21% 0.012 80);
-    --red-border: oklch(35% 0.010 80);
+    /* Rojo real — gastos, peligro, vencido */
+    --red:        oklch(70% 0.19 25);
+    --red-bg:     oklch(23% 0.07 25);
+    --red-border: oklch(37% 0.10 25);
 
     --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
     --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -86,7 +89,7 @@
   @media (hover: hover) and (pointer: fine) {
     .nav-item:hover { background:var(--surface2); color:var(--text); }
   }
-  .nav-item.active { color:var(--green); background:var(--green-bg); font-weight:600; border-left:2px solid var(--green); }
+  .nav-item.active { color:var(--blue); background:var(--blue-bg); font-weight:600; border-left:2px solid var(--blue); }
   .nav-item svg { width:18px; height:18px; flex-shrink:0; }
 
   /* MAIN */
@@ -95,7 +98,7 @@
   .page.active { display:block; opacity:1; }
   @starting-style { .page.active { opacity:0; } }
   .page-title { font-size:22px; font-weight:700; letter-spacing:-0.02em; margin-bottom:5px; padding-bottom:14px; border-bottom:2px solid var(--border); position:relative; }
-  .page-title::before { content:''; position:absolute; bottom:-2px; left:0; width:40px; height:2px; background:var(--green); }
+  .page-title::before { content:''; position:absolute; bottom:-2px; left:0; width:40px; height:2px; background:var(--blue); }
   .page-sub { font-size:14px; color:var(--muted); margin-bottom:24px; margin-top:8px; }
 
   /* CARDS GRID */
@@ -124,7 +127,7 @@
   .metric-card.purple .value { color:var(--purple); }
 
   /* HERO METRIC */
-  .metric-hero { background:var(--surface); border:1px solid var(--border); border-radius:0; border-top:2px solid var(--green-border); padding:24px 28px; margin-bottom:14px; grid-column:1/-1; }
+  .metric-hero { background:var(--surface); border:1px solid var(--border); border-radius:0; border-top:2px solid var(--blue-border); padding:24px 28px; margin-bottom:14px; grid-column:1/-1; }
   .secondary-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:24px; grid-column:1/-1; }
   .metric-hero .hero-label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; margin-bottom:12px; font-weight:500; }
   .metric-hero .hero-value { font-size:40px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--text); line-height:1; margin-bottom:20px; }
@@ -175,15 +178,15 @@
     transition:border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
   }
   .form-group input:focus, .form-group select:focus {
-    border-color:var(--green);
+    border-color:var(--blue);
     background:var(--surface);
-    box-shadow:inset 2px 0 0 var(--green);
+    box-shadow:inset 2px 0 0 var(--blue);
   }
   .btn { padding:11px 22px; border-radius:0; border:none; cursor:pointer; font-size:14px; font-weight:600; font-family:'Manrope',sans-serif; transition:opacity 150ms var(--ease-out), transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out); min-height:44px; letter-spacing:0.02em; }
   .btn:active { transform:scale(0.97); }
-  .btn-primary { background:var(--green); color:oklch(14% 0.04 258); box-shadow:none; border-top:2px solid oklch(77% 0.22 258 / 0.5); }
+  .btn-primary { background:var(--blue); color:oklch(14% 0.04 258); box-shadow:none; border-top:2px solid oklch(82% 0.16 258 / 0.5); }
   @media (hover: hover) and (pointer: fine) {
-    .btn-primary:hover { opacity:0.9; box-shadow:0 4px 18px oklch(67% 0.22 258 / 0.5); }
+    .btn-primary:hover { opacity:0.9; box-shadow:0 4px 18px oklch(74% 0.16 258 / 0.5); }
   }
   .btn-danger { background:transparent; color:var(--muted); border:1px solid var(--border); }
   @media (hover: hover) and (pointer: fine) {
@@ -200,7 +203,7 @@
   .mov-date { font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace; text-align:center; line-height:1.2; }
   .mov-date b { font-size:15px; font-weight:700; color:var(--text); display:block; line-height:1; }
   .select-inline { border:1px solid var(--border); border-radius:0; padding:7px 12px; font-size:13px; background:var(--surface2); color:var(--text); outline:none; font-family:'Manrope',sans-serif; transition:border-color 150ms var(--ease-out); cursor:pointer; min-height:36px; }
-  .select-inline:focus { border-color:var(--green); }
+  .select-inline:focus { border-color:var(--blue); }
   .table-header .btn-danger { color:var(--red); border-color:var(--red-border); }
   .mov-desc { font-size:14px; color:var(--text); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mov-cat  { margin-top:3px; }
@@ -283,7 +286,7 @@
     .tarea-check:hover { border-color:var(--green); }
   }
   .tarea-check.done { background:var(--green); border-color:var(--green); }
-  .tarea-check.done::after { content:'✓'; color:oklch(14% 0.04 258); font-size:12px; font-weight:700; }
+  .tarea-check.done::after { content:'✓'; color:oklch(14% 0.03 145); font-size:12px; font-weight:700; }
   .tarea-body { flex:1; }
   .tarea-desc { font-size:14px; font-weight:500; color:var(--text); }
   .tarea-item.completada .tarea-desc { text-decoration:line-through; }
@@ -301,14 +304,14 @@
   /* FLUJO — CALENDARIO */
   .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
   .cal-cell { background:var(--surface); border:1px solid var(--border); border-radius:0; padding:6px 8px; min-height:78px; overflow:hidden; }
-  .cal-cell.hoy  { border-color:var(--green); background:var(--green-bg); }
+  .cal-cell.hoy  { border-color:var(--blue); background:var(--blue-bg); }
   .cal-cell.tiene-ev { cursor:pointer; transition:border-color 120ms ease, background 120ms ease; }
   @media (hover:hover) and (pointer:fine) { .cal-cell.tiene-ev:hover { border-color:var(--muted); background:var(--surface2); } }
   .cal-cell.tiene-ev:active { background:var(--surface2); }
   .cal-cell.vacio{ background:transparent; border-color:transparent; min-height:78px; }
   .cal-cell.pasado{ opacity:0.5; }
   .cal-num { font-size:12px; color:var(--muted); margin-bottom:4px; line-height:1; font-weight:500; }
-  .cal-cell.hoy .cal-num { color:var(--green); font-weight:700; }
+  .cal-cell.hoy .cal-num { color:var(--blue); font-weight:700; }
   .cal-ev { font-size:11px; padding:2px 6px; border-radius:5px; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:default; font-weight:500; }
   .cal-ev.cobro  { background:var(--green-bg); color:var(--green); }
   .cal-ev.gasto  { background:var(--red-bg);   color:var(--red);   }
@@ -323,7 +326,7 @@
   @media (hover: hover) and (pointer: fine) {
     .tab-btn:hover:not(.active) { color:var(--text); }
   }
-  .tab-btn.active { background:transparent; color:var(--text); border-bottom:2px solid var(--green); }
+  .tab-btn.active { background:transparent; color:var(--text); border-bottom:2px solid var(--blue); }
   .tab-btn:active { transform:scale(0.97); }
   .tab-pane { display:none; opacity:0; transition:opacity 150ms var(--ease-out), display 150ms allow-discrete; }
   .tab-pane.active { display:block; opacity:1; }
@@ -357,7 +360,7 @@
   .modal-content {
     background:var(--surface);
     border:1px solid var(--border);
-    border-top:2px solid var(--green-border);
+    border-top:2px solid var(--blue-border);
     border-radius:0;
     padding:28px;
     max-width:92vw;
@@ -493,7 +496,7 @@
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
       border-radius:0;
-      border-top:2px solid var(--green-border);
+      border-top:2px solid var(--blue-border);
       padding:22px 20px calc(20px + env(safe-area-inset-bottom));
       transition:transform 320ms var(--ease-drawer), opacity 200ms ease;
     }
@@ -548,7 +551,7 @@
       font-size:0;
     }
     .bnav-item svg { width:23px; height:23px; flex-shrink:0; }
-    .bnav-item.active { color:var(--green); border-top:2px solid var(--green); }
+    .bnav-item.active { color:var(--blue); border-top:2px solid var(--blue); }
     .bnav-item:active { opacity:0.55; }
 
     /* ── Config: 4 tabs ──────────────────────────────────── */
@@ -606,7 +609,7 @@
   .info-banner.blue { background:var(--blue-bg);border-color:var(--blue-border);color:var(--blue); }
   .seg-toggle { display:flex;gap:0;background:transparent;border-radius:0;border-bottom:2px solid var(--border);padding:0;margin-bottom:18px; }
   .seg-btn { flex:1;padding:9px 12px;border-radius:0;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;font-size:14px;font-weight:600;font-family:'Manrope',sans-serif;background:transparent;color:var(--muted);transition:color 150ms var(--ease-out),border-color 150ms var(--ease-out);min-height:42px; }
-  .seg-btn.active { background:transparent;color:var(--text);border-bottom:2px solid var(--green); }
+  .seg-btn.active { background:transparent;color:var(--text);border-bottom:2px solid var(--blue); }
   .trab-pill { display:inline-block; font-size:10px; font-weight:600; padding:1px 7px; border-radius:99px; }
   .trab-pill-f      { background:var(--green-bg);  color:var(--green);  }
   .trab-pill-nf     { background:var(--amber-bg);  color:var(--amber);  }
@@ -648,7 +651,7 @@
   .cat-row:last-child { border-bottom:none; }
   .cat-color-input { width:34px; height:34px; border-radius:0; border:1px solid var(--border); cursor:pointer; padding:2px; background:var(--surface2); flex-shrink:0; }
   .cat-label-input { flex:1; background:var(--surface2); border:1px solid var(--border); border-radius:0; padding:7px 10px; font-size:13px; color:var(--text); font-family:'Manrope',sans-serif; outline:none; transition:border-color 150ms var(--ease-out); }
-  .cat-label-input:focus { border-color:var(--green); }
+  .cat-label-input:focus { border-color:var(--blue); }
   .cat-key { font-size:10px; color:var(--muted); font-family:'JetBrains Mono',monospace; min-width:72px; }
 
   /* GASTOS FIJOS MODULE */
@@ -696,16 +699,16 @@
 
   #fab-btn {
     width:52px; height:52px; border-radius:50%;
-    background:var(--green); border:none; cursor:pointer;
+    background:var(--blue); border:none; cursor:pointer;
     display:flex; align-items:center; justify-content:center;
-    box-shadow:0 4px 20px oklch(67% 0.22 258 / 0.4), 0 2px 8px oklch(5% 0.04 258 / 0.5);
+    box-shadow:0 4px 20px oklch(74% 0.16 258 / 0.4), 0 2px 8px oklch(5% 0.04 258 / 0.5);
     transition:box-shadow 200ms var(--ease-out), transform 140ms var(--ease-out);
     -webkit-tap-highlight-color:transparent; flex-shrink:0;
     pointer-events:auto;
   }
   #fab-btn:active { transform:scale(0.91); }
   @media(hover:hover) and (pointer:fine){
-    #fab-btn:hover { box-shadow:0 6px 28px oklch(67% 0.22 258 / 0.55), 0 2px 10px oklch(5% 0.04 258 / 0.5); }
+    #fab-btn:hover { box-shadow:0 6px 28px oklch(74% 0.16 258 / 0.55), 0 2px 10px oklch(5% 0.04 258 / 0.5); }
   }
   #fab-btn-icon {
     width:22px; height:22px; color:oklch(14% 0.04 258);
@@ -747,7 +750,7 @@
   .fab-opt:active .fab-opt-icon { transform:scale(0.90); }
   @media(hover:hover) and (pointer:fine){
     .fab-opt:hover .fab-opt-icon { background:var(--surface2); }
-    .fab-opt:hover .fab-opt-label { border-color:var(--green-border); }
+    .fab-opt:hover .fab-opt-label { border-color:var(--blue-border); }
   }
   .fab-opt-icon svg { width:17px; height:17px; }
   .fab-opt-icon.cobro { color:var(--green); }
@@ -772,7 +775,7 @@
   }
   .fab-sheet-inner {
     width:100%; max-width:580px; margin:0 auto;
-    background:var(--surface); border-top:2px solid var(--green-border);
+    background:var(--surface); border-top:2px solid var(--blue-border);
     padding:22px 24px calc(28px + env(safe-area-inset-bottom));
     max-height:92vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
     box-shadow:0 -8px 40px oklch(5% 0.04 258 / 0.5);
@@ -1001,6 +1004,9 @@
         <button class="btn btn-sm" style="font-size:11px;flex-shrink:0;white-space:nowrap;background:transparent;border:1px solid var(--blue-border);color:var(--blue)" onclick="fetchTC()">↻ Actualizar</button>
       </div>
 
+      <!-- Alertas del colchón / cartera -->
+      <div id="inv-alertas"></div>
+
       <!-- Panel dinámico FCI + CEDEARs -->
       <div id="inv-panel"></div>
 
@@ -1057,6 +1063,10 @@
               <div class="form-group">
                 <label>Ingreso mensual base ($)</label>
                 <input type="number" id="cfg-ingreso-base" placeholder="1550000" min="1">
+              </div>
+              <div class="form-group">
+                <label>Margen de inversión sugerido por cobro semanal ($)</label>
+                <input type="number" id="cfg-margen-inversion" placeholder="65000" min="0">
               </div>
             </div>
             <div style="font-size:12px;color:var(--muted);margin-top:4px">Alquiler y tarjeta se configuran en <button onclick="showPage('gastos-fijos')" style="background:none;border:none;color:var(--blue);font-weight:600;cursor:pointer;text-decoration:underline;padding:0;font-size:inherit;font-family:inherit">G. Fijos</button> por mes.</div>
@@ -1823,13 +1833,16 @@ let gf_transferenciasSaldo = [];
 let gf_ingresosEspeciales  = [];
 
 // ── PLAN MENSUAL ─────────────────────────────────────────
-const FCI_META_1  = 650000;   // Fase 1→2: hasta este saldo todo va al FCI
-const FCI_META_2  = 2400000;  // Fase 2→3: colchón completo, todo pasa a CEDEARs
+const FCI_META_1   = 1000000; // hito intermedio del colchón: al alcanzarlo, modo pasa a "estable"
+const FCI_META_2   = 2400000; // objetivo final del colchón (3 meses de gastos fijos)
+const COLCHON_PISO = 800000;  // si el colchón cae debajo de esto en modo "estable", vuelve a "construyendo"
 
 const PLAN_DEFAULT = {
-  ingresoBase:       1550000,
-  cobroSemanalOblig: 200000,  // cuánto separar para obligaciones en cada cobro semanal
-  alquilerMonto:     450000,  // componente fijo de la meta de obligaciones (día 10)
+  ingresoBase:            1550000,
+  cobroSemanalOblig:      200000,  // cuánto separar para obligaciones en cada cobro semanal
+  alquilerMonto:          450000,  // componente fijo de la meta de obligaciones (día 10)
+  margenInversionSemanal: 65000,   // margen semanal sugerido para FCI/CEDEARs en cobros semanales
+  modoColchon:            'construyendo', // 'construyendo' | 'estable' — con histéresis entre FCI_META_1 y COLCHON_PISO
   clientesMensuales: [
     { id:1, label:'Cliente mensual', monto:200000 },
   ],
@@ -1883,6 +1896,8 @@ async function init(){
   transferencias = await S.get('transferencias') || [];
   planMensual   = await S.get('planMensual')   || JSON.parse(JSON.stringify(PLAN_DEFAULT));
   if(!planMensual.clientesMensuales) planMensual.clientesMensuales = JSON.parse(JSON.stringify(PLAN_DEFAULT.clientesMensuales));
+  if(planMensual.margenInversionSemanal == null) planMensual.margenInversionSemanal = PLAN_DEFAULT.margenInversionSemanal;
+  if(!planMensual.modoColchon) planMensual.modoColchon = PLAN_DEFAULT.modoColchon;
 
   // Seed inicial de inversiones con saldos reales si aún no hay registros
   const invSeedVer = await S.get('invSeedVersion') || 0;
@@ -1905,6 +1920,7 @@ async function init(){
     }
     if(inv_snapshots.length > 0) await S.set('inv_snapshots', inv_snapshots);
   }
+  _actualizarModoColchon();
 
   pagosTarjeta  = await S.get('pagosTarjeta')  || [];
   gastosTarjeta = await S.get('gastosTarjeta') || [];
@@ -2844,17 +2860,64 @@ function _proyeccionLinea(restante, aporteMensual, fmtFn){
   return `<div style="font-size:10px;color:var(--muted);margin-top:3px">Al ritmo de ${fmtFn(aporteMensual)}/mes (mes pasado) faltan ${mesesTxt}</div>`;
 }
 
-function _getCurrentPhase(){
-  let fci;
-  if(inv_snapshots.length > 0){
-    const latest = [...inv_snapshots].sort((a,b) => new Date(b.fecha) - new Date(a.fecha))[0];
-    fci = latest.fci;
-  } else {
-    fci = _getFCISaldo();
+// Proyección con rendimiento compuesto (10% anual en USD, como CEDEARs): simula mes a mes
+// el saldo creciendo a la tasa mensual equivalente + el aporte del mes anterior, hasta alcanzar el objetivo.
+function _proyeccionCompuesta(saldoActual, objetivo, aporteMensual, fmtFn, tnaAnual = 0.10){
+  if(saldoActual >= objetivo) return '';
+  const tasaMensual = Math.pow(1 + tnaAnual, 1/12) - 1;
+  const aporte = aporteMensual > 0 ? aporteMensual : 0;
+  let saldo = saldoActual, meses = 0;
+  while(saldo < objetivo && meses < 1200){
+    saldo = saldo * (1 + tasaMensual) + aporte;
+    meses++;
   }
-  if(fci >= FCI_META_2) return 3;
-  if(fci >= FCI_META_1) return 2;
-  return 1;
+  if(meses >= 1200){
+    return `<div style="font-size:10px;color:var(--muted);margin-top:1px">Con ${Math.round(tnaAnual*100)}% anual compuesto: sin aportes suficientes para proyectar en un plazo razonable</div>`;
+  }
+  const anios = meses / 12;
+  const txt = anios >= 1 ? `~${anios.toFixed(1)} años` : `~${meses} mes${meses!==1?'es':''}`;
+  const aporteTxt = aporte > 0 ? ` + ${fmtFn(aporte)}/mes (mes pasado)` : ' (sin aportes el mes pasado)';
+  return `<div style="font-size:10px;color:var(--muted);margin-top:1px">Con ${Math.round(tnaAnual*100)}% anual compuesto${aporteTxt}: faltan ${txt}</div>`;
+}
+
+// Modo colchón con histéresis: evita "flapear" entre construyendo/estable
+// cuando el saldo del FCI oscila cerca de los umbrales.
+// - "construyendo": prioridad total al FCI hasta alcanzar FCI_META_1.
+// - "estable": el margen pasa a CEDEARs; solo vuelve a "construyendo" si el FCI cae debajo de COLCHON_PISO.
+function _getModoColchon(){
+  return planMensual.modoColchon || 'construyendo';
+}
+
+function _actualizarModoColchon(){
+  const fciSaldo = _getFCISaldo();
+  const previo   = _getModoColchon();
+  let nuevo = previo;
+  if(previo === 'construyendo' && fciSaldo >= FCI_META_1) nuevo = 'estable';
+  else if(previo === 'estable' && fciSaldo < COLCHON_PISO) nuevo = 'construyendo';
+  if(nuevo !== planMensual.modoColchon){
+    planMensual.modoColchon = nuevo;
+    S.set('planMensual', planMensual);
+  }
+  return nuevo;
+}
+
+function inv_renderAlertas(){
+  const el = document.getElementById('inv-alertas');
+  if(!el) return;
+  const alertas  = [];
+  const fciSaldo = _getFCISaldo();
+
+  if(fciSaldo < COLCHON_PISO){
+    const yaAlcanzoPiso = _getEvolucionPuntos().some(p => p.fci >= COLCHON_PISO);
+    if(yaAlcanzoPiso){
+      alertas.push({ tipo:'err', texto:`El colchón FCI bajó a ${fmt(fciSaldo)}, debajo del piso de ${fmt(COLCHON_PISO)}. Conviene volver a priorizarlo en el próximo cobro.` });
+    }
+  }
+
+  el.innerHTML = alertas.map(a => {
+    const icon = a.tipo==='err' ? '🔴' : a.tipo==='ok' ? '✅' : '⚠';
+    return `<div class="gf-alerta gf-alerta-${a.tipo}">${icon} ${a.texto}</div>`;
+  }).join('');
 }
 
 function _getTCActual(){
@@ -2868,41 +2931,66 @@ function calcDistribucion(montoCobro){
 
   const mesAnio = gf_getMesActivo();
   const rec     = gf_calcularRecomendacion(mesAnio);
-  const fase    = _getCurrentPhase();
+  const modo    = _getModoColchon();
 
   if(tipo === 'semanal' || tipo === 'sueldo'){
-    const aOblig  = Math.min(montoCobro, rec.recomendacionPorSabado);
-    const aDisp   = Math.max(0, montoCobro - aOblig);
-    const gfLabel = rec.fondoNecesario > 0
+    const aOblig   = Math.min(montoCobro, rec.recomendacionPorSabado);
+    let   resto    = Math.max(0, montoCobro - aOblig);
+    const gfLabel  = rec.fondoNecesario > 0
       ? `Separar para G. Fijos (${fmt(rec.fondoFaltante)} faltante)`
       : 'Separar para G. Fijos';
+
+    // Margen de inversión sugerido por cobro semanal (editable antes de confirmar).
+    const margen     = planMensual.margenInversionSemanal || 0;
+    const aInversion = Math.min(resto, margen);
+    resto -= aInversion;
+    const aFCI     = modo === 'construyendo' ? aInversion : 0;
+    const aCedears = modo === 'estable'      ? aInversion : 0;
+    const aDisp    = resto;
+
+    const faseLabel = aInversion > 0
+      ? (modo === 'construyendo'
+          ? `Modo: construyendo colchón — ${fmt(aInversion)} sugeridos al FCI`
+          : `Modo: colchón estable — ${fmt(aInversion)} sugeridos a CEDEARs`)
+      : null;
+
     return {
       tipo,
       total: montoCobro,
       paraVida: aDisp,
+      faseLabel,
       gfSinConfigurar: rec.fondoNecesario === 0,
       asignaciones: [
         ...(aOblig > 0 ? [{ key:'obligaciones', label: gfLabel, monto: aOblig, target: rec.recomendacionPorSabado }] : []),
-        { key:'fci',     label:'FCI Money Market', monto: 0, target: 0 },
-        { key:'cedears', label:'CEDEARs (USD)',     monto: 0, target: 0 },
+        { key:'fci',     label:'FCI Money Market', monto: aFCI,     target: aFCI },
+        { key:'cedears', label:'CEDEARs (USD)',     monto: aCedears, target: aCedears },
       ],
     };
   }
 
-  // extra / mensual_fijo: inversión por fase + opción GF
+  // extra / mensual_fijo: tramos por monto según estado del colchón.
   const invAsig = [];
-  if(fase === 1){
-    invAsig.push({ key:'fci', label:'FCI Money Market', monto:montoCobro, target:montoCobro });
-  } else if(fase === 2){
-    const aCedears = Math.round(montoCobro * 0.75 / 1000) * 1000;
-    const aFCI     = montoCobro - aCedears;
-    if(aCedears > 0) invAsig.push({ key:'cedears', label:'CEDEARs',         monto:aCedears, target:aCedears });
-    if(aFCI     > 0) invAsig.push({ key:'fci',    label:'FCI Money Market', monto:aFCI,     target:aFCI });
-  } else {
+  let faseLabel;
+  if(modo === 'estable'){
     invAsig.push({ key:'cedears', label:'CEDEARs', monto:montoCobro, target:montoCobro });
+    faseLabel = 'Colchón estable — 100% sugerido a CEDEARs';
+  } else if(montoCobro <= 200000){
+    invAsig.push({ key:'fci', label:'FCI Money Market', monto:montoCobro, target:montoCobro });
+    faseLabel = 'Colchón en construcción — extra ≤ $200.000: 100% sugerido al FCI';
+  } else if(montoCobro <= 500000){
+    const aColchon = Math.round(montoCobro * 0.5 / 1000) * 1000;
+    const aCedears = montoCobro - aColchon;
+    if(aColchon > 0) invAsig.push({ key:'fci',     label:'FCI Money Market', monto:aColchon, target:aColchon });
+    if(aCedears > 0) invAsig.push({ key:'cedears', label:'CEDEARs',          monto:aCedears, target:aCedears });
+    faseLabel = 'Colchón en construcción — extra $200.000-$500.000: 50% FCI / 50% CEDEARs sugerido';
+  } else {
+    const aColchon = Math.round(montoCobro * 0.3 / 1000) * 1000;
+    const aCedears = montoCobro - aColchon;
+    if(aColchon > 0) invAsig.push({ key:'fci',     label:'FCI Money Market', monto:aColchon, target:aColchon });
+    if(aCedears > 0) invAsig.push({ key:'cedears', label:'CEDEARs',          monto:aCedears, target:aCedears });
+    faseLabel = 'Colchón en construcción — extra > $500.000: 30% FCI / 70% CEDEARs sugerido';
   }
-  const faseLabel = ['', 'Fase 1 — todo al FCI', 'Fase 2 — 75% CEDEARs + 25% FCI', 'Fase 3 — todo a CEDEARs'][fase];
-  const gfLabel   = rec.fondoFaltante > 0 ? `G. Fijos (${fmt(rec.fondoFaltante)} pendiente)` : 'G. Fijos';
+  const gfLabel = rec.fondoFaltante > 0 ? `G. Fijos (${fmt(rec.fondoFaltante)} pendiente)` : 'G. Fijos';
   return {
     tipo, total: montoCobro, paraVida: 0, faseLabel,
     gfDeficit: rec.fondoFaltante,
@@ -2923,6 +3011,7 @@ function calcularDistribucion(){
     return;
   }
 
+  _actualizarModoColchon();
   const dist = calcDistribucion(monto);
   if(!dist){
     box.style.display='none';
@@ -4051,7 +4140,7 @@ function _showDistModal(id){
   el.id = '_dist-overlay';
   el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
   el.innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--green-border);border-radius:0;padding:20px;width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5)" onclick="event.stopPropagation()">
+    <div style="background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--blue-border);border-radius:0;padding:20px;width:100%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5)" onclick="event.stopPropagation()">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <h3 style="font-size:15px;font-weight:600;margin:0">Distribución del cobro</h3>
         <button onclick="document.getElementById('_dist-overlay').remove()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
@@ -4351,7 +4440,8 @@ function renderTarjeta(){
   if(!panel) return;
 
   const tc   = _getTCActual();
-  const fase = _getCurrentPhase();
+  const modo = _actualizarModoColchon();
+  inv_renderAlertas();
 
   const snapsSorted = [...inv_snapshots].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
   const latest  = snapsSorted[0] || null;
@@ -4383,12 +4473,13 @@ function renderTarjeta(){
   const proy2   = _proyeccionLinea(FCI_META_2 - fciSaldo, aporteMesAnt.fci,     fmt);
   const proy30  = _proyeccionLinea(30000      - cedUSD,   aporteMesAnt.cedears, fmtU);
   const proy100 = _proyeccionLinea(100000     - cedUSD,   aporteMesAnt.cedears, fmtU);
+  const proy30c  = _proyeccionCompuesta(cedUSD, 30000,  aporteMesAnt.cedears, fmtU);
+  const proy100c = _proyeccionCompuesta(cedUSD, 100000, aporteMesAnt.cedears, fmtU);
 
   const faseInfo = {
-    1: { label:'Fase 1 · Construcción del colchón FCI', color:'var(--purple)', desc:'Todo lo que ingresa va al FCI hasta alcanzar $650.000.' },
-    2: { label:'Fase 2 · Acumulación CEDEARs', color:'var(--blue)', desc:'75% a CEDEARs + 25% a FCI en cada ingreso.' },
-    3: { label:'Fase 3 · Inversión máxima', color:'var(--green)', desc:'Todo a CEDEARs. El colchón FCI está completo.' },
-  }[fase];
+    construyendo: { label:'Modo: construyendo colchón', color:'var(--purple)', desc:`El margen se sugiere 100% al FCI hasta alcanzar ${fmt(FCI_META_1)}.` },
+    estable:      { label:'Modo: colchón estable', color:'var(--green)', desc:`El margen se sugiere 100% a CEDEARs. Vuelve a "construyendo" si el FCI cae debajo de ${fmt(COLCHON_PISO)}.` },
+  }[modo];
 
   const hayDatos = !!latest || fciSaldo > 0 || cedUSD > 0;
   const noData = !hayDatos
@@ -4398,7 +4489,7 @@ function renderTarjeta(){
   panel.innerHTML = `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;margin-bottom:20px">
       <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Fase actual</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Modo del colchón</div>
         <div style="font-size:14px;font-weight:600;letter-spacing:-0.01em;color:${faseInfo.color}">${faseInfo.label}</div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px">${faseInfo.desc}</div>
       </div>
@@ -4414,7 +4505,7 @@ function renderTarjeta(){
         </div>
         <div style="margin-bottom:10px">
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
-            <span>Meta Fase 1: ${fmt(FCI_META_1)}</span>
+            <span>Hito intermedio: ${fmt(FCI_META_1)}</span>
             <span>${pct1}%</span>
           </div>
           <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
@@ -4424,7 +4515,7 @@ function renderTarjeta(){
         </div>
         <div>
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
-            <span>Meta Fase 2: ${fmt(FCI_META_2)}</span>
+            <span>Objetivo final: ${fmt(FCI_META_2)}</span>
             <span>${pct2}%</span>
           </div>
           <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
@@ -4451,6 +4542,7 @@ function renderTarjeta(){
             <div style="height:100%;transform:scaleX(${pct30/100});transform-origin:left;background:${pct30>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
           </div>
           ${proy30}
+          ${proy30c}
         </div>
         <div>
           <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
@@ -4461,6 +4553,7 @@ function renderTarjeta(){
             <div style="height:100%;transform:scaleX(${pct100/100});transform-origin:left;background:${pct100>=100?'var(--green)':'var(--blue)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
           </div>
           ${proy100}
+          ${proy100c}
         </div>
         ${latest ? `<div style="font-size:11px;color:var(--muted);margin-top:8px">Actualizado: ${new Date(latest.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'})}</div>` : ''}
       </div>` : ''}
@@ -4528,16 +4621,16 @@ function renderTarjeta(){
           {
             label:'FCI ($)',
             data: fciData,
-            borderColor:'oklch(52% 0.21 258)',
-            backgroundColor:'oklch(52% 0.21 258 / 0.08)',
+            borderColor:'oklch(68% 0.20 300)',
+            backgroundColor:'oklch(68% 0.20 300 / 0.08)',
             borderWidth:2, pointRadius:4, fill:true, tension:0.3,
             yAxisID:'yFCI',
           },
           {
             label:'CEDEARs (USD)',
             data: cedData,
-            borderColor:'oklch(75% 0.15 258)',
-            backgroundColor:'oklch(75% 0.15 258 / 0.05)',
+            borderColor:'oklch(74% 0.16 258)',
+            backgroundColor:'oklch(74% 0.16 258 / 0.05)',
             borderWidth:2, pointRadius:4, fill:false, tension:0.3,
             yAxisID:'yCED',
           }
@@ -4749,6 +4842,7 @@ async function resetCategoriasConfig(){
 function renderConfig(){
   if(!document.getElementById('cfg-ingreso-base')) return;
   document.getElementById('cfg-ingreso-base').value = planMensual.ingresoBase || '';
+  document.getElementById('cfg-margen-inversion').value = planMensual.margenInversionSemanal ?? '';
 
   // Mostrar checkpoint activo
   const siEl = document.getElementById('si-actual');
@@ -4827,7 +4921,9 @@ async function forzarSubidaFirebase(){
 async function guardarConfig(){
   const ingresoBase = parseFloat(document.getElementById('cfg-ingreso-base').value);
   if(!(ingresoBase > 0)){ toast('Ingresá un ingreso base mayor que cero', 'err'); return; }
+  const margenInversion = parseFloat(document.getElementById('cfg-margen-inversion').value);
   planMensual.ingresoBase = ingresoBase;
+  planMensual.margenInversionSemanal = margenInversion >= 0 ? margenInversion : 0;
   await S.set('planMensual', planMensual);
   toast('✓ Configuración guardada');
   renderResumen();
