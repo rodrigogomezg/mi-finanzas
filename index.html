@@ -362,6 +362,10 @@
     .modal-overlay { opacity:0; }
     .modal-overlay .modal-content { transform:scale(0.95); opacity:0; }
   }
+  /* inputs dentro de modales: contenidos, sin desborde horizontal (el date input tiene ancho intrínseco) */
+  .modal-content .form-group { min-width:0; }
+  .modal-content .form-group input,
+  .modal-content .form-group select { width:100%; min-width:0; box-sizing:border-box; }
 
   /* BOTTOM NAV — oculto en desktop */
   .bottom-nav { display:none; }
@@ -1428,6 +1432,7 @@ const S = (() => {
   let _db = null, _uid = null;
   let _docFn = null, _setDocFn = null;
   let _dirty = {}, _flushTimer = null;
+  let _syncState = 'off'; // 'off' | 'pending' | 'ok' | 'err' | 'noauth'
 
   function _lsGet(k){
     try{ const v = localStorage.getItem(PFX+k); return v ? JSON.parse(v) : null; }
@@ -1442,6 +1447,7 @@ const S = (() => {
   }
 
   function _setSyncUI(state){
+    _syncState = state;
     const dot = document.getElementById('sync-dot');
     const lbl = document.getElementById('sync-status-cfg');
     const badge = document.getElementById('sync-cfg-status');
@@ -1537,6 +1543,8 @@ const S = (() => {
   }
 
   return {
+    syncState(){ return _syncState; },
+
     async get(k){ return _lsGet(k); },
 
     async set(k, v){
@@ -4591,6 +4599,57 @@ async function eliminarTarea(id){
   await softDelete({ arr: tareas, id, setKey: 'tareas', render: renderTareas, label: 'Tarea' });
 }
 
+// ── EDITAR TAREA ──────────────────────────────────────────
+function abrirModalTarea(id){
+  const t = tareas.find(x => x.id === id);
+  if(!t) return;
+  const cats = Object.entries(catLabelT)
+    .map(([v,l]) => `<option value="${v}"${t.cat===v?' selected':''}>${l}</option>`).join('');
+  const notaGasto = t.done
+    ? `<p style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5">Esta tarea ya está pagada — editar acá no modifica el gasto que haya generado.</p>`
+    : '';
+  _movModalOpen(`<div class="modal-content" style="width:360px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:15px;font-weight:600;margin:0">Editar tarea</h3>
+      <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
+    </div>
+    ${notaGasto}
+    <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div class="form-group full"><label>Descripción</label><input type="text" id="edit-tarea-desc" value="${esc(t.desc)}"></div>
+      <div class="form-group"><label>Monto ($)</label><input type="number" id="edit-tarea-monto" value="${t.monto || ''}" min="0" step="1" placeholder="0"></div>
+      <div class="form-group"><label>Vencimiento</label><input type="date" id="edit-tarea-venc" value="${t.venc}"></div>
+      <div class="form-group full"><label>Categoría</label><select id="edit-tarea-cat">${cats}</select></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:space-between">
+      <button class="btn btn-danger btn-sm" onclick="_movModalClose();eliminarTarea(${t.id})">Eliminar</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" onclick="_movModalClose()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="guardarEdicionTarea(${t.id})">Guardar</button>
+      </div>
+    </div>
+  </div>`);
+  requestAnimationFrame(() => document.getElementById('edit-tarea-desc')?.focus());
+}
+
+async function guardarEdicionTarea(id){
+  const t = tareas.find(x => x.id === id);
+  if(!t) return;
+  const desc  = document.getElementById('edit-tarea-desc').value.trim();
+  const monto = parseFloat(document.getElementById('edit-tarea-monto').value) || 0;
+  const venc  = document.getElementById('edit-tarea-venc').value;
+  const cat   = document.getElementById('edit-tarea-cat').value;
+  if(!desc){ toast('Completá la descripción', 'err'); return; }
+  if(!venc){ toast('Elegí una fecha de vencimiento', 'err'); return; }
+  if(monto < 0){ toast('El monto no puede ser negativo', 'err'); return; }
+  t.desc = desc; t.monto = monto; t.venc = venc; t.cat = cat;
+  await S.set('tareas', tareas);
+  _movModalClose();
+  toast('✓ Tarea actualizada');
+  renderTareas();
+  renderResumen();
+  renderTareasSelect();
+}
+
 // ── SALDO INICIAL ─────────────────────────────────────────
 async function guardarSaldoInicial(){
   const oblig = parseFloat(document.getElementById('si-oblig').value) || 0;
@@ -4750,7 +4809,7 @@ function renderTareas(){
   const renderItem = t => `
     <div class="tarea-item ${t.done?'completada':''}">
       <div class="tarea-check ${t.done?'done':''}" onclick="toggleTarea(${t.id})"></div>
-      <div class="tarea-body">
+      <div class="tarea-body" onclick="abrirModalTarea(${t.id})" style="cursor:pointer" title="Tocá para editar">
         <div class="tarea-desc">${esc(t.desc)}</div>
         <div class="tarea-meta">
           ${t.monto ? `<span class="tarea-monto">${fmt(t.monto)}</span>` : ''}
@@ -5703,6 +5762,16 @@ async function updateBackupStatus(){
   const lastExport = await S.get('lastExportDate');
   const sidebarEl  = document.getElementById('sidebar-backup');
   const bannerEl   = document.getElementById('backup-banner');
+
+  // Con sync a Firestore activo los datos ya están respaldados en la nube:
+  // no alarmar por backups locales. El export manual sigue disponible como
+  // snapshot extra. Si el sync falla (err/noauth) o no existe, avisar como siempre.
+  const sync = S.syncState();
+  if(sync === 'ok' || sync === 'pending'){
+    if(sidebarEl) sidebarEl.innerHTML = `<span style="font-size:10px;color:var(--muted)">☁ sincronizado</span>`;
+    if(bannerEl)  bannerEl.innerHTML  = '';
+    return;
+  }
 
   function buildBanner(color, bgColor, borderColor, labelText){
     return `<div style="display:flex;align-items:center;justify-content:space-between;background:var(${bgColor});border:1px solid var(${borderColor});color:var(${color});border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;line-height:1.4">
