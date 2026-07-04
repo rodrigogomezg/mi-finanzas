@@ -1634,6 +1634,28 @@ let _flashMovId = null;
 
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// Confirmación con modal propio. No usar window.confirm(): en iOS instalada
+// como PWA (standalone) confirm() puede no mostrarse y devolver false en silencio.
+function _confirmar(mensaje, opts = {}){
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content" style="width:min(340px,92vw)">
+        <p style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:18px;white-space:pre-line">${mensaje}</p>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn" id="_conf-no" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted)">${opts.cancel || 'Cancelar'}</button>
+          <button class="btn btn-primary" id="_conf-si">${opts.ok || 'Confirmar'}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const done = v => { overlay.classList.add('closing'); setTimeout(() => overlay.remove(), 220); resolve(v); };
+    overlay.querySelector('#_conf-si').onclick = () => done(true);
+    overlay.querySelector('#_conf-no').onclick = () => done(false);
+    overlay.addEventListener('click', e => { if(e.target === overlay) done(false); });
+  });
+}
+
 async function softDelete({ arr, id, setKey, render, label }){
   if(_pendingUndo){
     clearTimeout(_pendingUndo.timer);
@@ -2658,7 +2680,11 @@ async function gf_desmarcarPagado(mesAnio, tipo){
   const mes = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
   if(!mes || mes[tipo]?.estado !== 'pagado') return;
   const label = tipo === 'alquiler' ? 'Alquiler' : 'Tarjeta';
-  if(!confirm(`¿Desmarcar ${label} de ${gf_nombreMes(mesAnio)} como pagado?\n\nOjo: si el pago generó una transferencia o un gasto, no se revierte solo — borralo desde los movimientos si hace falta.`)) return;
+  const ok = await _confirmar(
+    `¿Desmarcar <strong>${label}</strong> de ${gf_nombreMes(mesAnio)} como pagado?\n\nOjo: si el pago generó una transferencia o un gasto, no se revierte solo — borralo desde los movimientos si hace falta.`,
+    { ok: 'Desmarcar' }
+  );
+  if(!ok) return;
   mes[tipo].estado = 'pendiente';
   if(mes.estado === 'completo') mes.estado = 'en_curso';
   await S.set('gastosFijos', gf_gastosFijos);
@@ -2672,7 +2698,8 @@ async function gf_desmarcarPagado(mesAnio, tipo){
 async function gf_reabrirMes(mesAnio){
   const mes = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
   if(!mes || mes.estado !== 'completo') return;
-  if(!confirm(`¿Reabrir ${gf_nombreMes(mesAnio)}? Vuelve a mostrarse como mes activo para que puedas corregirlo.`)) return;
+  const ok = await _confirmar(`¿Reabrir <strong>${gf_nombreMes(mesAnio)}</strong>? Vuelve a mostrarse como mes activo para que puedas corregirlo.`, { ok: 'Reabrir' });
+  if(!ok) return;
   mes.estado = 'en_curso';
   await S.set('gastosFijos', gf_gastosFijos);
   toast(`✓ ${gf_nombreMes(mesAnio)} reabierto`);
@@ -4136,14 +4163,14 @@ async function eliminar(id){
 }
 
 async function confirmarLimpiar(){
-  if(confirm('¿Borrar todos los movimientos? Esta acción no se puede deshacer.')){
-    movimientos = [];
-    separados   = { alquiler:0, tarjeta:0, inversion:0, fci:0 };
-    await S.set('movimientos', movimientos);
-    await S.set('separados',   separados);
-    renderHistorial();
-    renderResumen();
-  }
+  const ok = await _confirmar('¿Borrar <strong>todos</strong> los movimientos? Esta acción no se puede deshacer.', { ok: 'Borrar todo' });
+  if(!ok) return;
+  movimientos = [];
+  separados   = { alquiler:0, tarjeta:0, inversion:0, fci:0 };
+  await S.set('movimientos', movimientos);
+  await S.set('separados',   separados);
+  renderHistorial();
+  renderResumen();
 }
 
 // ── OBJETIVO USD ─────────────────────────────────────────
@@ -4673,15 +4700,17 @@ async function guardarFirebaseConfig(){
   }
 }
 
-function desconectarFirebase(){
-  if(!confirm('¿Desconectar Firebase? Los datos quedan guardados localmente en este dispositivo.')) return;
+async function desconectarFirebase(){
+  const ok = await _confirmar('¿Desconectar Firebase? Los datos quedan guardados localmente en este dispositivo.', { ok: 'Desconectar' });
+  if(!ok) return;
   localStorage.removeItem('FIREBASE_CONFIG');
   toast('Firebase desconectado. Recargando…');
   setTimeout(() => location.reload(), 1500);
 }
 
 async function forzarSubidaFirebase(){
-  if(!confirm('¿Subir todos los datos de ESTE dispositivo a la nube? Esto sobreescribirá los datos en Firestore con lo que tenés acá.')) return;
+  const ok = await _confirmar('¿Subir todos los datos de <strong>este dispositivo</strong> a la nube? Esto sobreescribirá los datos en Firestore con lo que tenés acá.', { ok: 'Subir' });
+  if(!ok) return;
   const PFX = 'mf_';
   const payload = {};
   for(const k of Object.keys(localStorage)){
@@ -5758,14 +5787,14 @@ async function importarDatos(event){
     toast('El archivo no tiene el formato correcto.', 'err');
     return;
   }
-  const ok = confirm(
+  const ok = await _confirmar(
     `¿Importar datos del backup ${datos.exportado ? new Date(datos.exportado).toLocaleDateString('es-AR') : ''}?\n\n` +
     `Esto va a reemplazar todos los datos actuales:\n` +
     `• ${datos.movimientos?.length || 0} movimientos\n` +
     `• ${datos.tareas?.length || 0} tareas\n` +
     `• ${datos.historialUSD?.length || 0} registros de cartera USD\n` +
-    `• ${datos.gastosTarjeta?.length || 0} gastos de tarjeta\n\n` +
-    `¿Continuar?`
+    `• ${datos.gastosTarjeta?.length || 0} gastos de tarjeta`,
+    { ok: 'Importar' }
   );
   if(!ok) return;
 

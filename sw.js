@@ -1,4 +1,4 @@
-const CACHE = 'mi-finanzas-v29';
+const CACHE = 'mi-finanzas-v30';
 const OFFLINE_ASSETS = ['./'];
 
 self.addEventListener('install', e => {
@@ -17,10 +17,14 @@ self.addEventListener('activate', e => {
 
 // Network-first: siempre trae la versión más nueva cuando hay conexión.
 // Si no hay red, sirve desde cache (funciona offline).
+// cache:'no-cache' en recursos propios: fuerza revalidar contra el servidor,
+// si no GitHub Pages (max-age=600) puede servir HTML viejo hasta 10 minutos
+// después de un deploy aunque se refresque la app.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  const propio = new URL(e.request.url).origin === self.location.origin;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, propio ? { cache: 'no-cache' } : undefined)
       .then(res => {
         const clone = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, clone));
