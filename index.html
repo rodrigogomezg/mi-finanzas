@@ -8,8 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Finanzas">
-<link rel="apple-touch-icon" href="icon.svg">
-<link rel="apple-touch-icon" sizes="180x180" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -159,8 +158,6 @@
   .form-card { background:var(--surface); border:1px solid var(--border); border-radius:0; border-top:2px solid var(--border); padding:16px 18px; margin-bottom:24px; }
   .form-card h3 { font-size:12px; font-weight:600; margin-bottom:14px; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; }
   .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .fg-3col { grid-template-columns:2fr 1fr 1fr; }
-  .fg-4col { grid-template-columns:repeat(4,1fr); }
   .form-pair { grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .form-group.inline-action > input { flex:1; }
   .table-wrap-sm table { min-width:auto; }
@@ -227,10 +224,6 @@
   .instruccion-total { display:flex; justify-content:space-between; margin-top:14px; padding-top:12px; border-top:2px solid rgba(255,255,255,0.12); font-weight:700; font-size:15px; }
 
   /* DISTRIBUCIÓN — urgencia + plan del mes */
-  .urg-critico { color:var(--red);   background:var(--red-bg);   border:1px solid var(--red-border); }
-  .urg-urgente { color:var(--amber); background:var(--amber-bg); border:1px solid var(--amber-border); }
-  .urg-ok      { color:var(--green); background:var(--green-bg); border:1px solid var(--green-border); }
-  .urg-badge { display:inline-block; font-size:10px; font-weight:600; padding:1px 7px; border-radius:99px; letter-spacing:0.04em; }
   .dist-row { display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid rgba(255,255,255,0.07); gap:8px; }
   .dist-row:last-child { border-bottom:none; }
   .dist-label { font-size:14px; color:var(--text); flex:1; }
@@ -270,10 +263,7 @@
 
   .empty-state { text-align:center; padding:48px 24px; color:var(--muted); font-size:14px; line-height:1.6; }
   .empty-state svg { width:44px; height:44px; margin:0 auto 14px; display:block; opacity:0.35; }
-  .td-nota { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-  /* OBJETIVO USD */
-  .objetivo-card { background:var(--surface); border:1px solid var(--border); border-radius:0; padding:28px; margin-bottom:32px; }
 
   /* TAREAS */
   .tareas-section-title { font-size:13px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; margin:24px 0 12px; }
@@ -298,8 +288,6 @@
   .venc-vencida{ background:var(--red-bg);   color:var(--red); }
   .tarea-actions { display:flex; gap:8px; flex-shrink:0; }
 
-  .objetivo-big { font-size:38px; font-weight:700; font-family:'JetBrains Mono',monospace; color:var(--purple); }
-  .objetivo-meta { font-size:15px; color:var(--muted); margin-top:5px; margin-bottom:24px; }
 
   /* FLUJO — CALENDARIO */
   .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
@@ -420,8 +408,6 @@
     .form-card { padding:14px 14px; border-radius:0; margin-bottom:16px; }
     .form-card h3 { margin-bottom:12px; }
     .form-grid { grid-template-columns:1fr; gap:8px; }
-    .fg-3col { grid-template-columns:1fr; }
-    .fg-4col { grid-template-columns:1fr; }
     /* form-pair: 2 col con celdas contenidas */
     .form-pair { gap:8px; }
     .form-pair > * { min-width:0; }
@@ -567,10 +553,6 @@
     .reg-header { padding:13px 14px; }
     .reg-mes-nombre { font-size:14px; }
     .reg-stat-row { padding:10px 14px; font-size:13px; }
-
-    /* ── Tarjeta: tablas con scroll ───────────────────────── */
-    #tabla-proyeccion-tarjeta, #tabla-gastos-tarjeta { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-    #tabla-proyeccion-tarjeta table, #tabla-gastos-tarjeta table { min-width:480px; }
 
     /* ── Modal inputs — font-size 16px evita zoom iOS ────── */
     .modal-content input,
@@ -856,7 +838,7 @@
       </div>
       <div class="nav-item" onclick="showPage('gastos-fijos')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
-        Gastos Fijos <span id="badge-tareas" style="display:inline-block;min-width:16px;height:16px;line-height:16px;border-radius:99px;font-size:10px;font-weight:700;text-align:center;background:var(--red);color:#fff;padding:0 4px;margin-left:4px;vertical-align:middle"></span>
+        Gastos Fijos <span id="badge-tareas" style="display:none;min-width:16px;height:16px;line-height:16px;border-radius:99px;font-size:10px;font-weight:700;text-align:center;background:var(--red);color:#fff;padding:0 4px;margin-left:4px;vertical-align:middle"></span>
       </div>
     </nav>
 
@@ -1954,11 +1936,7 @@ async function init(){
     adelantosEmpresa = await S.get('adelantosEmpresa') || [];
   }
   const trabFecha = document.getElementById('trab-fecha');
-  const trabPagoFecha = document.getElementById('trab-pago-fecha');
-  const trabAdelFecha = document.getElementById('trab-adel-fecha');
-  if(trabFecha)     trabFecha.value     = hoy;
-  if(trabPagoFecha) trabPagoFecha.value = hoy;
-  if(trabAdelFecha) trabAdelFecha.value = hoy;
+  if(trabFecha) trabFecha.value = hoy;
 
   await autoArchivarMesesViejos();
   await migrarRegistros();
@@ -1987,7 +1965,11 @@ async function init(){
     { page:'config',      group:'tg-config' },
   ].forEach(({page, group}) => {
     const saved = localStorage.getItem('last_tab_' + page);
-    if(saved) activateTab(page, saved, group);
+    if(saved){
+      activateTab(page, saved, group);
+      // La pestaña restaurada necesita su render (activateTab solo cambia clases)
+      if(page === 'historial' && saved === 'flujo') renderFlujo();
+    }
   });
 }
 
@@ -2048,8 +2030,6 @@ function switchTab(page, tab, btn){
   btn.classList.add('active');
   document.getElementById(`tab-${page}-${tab}`).classList.add('active');
   localStorage.setItem('last_tab_' + page, tab);
-  if(page==='movimientos' && tab==='cobro') calcularDistribucion();
-  if(page==='movimientos' && tab==='gasto') renderTareasSelect();
   if(page==='config'      && tab==='plan')       renderConfig();
   if(page==='config'      && tab==='categorias') renderCategoriasConfig();
   if(page==='historial'   && tab==='flujo')    renderFlujo();
@@ -2095,7 +2075,6 @@ const pct  = (v,t) => Math.min(100, Math.round(v/t*100));
 const RESERVA_KEYS   = ['obligaciones'];
 const RESERVA_LABELS = { disponible:'Disponible', obligaciones:'Obligaciones' };
 const GASTO_A_RESERVA = { alquiler:'obligaciones', tarjeta:'obligaciones' };
-const CAT_TO_PLAN     = {};  // no hay mapeo tareas→plan en el nuevo modelo
 
 function _getCobrosAsignados(){
   const desde = new Date(Date.now() - 45 * 86400000);
@@ -2175,7 +2154,9 @@ function gf_getSaldos(){
       sep  += aOblig;
       disp += Math.max(0, ev.monto - aOblig - aFCI - aCed);
     } else if(t === 'gasto'){
-      if(['alquiler','tarjeta'].includes(ev.categoria)){
+      // gfAjeno: gasto de categoría alquiler/tarjeta que NO es el pago del mes
+      // (ej: consumos en una tarjeta de un tercero) — sale del disponible.
+      if(['alquiler','tarjeta'].includes(ev.categoria) && !ev.gfAjeno){
         sep = Math.max(0, sep - ev.monto);
       } else {
         disp = Math.max(0, disp - ev.monto);
@@ -2329,9 +2310,10 @@ async function gf_marcarComoPagado(mesAnio, tipo){
 
   // Si ya hay un gasto registrado para esta categoría en el mes, el saldo fue
   // deducido por esa vía — no hacer la transferencia para evitar doble descuento.
+  // Los gastos gfAjeno (ej: tarjeta de un tercero) no cuentan como pago del mes.
   const [y, m] = mesAnio.split('-');
   const gastoYaRegistrado = movimientos.find(mv =>
-    mv.tipo === 'gasto' && mv.categoria === tipo &&
+    mv.tipo === 'gasto' && mv.categoria === tipo && !mv.gfAjeno &&
     mv.fecha >= `${y}-${m}-01` && mv.fecha <= `${y}-${m}-31`
   );
 
@@ -2349,8 +2331,13 @@ async function gf_marcarComoPagado(mesAnio, tipo){
 
   await S.set('gastosFijos', gf_gastosFijos);
 
-  // Completar automáticamente la tarea de alquiler/tarjeta del mes, si existe
-  const tarea = tareas.find(t => t.cat === tipo && !t.done);
+  // Completar automáticamente la tarea de alquiler/tarjeta vinculada al pago.
+  // Si hay varias candidatas (ej: otra tarea de tarjeta que no es el resumen),
+  // solo se completa la que coincide en monto — es más seguro no adivinar.
+  const candidatas = tareas.filter(t => t.cat === tipo && !t.done);
+  const tarea = candidatas.length === 1
+    ? candidatas[0]
+    : candidatas.find(t => t.monto === monto) || null;
   if(tarea){
     tarea.done = true;
     await S.set('tareas', tareas);
@@ -2376,6 +2363,7 @@ async function gf_marcarComoPagado(mesAnio, tipo){
 // descontar el saldo separado — el gasto ya lo hizo vía gf_getSaldos().
 async function gf_sincronizarEstadoDesdeGasto(gasto){
   if(gasto.categoria !== 'alquiler' && gasto.categoria !== 'tarjeta') return;
+  if(gasto.gfAjeno) return; // gasto ajeno al mes — no tocar el estado de G. Fijos
   const mesAnio = gasto.fecha.slice(0, 7);
   const mes  = gf_getOrCreateMes(mesAnio);
   const item = mes[gasto.categoria];
@@ -2596,7 +2584,6 @@ function gf_renderAlertas(mesAnio){
   }
 
   el.innerHTML = alertas.map(a => {
-    const color = a.tipo==='err' ? 'var(--red)' : a.tipo==='ok' ? 'var(--green)' : 'var(--orange,#f59e0b)';
     const icon  = a.tipo==='err' ? '🔴' : a.tipo==='ok' ? '✅' : '⚠';
     return `<div class="gf-alerta gf-alerta-${a.tipo}">${icon} ${a.texto}</div>`;
   }).join('') || '';
@@ -2621,7 +2608,7 @@ function gf_renderMesPanel(mesAnio){
         <div class="gf-item-monto">${monto ? fmt(monto) : '<span style="color:var(--muted)">—</span>'}</div>
         <div class="gf-item-acciones">
           ${pagado
-            ? `<span class="gf-badge-pagado">✓ Pagado</span>`
+            ? `<span class="gf-badge-pagado" onclick="gf_desmarcarPagado('${mesAnio}','${tipo}')" style="cursor:pointer" title="Click para desmarcar como pagado">✓ Pagado</span>`
             : `${esTarjeta ? `<button class="btn btn-sm gf-btn-cierre" onclick="gf_abrirModalCierreTarjeta('${mesAnio}')">Cierre</button>` : ''}
                <button class="btn btn-sm gf-btn-pagar" onclick="gf_marcarComoPagado('${mesAnio}','${tipo}')">Marcar pagado</button>`
           }
@@ -2663,6 +2650,35 @@ function gf_renderMesPanel(mesAnio){
       </div>
     </div>
   `;
+}
+
+// Deshacer un "Marcar pagado" erróneo. No revierte transferencias ni gastos ya
+// registrados — esos se borran desde "Movimientos del mes" o el historial.
+async function gf_desmarcarPagado(mesAnio, tipo){
+  const mes = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
+  if(!mes || mes[tipo]?.estado !== 'pagado') return;
+  const label = tipo === 'alquiler' ? 'Alquiler' : 'Tarjeta';
+  if(!confirm(`¿Desmarcar ${label} de ${gf_nombreMes(mesAnio)} como pagado?\n\nOjo: si el pago generó una transferencia o un gasto, no se revierte solo — borralo desde los movimientos si hace falta.`)) return;
+  mes[tipo].estado = 'pendiente';
+  if(mes.estado === 'completo') mes.estado = 'en_curso';
+  await S.set('gastosFijos', gf_gastosFijos);
+  toast(`${label} desmarcado como pagado`, 'warn', 4000);
+  gf_renderGastosFijos();
+  renderResumen();
+  renderPlanMes('plan-mes-resumen');
+}
+
+// Reabrir un mes archivado en "Meses anteriores" para corregir montos o estados.
+async function gf_reabrirMes(mesAnio){
+  const mes = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
+  if(!mes || mes.estado !== 'completo') return;
+  if(!confirm(`¿Reabrir ${gf_nombreMes(mesAnio)}? Vuelve a mostrarse como mes activo para que puedas corregirlo.`)) return;
+  mes.estado = 'en_curso';
+  await S.set('gastosFijos', gf_gastosFijos);
+  toast(`✓ ${gf_nombreMes(mesAnio)} reabierto`);
+  gf_renderGastosFijos();
+  renderResumen();
+  renderPlanMes('plan-mes-resumen');
 }
 
 function gf_renderHistorialMes(mesAnio){
@@ -2719,12 +2735,15 @@ function gf_renderHistorialMeses(){
   const meses = gf_gastosFijos.filter(m => m.estado === 'completo').sort((a,b) => b.mesAnio.localeCompare(a.mesAnio));
   const mesesHtml = meses.length
     ? meses.map(m => `
-        <div class="gf-hist-mes-item">
-          <div style="font-weight:600;font-size:14px">${gf_nombreMes(m.mesAnio)}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px">
-            Alquiler: ${fmt(m.alquiler.montoEstimado)} ·
-            Tarjeta: ${fmt(m.tarjeta.montoReal ?? m.tarjeta.montoEstimado)}
+        <div class="gf-hist-mes-item" style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div>
+            <div style="font-weight:600;font-size:14px">${gf_nombreMes(m.mesAnio)}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">
+              Alquiler: ${fmt(m.alquiler.montoEstimado)} ·
+              Tarjeta: ${fmt(m.tarjeta.montoReal ?? m.tarjeta.montoEstimado)}
+            </div>
           </div>
+          <button class="btn btn-sm" onclick="gf_reabrirMes('${m.mesAnio}')" style="flex-shrink:0;background:transparent;border:1px solid var(--border);color:var(--muted)">Reabrir</button>
         </div>`).join('')
     : '<p style="color:var(--muted);font-size:13px;padding:4px 0">Aún no hay meses completados.</p>';
   el.innerHTML = `
@@ -3007,7 +3026,7 @@ function calcularDistribucion(){
   const btnDefault = document.getElementById('cobro-btn-default');
   if(!monto){
     box.style.display='none';
-    if(btnDefault) btnDefault.style.display='flex';
+    if(btnDefault) btnDefault.style.display='';
     return;
   }
 
@@ -3015,7 +3034,7 @@ function calcularDistribucion(){
   const dist = calcDistribucion(monto);
   if(!dist){
     box.style.display='none';
-    if(btnDefault) btnDefault.style.display='flex';
+    if(btnDefault) btnDefault.style.display='';
     return;
   }
   _distData = dist;
@@ -3059,113 +3078,6 @@ function calcularDistribucion(){
           <button class="btn btn-primary" onclick="registrarCobro(true)">✓ Sí, confirmar</button>
           <button class="btn" style="background:var(--surface2);color:var(--text);border:1px solid var(--border)" onclick="_mostrarSliders()">Editar manualmente</button>
         </div>
-      </div>
-    </div>`;
-}
-
-// ── INSTRUCCIÓN LEGACY (para historial de cobros viejos) ──
-function calcDelta(tipo, monto){
-  let filas = [], color = 'green', titulo = '', libre = monto;
-  let delta = { alquiler:0, tarjeta:0, inversion:0, fci:0 };
-
-  if(tipo === 'semanal_1'){
-    titulo = 'Cobro semanal — semana 1';
-    const servicios = 55170, mono = 48251, mov = 18425;
-    const svc_now  = Math.min(servicios, libre); libre -= svc_now;
-    const mono_sep = Math.min(mono, libre);      libre -= mono_sep;
-    const mov_sep  = Math.min(mov, libre);       libre -= mov_sep;
-    filas = [
-      { dest:'Pagá servicios (gas, luz, ABL)', monto: fmt(svc_now), type:'out' },
-      { dest:'Separar Monotributo (vence ~20)', monto: fmt(mono_sep), type:'sep' },
-      { dest:'Separar Movistar (vence ~21)', monto: fmt(mov_sep), type:'sep' },
-      { dest:'Para vivir esta semana', monto: fmt(libre), type:'libre' },
-    ];
-  } else if(tipo === 'semanal_2'){
-    titulo = 'Cobro semanal — semana 2';
-    const aysa = 9640, alq1 = 150000;
-    const a  = Math.min(aysa, libre);  libre -= a;
-    const al = Math.min(alq1, libre);  libre -= al;
-    delta.alquiler += al;
-    filas = [
-      { dest:'Separar Aysa (vence ~29)', monto: fmt(a), type:'sep' },
-      { dest:'Separar alquiler próximo mes — cuota 1/3', monto: fmt(al), type:'sep' },
-      { dest:'Para vivir esta semana', monto: fmt(libre), type:'libre' },
-    ];
-  } else if(tipo === 'semanal_3'){
-    titulo = 'Cobro semanal — semana 3';
-    color = 'blue';
-    const alq2 = 150000, seg1 = 100000;
-    const al = Math.min(alq2, libre); libre -= al;
-    const sg = Math.min(seg1, libre); libre -= sg;
-    delta.alquiler += al;
-    delta.tarjeta  += sg;
-    filas = [
-      { dest:'Separar alquiler próximo mes — cuota 2/3', monto: fmt(al), type:'sep' },
-      { dest:'Separar tarjeta próximo mes — cuota 1/2', monto: fmt(sg), type:'sep' },
-      { dest:'Para vivir esta semana', monto: fmt(libre), type:'libre' },
-    ];
-  } else if(tipo === 'semanal_4'){
-    titulo = 'Cobro semanal — semana 4';
-    color = 'blue';
-    const alq3 = 150000, seg2 = 100000;
-    const al = Math.min(alq3, libre); libre -= al;
-    const sg = Math.min(seg2, libre); libre -= sg;
-    delta.alquiler += al;
-    delta.tarjeta  += sg;
-    filas = [
-      { dest:'Separar alquiler próximo mes — cuota 3/3', monto: fmt(al), type:'sep' },
-      { dest:'Separar tarjeta próximo mes — cuota 2/2', monto: fmt(sg), type:'sep' },
-      { dest:'Para vivir esta semana', monto: fmt(libre), type:'libre' },
-    ];
-  } else if(tipo === 'mensual'){
-    titulo = 'Cliente mensual — $200.000';
-    const inv = 150000, fci = 50000;
-    const i = Math.min(inv, libre); libre -= i;
-    const f = Math.min(fci, libre); libre -= f;
-    delta.inversion += i;
-    delta.fci       += f;
-    filas = [
-      { dest:'CEDEARs vía MEP/CCL — HOY MISMO', monto: fmt(i), type:'inv' },
-      { dest:'FCI money market (colchón)', monto: fmt(f), type:'sep' },
-      { dest:'Para vivir', monto: fmt(libre), type:'libre' },
-    ];
-  } else if(tipo === 'variable'){
-    titulo = 'Ingreso variable / extra';
-    color = 'amber';
-    delta.inversion += monto;
-    libre = 0;
-    filas = [
-      { dest:'100% a CEDEARs vía MEP/CCL — HOY MISMO', monto: fmt(monto), type:'inv' },
-      { dest:'Para vivir', monto: fmt(0), type:'libre' },
-    ];
-  }
-
-  return { filas, color, titulo, libre, delta };
-}
-
-function calcularInstruccion(){
-  const monto = parseFloat(document.getElementById('cobro-monto').value) || 0;
-  const tipo  = document.getElementById('cobro-tipo').value;
-  const box   = document.getElementById('instruccion-box');
-  if(!monto){ box.style.display='none'; return; }
-
-  const { filas, color } = calcDelta(tipo, monto);
-  const colorClass = { out:'color:var(--red)', sep:'color:var(--blue)', inv:'color:var(--purple)', libre:'color:var(--green); font-weight:600' };
-  const filasHTML = filas.map(f =>
-    `<div class="instruccion-row">
-      <span class="dest">${f.dest}</span>
-      <span class="monto" style="${colorClass[f.type]||''}">${f.monto}</span>
-    </div>`
-  ).join('');
-
-  box.style.display = 'block';
-  box.innerHTML = `
-    <div class="instruccion ${color}">
-      <h3>Qué hacer con este cobro</h3>
-      ${filasHTML}
-      <div class="instruccion-total">
-        <span>Total recibido</span>
-        <span style="font-family:'JetBrains Mono',monospace">${fmt(monto)}</span>
       </div>
     </div>`;
 }
@@ -3221,7 +3133,7 @@ async function registrarCobro(conDistribucion = true){
     const box = document.getElementById('instruccion-box');
     box.style.display = 'none';
     const btnDefault = document.getElementById('cobro-btn-default');
-    if(btnDefault) btnDefault.style.display = 'block';
+    if(btnDefault) btnDefault.style.display = '';
     fabCloseSheet();
     renderResumen();
     renderPlanMes('plan-mes-resumen');
@@ -3342,7 +3254,7 @@ async function _confirmarDistEditada(){
     document.getElementById('cobro-nota').value  = '';
     document.getElementById('instruccion-box').style.display = 'none';
     const btnDefault = document.getElementById('cobro-btn-default');
-    if(btnDefault) btnDefault.style.display = 'flex';
+    if(btnDefault) btnDefault.style.display = '';
     _distData = null;
     renderResumen();
     renderPlanMes('plan-mes-resumen');
@@ -3376,7 +3288,6 @@ function seleccionarTareaGasto(){
   if(t.monto) document.getElementById('gasto-monto').value = t.monto;
   document.getElementById('gasto-cat').value  = t.cat || 'otro';
   document.getElementById('gasto-desc').value = t.desc;
-  actualizarPresupuesto();
 }
 
 // ── INVERSIONES CONFIRMADAS ───────────────────────────────
@@ -3405,15 +3316,7 @@ async function guardarSnapshotInv(){
 }
 
 async function eliminarSnapshotInv(id){
-  const idx = inv_snapshots.findIndex(s => s.id === id);
-  if(idx < 0) return;
-  const item = inv_snapshots[idx];
-  inv_snapshots.splice(idx, 1);
-  await S.set('inv_snapshots', inv_snapshots);
-  const timer = setTimeout(() => { _pendingUndo = null; }, 5000);
-  _pendingUndo = { timer, async restore(){ inv_snapshots.splice(idx, 0, item); await S.set('inv_snapshots', inv_snapshots); renderTarjeta(); } };
-  toast('Snapshot eliminado', 'undo');
-  renderTarjeta();
+  await softDelete({ arr: inv_snapshots, id, setKey: 'inv_snapshots', render: renderTarjeta, label: 'Snapshot' });
 }
 
 async function eliminarInversion(id){
@@ -3429,10 +3332,8 @@ function _refreshInvPlans(){
 
 // ── DETECCIÓN DE DESVÍO ───────────────────────────────────
 function _getDesvioInfo(cat, monto){
-  const CAT_TO_DIST = {
-    alquiler: 'alquiler', tarjeta: 'tarjeta',
-  };
-  const distKey = CAT_TO_DIST[cat];
+  // El gasto de alquiler/tarjeta consume la reserva 'obligaciones' de las distribuciones
+  const distKey = GASTO_A_RESERVA[cat];
   if(!distKey) return null; // gastos no-reserva son libres, no se controlan
 
   const desde = new Date(Date.now() - 45 * 86400000);
@@ -3449,16 +3350,18 @@ function _getDesvioInfo(cat, monto){
 
   const spent = {};
   movimientos
-    .filter(m => m.tipo === 'gasto' && new Date(m.fecha + 'T12:00') >= desde)
+    .filter(m => m.tipo === 'gasto' && !m.gfAjeno && new Date(m.fecha + 'T12:00') >= desde)
     .forEach(m => {
-      if(RESERVA_KEYS.includes(m.categoria)) spent[m.categoria] = (spent[m.categoria] || 0) + m.monto;
+      const rk = GASTO_A_RESERVA[m.categoria];
+      if(rk) spent[rk] = (spent[rk] || 0) + m.monto;
     });
 
   const allocated  = pool[distKey] || 0;
   const alreadySpent = spent[distKey] || 0;
   const remaining  = allocated - alreadySpent;
 
-  const LABELS = { alquiler:'Alquiler', tarjeta:'Tarjeta' };
+  const LABELS = { alquiler:'Alquiler', tarjeta:'Tarjeta', obligaciones:'Obligaciones' };
+  const label  = LABELS[cat] || cat;
 
   const pendingOtros = Object.entries(pool)
     .filter(([k]) => k !== distKey)
@@ -3469,10 +3372,10 @@ function _getDesvioInfo(cat, monto){
 
   if(allocated === 0){
     if(pendingOtros.length === 0) return null; // nada planificado en absoluto, no hay contexto útil
-    return { tipo:'no-asignado', label: LABELS[distKey] || cat, pendingOtros, LABELS };
+    return { tipo:'no-asignado', label, pendingOtros, LABELS };
   }
   if(monto > remaining + 500){
-    return { tipo:'excede', label: LABELS[distKey] || cat,
+    return { tipo:'excede', label,
       allocated, alreadySpent, exceso: monto - Math.max(0, remaining),
       pendingOtros, LABELS };
   }
@@ -3510,22 +3413,30 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId }){
     overlay.className = 'modal-overlay';
     overlay.style.display = 'flex';
     overlay.innerHTML = `
-      <div class="modal-content" style="width:min(340px,92vw);text-align:center">
+      <div class="modal-content" style="width:min(360px,92vw);text-align:center">
         <div style="font-size:32px;margin-bottom:10px">💡</div>
         <h3 style="font-size:15px;font-weight:600;margin-bottom:8px">${label}</h3>
         <p style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:20px">
-          Este pago se gestiona desde <strong style="color:var(--text)">G. Fijos → Marcar pagado</strong>
-          para descontar del fondo separado correctamente.<br><br>
-          Si lo registrás como gasto igual, se va a descontar del separado dos veces.
+          Si es <strong style="color:var(--text)">${cat === 'alquiler' ? 'el alquiler' : 'la tarjeta'} del mes</strong>, se gestiona desde
+          <strong style="color:var(--text)">G. Fijos → Marcar pagado</strong> para descontar del fondo separado
+          (registrarlo también como gasto lo descontaría dos veces).<br><br>
+          Si es <strong style="color:var(--text)">otro gasto</strong> con la misma categoría
+          (ej: consumos en una tarjeta ajena), registralo como gasto aparte: sale del disponible
+          y no toca G. Fijos.
         </p>
-        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-          <button class="btn btn-primary" id="_gf-ir">Ir a G. Fijos</button>
-          <button class="btn" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted)" id="_gf-igual">Registrar igual</button>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary" id="_gf-ir">Es el del mes — ir a G. Fijos</button>
+          <button class="btn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text)" id="_gf-ajeno">Es un gasto aparte (disponible)</button>
+          <button class="btn" style="background:transparent;border:1px solid var(--border);color:var(--muted)" id="_gf-igual">Es el del mes, registrarlo como gasto igual</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
     const cerrar = () => { overlay.remove(); };
     document.getElementById('_gf-ir').onclick = () => { cerrar(); showPage('gastos-fijos'); };
+    document.getElementById('_gf-ajeno').onclick = async () => {
+      cerrar();
+      await _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId, gfAjeno: true });
+    };
     document.getElementById('_gf-igual').onclick = async () => {
       cerrar();
       await _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId });
@@ -3580,10 +3491,11 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId }){
   if(tareaCompletada) renderTareas();
 }
 
-async function _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId }){
-  const desvio = _getDesvioInfo(cat, monto);
+async function _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId, gfAjeno = false }){
+  const desvio = gfAjeno ? null : _getDesvioInfo(cat, monto);
 
   const gasto = { id: Date.now(), tipo:'gasto', monto, categoria: cat, fecha, nota: desc };
+  if(gfAjeno) gasto.gfAjeno = true;
 
   let tareaCompletada = null;
   if(tareaId){
@@ -3598,7 +3510,7 @@ async function _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId 
 
   movimientos.push(gasto);
   await S.set('movimientos', movimientos);
-  await gf_sincronizarEstadoDesdeGasto(gasto);
+  if(!gfAjeno) await gf_sincronizarEstadoDesdeGasto(gasto);
 
   document.getElementById('gasto-monto').value = '';
   document.getElementById('gasto-desc').value  = '';
@@ -3678,7 +3590,6 @@ function renderResumen(){
 
   // ── Saldos + semáforo ─────────────────────────────────
   const saldos = gf_getSaldos();
-  const tareasMes = tareas.filter(t=>{ const d=new Date(t.venc+'T12:00'); return d.getMonth()===mes&&d.getFullYear()===anio; });
   // ── Cards ─────────────────────────────────────────────
   const cobrosN = delMes.filter(m=>m.tipo==='cobro').length;
   document.getElementById('cards-resumen').innerHTML = `
@@ -3700,7 +3611,7 @@ function renderResumen(){
         </div>
         <div style="padding:12px 16px;cursor:pointer" onclick="showPage('gastos-fijos')">
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Separado GF</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--accent)">${fmt(saldos.separado)}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--blue)">${fmt(saldos.separado)}</div>
           <div style="font-size:10px;color:var(--muted);margin-top:2px">gastos fijos</div>
         </div>
       </div>
@@ -3729,102 +3640,6 @@ function renderResumen(){
   }
 
   renderPlanMes('plan-mes-resumen');
-}
-
-// ── PRESUPUESTO EN TIEMPO REAL ───────────────────────────
-function calcPresupuesto(montoPreview=0, catPreview=''){
-  const hoy  = new Date();
-  const mes  = hoy.getMonth(), anio = hoy.getFullYear();
-  const delMes = movimientos.filter(m=>{
-    const d=new Date(m.fecha+'T12:00'); return d.getMonth()===mes&&d.getFullYear()===anio;
-  });
-  const cobrado  = delMes.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
-  const saldos   = _getSaldoReservas();
-  const tarjTask = tareas.find(t => t.cat === 'tarjeta');
-  const meta     = (planMensual.alquilerMonto || 450000) + (tarjTask?.monto || 0);
-  const obligaciones = [{ label:'Obligaciones', target:meta, prog:saldos.obligaciones }];
-  const reserveCats  = ['alquiler','tarjeta'];
-  const dispGast = delMes.filter(m=>m.tipo==='gasto'&&!reserveCats.includes(m.categoria)).reduce((s,m)=>s+m.monto,0);
-  const isDisp   = !reserveCats.includes(catPreview);
-  const preview  = isDisp ? montoPreview : 0;
-  const vivirLibre = saldos.disponible - preview;
-  const pctVivir   = saldos.disponible > 0
-    ? Math.min(100, Math.round((dispGast + preview) / saldos.disponible * 100))
-    : (dispGast > 0 ? 100 : 0);
-  return { cobrado, obligaciones, totalOblig:meta, paraVivir:saldos.disponible, vivirGast:dispGast, vivirLibre, pctVivir, montoPreview, isVivir:isDisp };
-}
-
-function renderPresupuesto(montoPreview=0, catPreview=''){
-  const el = document.getElementById('presupuesto-panel');
-  if(!el) return;
-  const b = calcPresupuesto(montoPreview, catPreview);
-
-  if(!b.cobrado){
-    el.innerHTML = `<div class="progress-section" style="margin-top:20px"><h3>Distribución del mes</h3><div class="empty-state" style="padding:24px"><p>Registrá un cobro para ver la distribución</p></div></div>`;
-    return;
-  }
-
-  const oblHTML = b.obligaciones.map(o=>{
-    if(!o.target) return '';
-    const p        = Math.min(100,Math.round(o.prog/o.target*100));
-    const completo = o.prog>=o.target;
-    const fillCls  = completo ? 'fill-green' : 'fill-amber';
-    return `
-      <div class="progress-item">
-        <div class="progress-header">
-          <span class="progress-label" style="font-size:13px">${o.label}</span>
-          <span class="progress-amounts" style="color:${completo?'var(--green)':'var(--muted)'}">
-            ${completo ? '✓ cubierto' : `${fmt(o.prog)} / ${fmt(o.target)} — falta ${fmt(o.target-o.prog)}`}
-          </span>
-        </div>
-        <div class="progress-bar"><div class="progress-fill ${fillCls}" style="transform:scaleX(${p/100})"></div></div>
-      </div>`;
-  }).join('');
-
-  const vivirOk    = b.vivirLibre >= 0;
-  const vivirColor = vivirOk ? 'var(--green)' : 'var(--red)';
-  const barExtra   = b.vivirLibre<0 ? 'background:var(--red)' : b.pctVivir>=80 ? 'background:var(--amber)' : '';
-
-  const previewHTML = b.montoPreview>0 ? `
-    <div style="margin-top:12px;padding:11px 14px;border-radius:8px;background:${vivirOk?'var(--surface2)':'var(--red-bg)'};border:1px solid ${vivirOk?'var(--border)':'var(--red-border)'}">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">
-        ${b.isVivir ? `Si registrás ${fmt(b.montoPreview)} (gasto disponible):` : `Este gasto cubre una reserva fija — no reduce el disponible.`}
-      </div>
-      ${b.isVivir ? `<div style="font-size:14px;font-weight:600;color:${vivirColor}">
-        ${vivirOk ? `Libre restante: ${fmt(b.vivirLibre)} (${b.pctVivir}% utilizado)` : `⚠ Te pasás por ${fmt(Math.abs(b.vivirLibre))}`}
-      </div>` : ''}
-    </div>` : '';
-
-  el.innerHTML = `
-    <div class="progress-section" style="margin-top:20px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h3>Distribución del mes</h3>
-        <span style="font-size:12px;color:var(--muted)">Cobrado: <strong style="color:var(--text);font-family:'JetBrains Mono',monospace">${fmt(b.cobrado)}</strong></span>
-      </div>
-
-      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:12px">Obligaciones y ahorro</div>
-      ${oblHTML}
-      ${b.paraVivir<0?`<div style="font-size:12px;color:var(--red);margin-top:8px;padding:8px 12px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:6px">⚠ Los ingresos del mes no cubren todas las obligaciones fijas todavía</div>`:''}
-
-      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
-        <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px">Disponible · todos tus gastos del día a día</div>
-        <div class="progress-header" style="margin-bottom:6px">
-          <span class="progress-label">Disponible: ${fmt(Math.max(0,b.paraVivir))}</span>
-          <span class="progress-amounts" style="color:${vivirColor}">${fmt(b.vivirGast+(b.isVivir?b.montoPreview:0))} usado (${b.pctVivir}%)</span>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill fill-blue" style="transform:scaleX(${b.pctVivir/100});${barExtra}"></div>
-        </div>
-        <div style="text-align:right;font-size:12px;margin-top:4px;color:${vivirColor};font-weight:500">libre: ${fmt(b.vivirLibre)}</div>
-      </div>
-      ${previewHTML}
-    </div>`;
-}
-
-function actualizarPresupuesto(){
-  const monto = parseFloat(document.getElementById('gasto-monto').value)||0;
-  const cat   = document.getElementById('gasto-cat').value;
-  renderPresupuesto(monto, cat);
 }
 
 // ── PLAN DEL MES (fuente: Gastos Fijos) ──────────────────
@@ -4006,11 +3821,11 @@ function renderFlujo(){
 
     // Construir etiquetas de eventos (máx 3, luego "+N más")
     let tags = [];
-    e.cobros.forEach(c=>tags.push(`<div class="cal-ev cobro" title="${c.nota||'Cobro'}">+${fmt(c.monto)}</div>`));
-    e.gastos.forEach(g=>tags.push(`<div class="cal-ev gasto" title="${g.nota||g.categoria}">-${fmt(g.monto)}</div>`));
+    e.cobros.forEach(c=>tags.push(`<div class="cal-ev cobro" title="${esc(c.nota||'Cobro')}">+${fmt(c.monto)}</div>`));
+    e.gastos.forEach(g=>tags.push(`<div class="cal-ev gasto" title="${esc(g.nota||g.categoria)}">-${fmt(g.monto)}</div>`));
     e.tareas.forEach(t=>{
       const cls = t.done ? 'pagada' : (diasHasta(t.venc)<0 ? 'vencida' : 'tarea');
-      tags.push(`<div class="cal-ev ${cls}" title="${t.desc}">${t.desc.length>13?t.desc.slice(0,12)+'…':t.desc}</div>`);
+      tags.push(`<div class="cal-ev ${cls}" title="${esc(t.desc)}">${esc(t.desc.length>13?t.desc.slice(0,12)+'…':t.desc)}</div>`);
     });
 
     const MAX = 3;
@@ -4293,9 +4108,10 @@ function renderHistorial(){
     const isFlash  = _flashMovId === m.id;
     const distHint = esCobro && m.distribucion ? ` <span style="font-size:10px;color:var(--blue);opacity:0.6">· dist</span>` : '';
     const descText = esc(m.nota) || catLabels[m.categoria] || m.categoria;
+    const ajenoTag = m.gfAjeno ? ` <span class="badge" style="background:var(--surface2);color:var(--muted);font-size:10px">aparte</span>` : '';
     return `<div class="mov-row"${isFlash?' data-flash':''} ${si} onclick="abrirModalMov(${m.id})">
       <div class="mov-date">${fmtFecha(m.fecha)}</div>
-      <div><div class="mov-desc">${descText}${distHint}</div><div class="mov-cat"><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span></div></div>
+      <div><div class="mov-desc">${descText}${distHint}</div><div class="mov-cat"><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span>${ajenoTag}</div></div>
       <div class="mov-amt" style="color:${esCobro?'var(--green)':'var(--red)'}">${esCobro?'+':'−'}${fmt(m.monto)}</div>
     </div>`;
   }).join('');
@@ -4332,20 +4148,6 @@ async function confirmarLimpiar(){
 
 // ── OBJETIVO USD ─────────────────────────────────────────
 
-async function eliminarHistorialUSD(fecha, valor){
-  if(_pendingUndo){ clearTimeout(_pendingUndo.timer); _pendingUndo = null; }
-  const idx = historialUSD.findIndex(h => h.fecha === fecha && h.valor === valor);
-  if(idx === -1) return;
-  const item = historialUSD[idx];
-  historialUSD.splice(idx, 1);
-  await S.set('historialUSD', historialUSD);
-  renderTarjeta();
-  const timer = setTimeout(() => { _pendingUndo = null; }, 4500);
-  _pendingUndo = { timer, async restore(){ historialUSD.splice(idx, 0, item); await S.set('historialUSD', historialUSD); renderTarjeta(); } };
-  toast(`Registro eliminado · <button onclick="undoDelete()" style="background:none;border:none;color:var(--text);font-weight:600;cursor:pointer;text-decoration:underline;padding:0 0 0 6px;font-size:inherit;font-family:inherit">Deshacer</button>`, 'warn', 4800);
-}
-
-
 let pagosTarjeta = [];
 let gastosTarjeta = [];
 let comprasTarjeta = [];
@@ -4364,33 +4166,6 @@ const FIJOS_DEFAULT = [
   { id:10,desc:'Claude.ai',           monto:0,      usd:20.00, tipo:'Débito automático' },
 ];
 let FIJOS_TARJETA = [...FIJOS_DEFAULT];
-
-// ── HELPERS CICLO TARJETA ─────────────────────────────────
-function fmtYM(date){
-  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
-}
-function getProximoResumenYM(){
-  const hoy = new Date();
-  return fmtYM(new Date(hoy.getFullYear(), hoy.getMonth() + (hoy.getDate() < 27 ? 1 : 2), 1));
-}
-function getPrimerResumenYM(fechaCompra){
-  const d = new Date(fechaCompra+'T12:00');
-  return fmtYM(new Date(d.getFullYear(), d.getMonth() + (d.getDate() < 27 ? 1 : 2), 1));
-}
-function getCuotaNumParaResumen(compra, resumenYM){
-  const [py, pm] = getPrimerResumenYM(compra.fechaCompra).split('-').map(Number);
-  const [ry, rm] = resumenYM.split('-').map(Number);
-  const n = (ry - py) * 12 + (rm - pm) + 1;
-  return (n >= 1 && n <= compra.cuotas) ? n : 0;
-}
-function getUltimoResumenYM(compra){
-  const [py, pm] = getPrimerResumenYM(compra.fechaCompra).split('-').map(Number);
-  return fmtYM(new Date(py, pm - 1 + (compra.cuotas - 1), 1));
-}
-function nombreMesCorto(ym){
-  const [y, m] = ym.split('-').map(Number);
-  return new Date(y, m-1, 1).toLocaleString('es-AR',{month:'short'}).replace('.','') + '/' + String(y).slice(2);
-}
 
 async function migrarComprasTarjeta(){
   const REF = '2026-06';
@@ -4414,26 +4189,7 @@ async function migrarComprasTarjeta(){
   await S.set('comprasTarjeta', comprasTarjeta);
 }
 
-// ── TARJETA RENDER ────────────────────────────────────────
-function calcTarjeta(){
-  const proximoYM  = getProximoResumenYM();
-  const activos    = FIJOS_TARJETA.filter(f => f.activo !== false);
-  const fijosARS   = activos.reduce((s,f) => s + (f.monto||0), 0);
-  const fijosUSD   = activos.reduce((s,f) => s + (f.usd||0),   0);
-  const fijosTotal = fijosARS + fijosUSD * tcUSD;
-  const cuotasTotal = comprasTarjeta.reduce((s,c) => {
-    const n = getCuotaNumParaResumen(c, proximoYM);
-    return n > 0 ? s + c.montoCuota : s;
-  }, 0);
-  const totalProximo = fijosTotal + cuotasTotal;
-  const [pry, prm] = proximoYM.split('-').map(Number);
-  const futuros = [0,1,2,3,4,5].map(off => {
-    const ym = fmtYM(new Date(pry, prm - 1 + off, 1));
-    return comprasTarjeta.reduce((s,c) => { const n = getCuotaNumParaResumen(c,ym); return n>0?s+c.montoCuota:s; }, 0);
-  });
-  return { fijosARS, fijosUSD, fijosTotal, cuotasTotal, totalProximo, futuros, proximoYM, tcUSD };
-}
-
+// ── INVERSIONES RENDER ────────────────────────────────────
 function renderTarjeta(){
   const panel   = document.getElementById('inv-panel');
   const cartera = document.getElementById('inv-cartera');
@@ -4649,14 +4405,6 @@ function renderTarjeta(){
   }
 }
 
-// helper tabla genérica
-function mkTabla(headers, rows, aligns){
-  const th = headers.map((h,i)=>`<th style="text-align:${aligns&&aligns[i]?aligns[i]:'left'};padding:8px 0 10px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border)">${h}</th>`).join('');
-  const tr = rows.map(r=>`<tr>${r.map((c,i)=>`<td style="padding:9px 4px 9px 0;border-bottom:0.5px solid var(--border);text-align:${aligns&&aligns[i]?aligns[i]:'left'}">${c}</td>`).join('')}</tr>`).join('');
-  return `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`;
-}
-
-
 const catColorT = { servicios:'blue', monotributo:'blue', alquiler:'red', tarjeta:'red', inversion:'purple', fci:'blue', otro:'amber' };
 const catLabelT = { servicios:'Servicios', monotributo:'Monotributo', alquiler:'Alquiler', tarjeta:'Tarjeta', inversion:'CEDEARs', fci:'FCI', otro:'Otro' };
 
@@ -4720,21 +4468,54 @@ async function toggleTarea(id){
   renderResumen();
 }
 
-async function _registrarGastoDesdeTarea(t){
+async function _registrarGastoDesdeTarea(t, gfAjeno = false){
   const hoy = new Date().toISOString().split('T')[0];
   const gasto = { id: Date.now(), tipo:'gasto', monto: t.monto, categoria: t.cat, fecha: hoy, nota: t.desc, tareaId: t.id };
+  if(gfAjeno) gasto.gfAjeno = true;
   movimientos.push(gasto);
   await S.set('movimientos', movimientos);
-  await gf_sincronizarEstadoDesdeGasto(gasto);
+  if(!gfAjeno) await gf_sincronizarEstadoDesdeGasto(gasto);
   renderHistorial();
   renderResumen();
-  toast(`✓ Gasto de ${fmt(t.monto)} registrado · ${esc(t.desc)}`);
+  const origen = gfAjeno ? 'del disponible' : (['alquiler','tarjeta'].includes(t.cat) ? 'del fondo separado' : 'del disponible');
+  toast(`✓ Gasto de ${fmt(t.monto)} registrado ${origen} · ${esc(t.desc)}`);
+}
+
+// Tareas de alquiler/tarjeta: puede ser EL pago del mes (sale del separado y
+// actualiza G. Fijos) o un gasto ajeno con la misma categoría (ej: consumos en
+// la tarjeta de un tercero) que sale del disponible y no toca G. Fijos.
+function _mostrarConfirmGastoGF(t){
+  const esAlq  = t.cat === 'alquiler';
+  const label  = esAlq ? 'el Alquiler' : 'la Tarjeta';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content" style="width:min(360px,92vw);text-align:center">
+      <h3 style="font-size:15px;font-weight:600;margin-bottom:8px">${esc(t.desc)}</h3>
+      <p style="font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px">
+        ¿Este pago de <strong style="color:var(--text)">${fmt(t.monto)}</strong> es
+        <strong style="color:var(--text)">${label} del mes</strong> que planificás en Gastos Fijos?
+      </p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-primary" id="_cgf-si">Sí — pagar del fondo separado</button>
+        <button class="btn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text)" id="_cgf-ajeno">No — es un gasto aparte (disponible)</button>
+        <button class="btn" style="background:transparent;border:1px solid var(--border);color:var(--muted)" id="_cgf-no">No registrar gasto</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const cerrar = () => { overlay.classList.add('closing'); setTimeout(()=>overlay.remove(), 250); };
+  document.getElementById('_cgf-si').onclick    = async () => { cerrar(); await _registrarGastoDesdeTarea(t); };
+  document.getElementById('_cgf-ajeno').onclick = async () => { cerrar(); await _registrarGastoDesdeTarea(t, true); };
+  document.getElementById('_cgf-no').onclick    = cerrar;
+  overlay.addEventListener('click', e => { if(e.target === overlay) cerrar(); });
 }
 
 function _mostrarConfirmGasto(t){
   // Aportes a FCI/CEDEARs no son un gasto: se gestionan desde la pestaña Inversiones
   // para que el progreso quede reflejado ahí (ver _mostrarAvisoInversionTarea).
   if(t.cat === 'inversion' || t.cat === 'fci'){ _mostrarAvisoInversionTarea(t); return; }
+  // Alquiler/tarjeta: preguntar si es el pago del mes o un gasto ajeno
+  if(t.cat === 'alquiler' || t.cat === 'tarjeta'){ _mostrarConfirmGastoGF(t); return; }
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -4843,6 +4624,9 @@ function renderConfig(){
   if(!document.getElementById('cfg-ingreso-base')) return;
   document.getElementById('cfg-ingreso-base').value = planMensual.ingresoBase || '';
   document.getElementById('cfg-margen-inversion').value = planMensual.margenInversionSemanal ?? '';
+
+  const tarifaLabel = document.getElementById('trab-tarifa-label');
+  if(tarifaLabel) tarifaLabel.textContent = fmt(tarifaHora);
 
   // Mostrar checkpoint activo
   const siEl = document.getElementById('si-actual');
@@ -4990,7 +4774,10 @@ function renderTareas(){
   // Badge en resumen si hay vencidas/próximas
   const urgentes = pendientes.filter(t=>diasHasta(t.venc)<=3).length;
   const badge = document.getElementById('badge-tareas');
-  if(badge) badge.textContent = urgentes > 0 ? urgentes : '';
+  if(badge){
+    badge.textContent = urgentes > 0 ? urgentes : '';
+    badge.style.display = urgentes > 0 ? 'inline-block' : 'none';
+  }
 }
 
 
@@ -5591,8 +5378,6 @@ function setDiaMode(mode){
   const btnI = document.getElementById('dia-btn-ingreso');
   btnT.classList.toggle('active', !isIngreso);
   btnI.classList.toggle('active',  isIngreso);
-  if(false){
-  }
 }
 
 function _timeToH(t){ const [h,m]=(t||'').split(':').map(Number); return isNaN(h)?NaN:h+(m||0)/60; }
@@ -5653,22 +5438,6 @@ async function agregarRegistroDia(){
   document.getElementById('trab-calc-preview').textContent = '— hs × $0 = $0';
   calcHorasTrab();
   toast(`Registrado: ${horas}h → ${fmt(monto)}`);
-  renderTrabajo();
-}
-
-async function agregarPagoMatisa(){
-  const monto    = parseFloat(document.getElementById('trab-pago-monto').value);
-  const metodo   = document.getElementById('trab-pago-metodo').value;
-  const fecha    = document.getElementById('trab-pago-fecha').value;
-  const nota     = document.getElementById('trab-pago-nota').value.trim();
-  const facturado = document.getElementById('trab-pago-facturado').checked;
-  if(!monto || monto <= 0 || !fecha){ toast('Completá monto y fecha', 'err'); return; }
-  pagosMatisa.push({ id: Date.now(), fecha, monto, metodo, facturado, nota });
-  await S.set('pagosMatisa', pagosMatisa);
-  document.getElementById('trab-pago-monto').value = '';
-  document.getElementById('trab-pago-nota').value  = '';
-  document.getElementById('trab-pago-facturado').checked = false;
-  toast(`Pago registrado: ${fmt(monto)}`);
   renderTrabajo();
 }
 
@@ -5828,7 +5597,7 @@ function renderTrabajoHistorial(){
           const d = new Date(r.fecha+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
           const horario = `${r.entrada}–${r.salida}`;
           return `<tr>
-            <td>${d}${r.nota?' <span style="color:var(--muted);font-size:11px">· '+r.nota+'</span>':''}</td>
+            <td>${d}${r.nota?' <span style="color:var(--muted);font-size:11px">· '+esc(r.nota)+'</span>':''}</td>
             <td style="color:var(--muted);font-family:'JetBrains Mono',monospace">${horario}</td>
             <td style="font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--green);text-align:right">${fmt(r.monto)}</td>
             <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarRegistroDia(${r.id})">×</button></td>
@@ -5856,7 +5625,7 @@ function renderTrabajoHistorial(){
           const metBadge = `<span class="trab-pill ${metClass}">${metLabel}</span>`;
           const delFn = p._fromMov ? `eliminar(${p.id})` : `eliminarPagoMatisa(${p.id})`;
           return `<tr>
-            <td>${d}${p.nota?' <span style="color:var(--muted);font-size:11px">· '+p.nota+'</span>':''}</td>
+            <td>${d}${p.nota?' <span style="color:var(--muted);font-size:11px">· '+esc(p.nota)+'</span>':''}</td>
             <td style="font-family:'JetBrains Mono',monospace;font-weight:500;text-align:right">${fmt(p.monto)}</td>
             <td><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">${metBadge} ${facBadge}</div></td>
             <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="${delFn}">×</button></td>
@@ -5877,7 +5646,7 @@ function renderTrabajoHistorial(){
           const d = new Date(a.fecha+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
           return `<tr>
             <td>${d}</td>
-            <td style="color:var(--muted)">${a.descripcion}</td>
+            <td style="color:var(--muted)">${esc(a.descripcion)}</td>
             <td style="font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--blue);text-align:right">${fmt(a.monto)}</td>
             <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarAdelantoEmpresa(${a.id})">×</button></td>
           </tr>`;
@@ -6052,7 +5821,13 @@ async function importarDatos(event){
   toast('✓ Datos importados correctamente');
 }
 
-init();
+// Esperar al DOM completo: init() toca inputs de los sheets del FAB,
+// que están definidos después de este script en el documento.
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 
 // ── FAB ──────────────────────────────────────────────────
 let _fabMenuOpen = false;

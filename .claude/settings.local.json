@@ -23,7 +23,15 @@
       "Bash(node \"C:\\\\Users\\\\Rodrigo\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\detect.mjs\" --json \"c:\\\\Users\\\\Rodrigo\\\\OneDrive\\\\Desktop\\\\Repositorios\\\\mi-finanzas\\\\index.html\")",
       "Read(//c/Users/Rodrigo/Downloads/**)",
       "Bash(git commit *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "PowerShell(Get-ChildItem | Select-Object Name, Length; \\(Get-Content index.html | Measure-Object -Line\\).Lines)",
+      "Bash(python *)",
+      "Bash(node -e \"console.log\\('node ok'\\)\")",
+      "Bash(node *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8123/)",
+      "Bash(powershell -Command 'Get-NetTCPConnection -LocalPort 8123 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }')",
+      "Bash(curl -s -o /dev/null -m 2 http://localhost:8123/)",
+      "Bash(curl -s -o /dev/null -w \"server: %{http_code}\\\\n\" http://localhost:8123/)"
     ]
   }
 }
