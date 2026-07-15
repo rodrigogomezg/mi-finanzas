@@ -557,6 +557,8 @@
     .reg-header { padding:13px 14px; }
     .reg-mes-nombre { font-size:14px; }
     .reg-stat-row { padding:10px 14px; font-size:13px; }
+    .reg-cat-breakdown { padding:2px 14px 14px; }
+    .reg-mini-stats { font-size:10px; }
 
     /* ── Modal inputs — font-size 16px evita zoom iOS ────── */
     .modal-content input,
@@ -607,11 +609,15 @@
 
   /* REGISTROS MODULE */
   .reg-card { background:var(--surface); border:1px solid var(--border); border-radius:0; margin-bottom:2px; overflow:hidden; animation:rowIn 240ms var(--ease-out) both; animation-delay:calc(var(--i,0)*35ms); }
+  .reg-card.en-curso { border-top:2px solid var(--blue-border); margin-bottom:14px; }
   .reg-header { display:flex; justify-content:space-between; align-items:center; padding:16px 18px; cursor:pointer; user-select:none; gap:12px; transition:background 130ms var(--ease-out); min-height:56px; }
   @media(hover:hover) and (pointer:fine){ .reg-header:hover { background:var(--surface2); } }
   .reg-header:active { background:var(--surface2); }
-  .reg-mes-nombre { font-size:15px; font-weight:700; letter-spacing:-0.01em; text-transform:capitalize; margin-bottom:3px; }
+  .reg-mes-nombre-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .reg-mes-nombre { font-size:15px; font-weight:700; letter-spacing:-0.01em; }
+  .reg-mini-stats { display:flex; align-items:center; gap:9px; flex-wrap:wrap; font-size:11px; font-family:'JetBrains Mono',monospace; }
   .reg-header-right { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .reg-eyebrow { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; font-weight:500; margin-bottom:2px; text-align:right; }
   .reg-saldo { font-size:15px; font-weight:700; font-family:'JetBrains Mono',monospace; }
   .reg-chevron { width:18px; height:18px; color:var(--muted); flex-shrink:0; transition:transform 220ms var(--ease-out); }
   .reg-card.open .reg-chevron { transform:rotate(180deg); }
@@ -631,6 +637,16 @@
   .reg-comparativa.down { background:var(--red-bg); color:var(--red); }
   .reg-comparativa.flat { background:var(--surface2); color:var(--muted); }
   .reg-empty { text-align:center; color:var(--muted); font-size:13px; padding:56px 20px; line-height:1.6; }
+  .reg-cat-breakdown { padding:2px 18px 16px; border-top:0.5px solid var(--border); }
+  .reg-cat-bar { display:flex; height:6px; overflow:hidden; margin:12px 0 12px; background:var(--surface2); }
+  .reg-cat-seg:first-child { margin-left:0; }
+  .reg-cat-seg { height:100%; margin-left:1px; }
+  .reg-cat-row { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:12px; }
+  .reg-cat-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .reg-cat-label { color:var(--muted); flex:1; }
+  .reg-cat-value { font-family:'JetBrains Mono',monospace; color:var(--text); }
+  .reg-cat-link { font-size:11px; color:var(--blue); margin-top:8px; cursor:pointer; display:inline-block; }
+  @media(hover:hover) and (pointer:fine){ .reg-cat-link:hover { text-decoration:underline; } }
 
   /* CATEGORÍAS CONFIG */
   .cat-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:0.5px solid var(--border); }
@@ -4828,6 +4844,31 @@ function renderTareas(){
 
 
 // ── CIERRE AUTOMÁTICO ─────────────────────────────────────
+// Desglose de gastos por categoría + lista de cobros de un mes, a partir de sus
+// movimientos. Se usa al cerrar/archivar un mes (una sola vez, con los movimientos
+// todavía en el array activo) y para el backfill de entradas viejas en migrarRegistros.
+function _calcularDetalleMes(movsDelMes, mesKey){
+  const gastosPorCategoria = movsDelMes.filter(mv => mv.tipo === 'gasto').reduce((acc, g) => {
+    const cat = g.categoria || g.cat || 'otro';
+    acc[cat] = (acc[cat] || 0) + g.monto;
+    return acc;
+  }, {});
+  const cobMovArr   = movsDelMes.filter(mv => mv.tipo === 'cobro');
+  const cobPagosArr = pagosMatisa.filter(p => p.fecha?.startsWith(mesKey));
+  const cobros = [
+    ...cobMovArr.map(mv => ({
+      fecha: mv.fecha, monto: mv.monto,
+      tipo: mv.categoria || 'cobro', metodo: mv.metodo || '', nota: mv.nota || '',
+    })),
+    ...cobPagosArr.map(p => ({
+      fecha: p.fecha, monto: p.monto,
+      tipo: 'sueldo', metodo: p.metodo || '', nota: p.nota || '',
+    })),
+  ].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const totalIngresos = cobMovArr.reduce((s, m) => s + m.monto, 0) + cobPagosArr.reduce((s, p) => s + p.monto, 0);
+  return { gastosPorCategoria, cobros, totalIngresos };
+}
+
 async function migrarRegistros(){
   const historialMeses = await S.get('historial_meses') || [];
   if(!historialMeses.length) return;
@@ -4837,36 +4878,20 @@ async function migrarRegistros(){
   for(const h of historialMeses){
     const mesKey = `${h.anio}-${String(h.mes + 1).padStart(2,'0')}`;
 
-    // Siempre recomputar gastosPorCategoria desde movimientos (dato derivado, no se edita)
-    const gastosMes = movimientos.filter(mv => {
-      const d = new Date(mv.fecha + 'T12:00');
-      return d.getFullYear() === h.anio && d.getMonth() === h.mes && mv.tipo === 'gasto';
-    });
-    h.gastosPorCategoria = gastosMes.reduce((acc, g) => {
-      const cat = g.categoria || g.cat || 'otro';
-      acc[cat] = (acc[cat] || 0) + g.monto;
-      return acc;
-    }, {});
-
-    // Siempre recomputar cobros y totalIngresos (datos derivados)
-    const cobMovArr = movimientos.filter(mv => {
-      const d = new Date(mv.fecha + 'T12:00');
-      return d.getFullYear() === h.anio && d.getMonth() === h.mes && mv.tipo === 'cobro';
-    });
-    const cobPagosArr = pagosMatisa.filter(p => p.fecha?.startsWith(mesKey));
-    h.cobros = [
-      ...cobMovArr.map(mv => ({
-        fecha: mv.fecha, monto: mv.monto,
-        tipo: mv.categoria || 'cobro', metodo: mv.metodo || '', nota: mv.nota || '',
-      })),
-      ...cobPagosArr.map(p => ({
-        fecha: p.fecha, monto: p.monto,
-        tipo: 'sueldo', metodo: p.metodo || '', nota: p.nota || '',
-      })),
-    ].sort((a, b) => a.fecha.localeCompare(b.fecha));
-    h.totalIngresos = cobMovArr.reduce((s, m) => s + m.monto, 0) + cobPagosArr.reduce((s, p) => s + p.monto, 0);
-
-    changed = true;
+    // Backfill de datos derivados SOLO si faltan (entradas viejas, de antes de que
+    // existiera este campo). No se recalcula si ya están: los movimientos de origen
+    // se borran del array activo a los 60 días (autoArchivarMesesViejos), así que
+    // recalcular siempre terminaba vaciando el desglose de meses ya cerrados.
+    if(h.gastosPorCategoria === undefined || h.cobros === undefined){
+      const movsDelMes = movimientos.filter(mv => {
+        const d = new Date(mv.fecha + 'T12:00');
+        return d.getFullYear() === h.anio && d.getMonth() === h.mes;
+      });
+      const detalle = _calcularDetalleMes(movsDelMes, mesKey);
+      if(h.gastosPorCategoria === undefined) h.gastosPorCategoria = detalle.gastosPorCategoria;
+      if(h.cobros === undefined){ h.cobros = detalle.cobros; h.totalIngresos = detalle.totalIngresos; }
+      changed = true;
+    }
 
     // Backfill tareas pagadas del mes (las que siguen en el array activo)
     if(!h.tareas){
@@ -4907,16 +4932,34 @@ async function autoArchivarMesesViejos(){
     const cobrado  = g.movs.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
     const gastado  = g.movs.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0);
     const mesNombre = new Date(g.anio, g.mes, 1).toLocaleString('es-AR',{month:'long',year:'numeric'});
+    const mesKey = `${g.anio}-${String(g.mes + 1).padStart(2,'0')}`;
+    // Calcular el desglose ANTES de borrar los movimientos más abajo — si no, se
+    // pierde para siempre (migrarRegistros ya no lo puede recalcular sin el origen).
+    const { gastosPorCategoria, cobros, totalIngresos } = _calcularDetalleMes(g.movs, mesKey);
+    const trabMes  = registrosDiarios.filter(r => r.fecha?.startsWith(mesKey));
+    const ganMes   = trabMes.reduce((s,r)=>s+r.monto,0);
+    const adelMes  = adelantosEmpresa.filter(a => a.fecha?.startsWith(mesKey)).reduce((s,a)=>s+a.monto,0);
+    const cobMatMes = _cobradoSueldo(mesKey);
     historialMeses.push({
       mes: g.mes,
       anio: g.anio,
       mesNombre,
       cobrado,
+      totalIngresos,
       gastado,
       invertido: 0,
       saldo: cobrado - gastado,
       cerradoEl: new Date().toISOString(),
       automatico: true,
+      trabajo: {
+        dias: trabMes.length,
+        generado: ganMes + adelMes,
+        cobrado: cobMatMes,
+        adeudado: ganMes + adelMes - cobMatMes,
+      },
+      gastosPorCategoria,
+      cobros,
+      tareas: tareas.filter(t => t.done && t.venc?.startsWith(mesKey)),
     });
   }
   await S.set('historial_meses', historialMeses);
@@ -5116,22 +5159,80 @@ function _syncCatConfig(){
 let _registrosData = [];
 let _chartPieReg   = null;
 
+function capFirst(str){ return str ? str.charAt(0).toUpperCase() + str.slice(1) : str; }
+
+// Reporte en vivo del mes actual, con la misma forma que un mes cerrado en
+// historial_meses — así reutiliza el mismo template de card y los mismos modales.
+function _mesEnCursoData(){
+  const hoy  = new Date();
+  const anio = hoy.getFullYear(), mes = hoy.getMonth();
+  const mesKey = `${anio}-${String(mes + 1).padStart(2,'0')}`;
+  const movsDelMes = movimientos.filter(mv => {
+    const d = new Date(mv.fecha + 'T12:00');
+    return d.getFullYear() === anio && d.getMonth() === mes;
+  });
+  const cobrado = movsDelMes.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
+  const gastado = movsDelMes.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0);
+  const { gastosPorCategoria, cobros, totalIngresos } = _calcularDetalleMes(movsDelMes, mesKey);
+  const trabMes   = registrosDiarios.filter(r => r.fecha?.startsWith(mesKey));
+  const ganMes    = trabMes.reduce((s,r)=>s+r.monto,0);
+  const adelMes   = adelantosEmpresa.filter(a => a.fecha?.startsWith(mesKey)).reduce((s,a)=>s+a.monto,0);
+  const cobMatMes = _cobradoSueldo(mesKey);
+  return {
+    mes, anio, mesNombre: hoy.toLocaleString('es-AR', { month:'long', year:'numeric' }),
+    cobrado, totalIngresos, gastado,
+    invertido: 0,
+    saldo: cobrado - gastado,
+    cerradoEl: null, automatico: false, enCurso: true,
+    trabajo: { dias: trabMes.length, generado: ganMes + adelMes, cobrado: cobMatMes, adeudado: ganMes + adelMes - cobMatMes },
+    gastosPorCategoria, cobros,
+    tareas: tareas.filter(t => t.done && t.venc?.startsWith(mesKey)),
+  };
+}
+
+// Barra segmentada + top categorías, inline en la card (sin modal) para ver
+// rápido en qué se fue la plata. El modal con el gráfico de torta sigue
+// disponible desde el link "Ver gráfico" para quien quiera el detalle completo.
+function _renderCatBreakdown(gastosPorCategoria, total, idx){
+  const cats = Object.entries(gastosPorCategoria || {}).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]);
+  if(!cats.length) return '';
+  const bar = cats.map(([k,v]) => {
+    const pct = total > 0 ? (v/total*100) : 0;
+    return `<div class="reg-cat-seg" style="width:${pct}%;background:${REG_CAT_COLORS[k]||'#94a3b8'}"></div>`;
+  }).join('');
+  const top   = cats.slice(0, 4);
+  const resto = cats.slice(4);
+  const restoTotal = resto.reduce((s,[,v]) => s+v, 0);
+  const rows = top.map(([k,v]) => `
+    <div class="reg-cat-row">
+      <span class="reg-cat-dot" style="background:${REG_CAT_COLORS[k]||'#94a3b8'}"></span>
+      <span class="reg-cat-label">${REG_CAT_LABELS[k]||k}</span>
+      <span class="reg-cat-value">${fmt(v)}</span>
+    </div>`).join('') + (resto.length ? `
+    <div class="reg-cat-row">
+      <span class="reg-cat-dot" style="background:var(--muted)"></span>
+      <span class="reg-cat-label">Otras (${resto.length})</span>
+      <span class="reg-cat-value">${fmt(restoTotal)}</span>
+    </div>` : '');
+  return `
+    <div class="reg-cat-breakdown">
+      <div class="reg-cat-bar">${bar}</div>
+      <div>${rows}</div>
+      <div class="reg-cat-link" onclick="openGastosModal(${idx})">Ver gráfico ↗</div>
+    </div>`;
+}
+
 function renderRegistros(){
   const list = document.getElementById('registros-list');
   if(!list) return;
   S.get('historial_meses').then(meses => {
-    _registrosData = (meses || []).slice().sort((a, b) => {
+    const cerrados = (meses || []).slice().sort((a, b) => {
       if(b.anio !== a.anio) return b.anio - a.anio;
       return b.mes - a.mes;
     });
-    if(!_registrosData.length){
-      list.innerHTML = `<div class="reg-empty">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:12px;opacity:0.3"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        <div>Todavía no hay meses cerrados.</div>
-        <div style="font-size:11px;margin-top:6px">Al empezar un mes nuevo, el sistema te pedirá cerrar el anterior.</div>
-      </div>`;
-      return;
-    }
+    _registrosData = [_mesEnCursoData(), ...cerrados];
+    const sinCerrados = cerrados.length === 0;
+
     list.innerHTML = _registrosData.map((m, i) => {
       const prev = _registrosData[i + 1];
       const totalIngresos = m.totalIngresos || m.cobrado;
@@ -5150,14 +5251,24 @@ function renderRegistros(){
       }
 
       return `
-      <div class="reg-card" style="--i:${i}">
+      <div class="reg-card${m.enCurso ? ' en-curso open' : ''}" style="--i:${i}">
         <div class="reg-header" onclick="toggleRegCard(this)">
           <div>
-            <div class="reg-mes-nombre">${m.mesNombre}</div>
-            ${comparativaHtml}
+            <div class="reg-mes-nombre-row">
+              <span class="reg-mes-nombre">${capFirst(m.mesNombre)}</span>
+              ${m.enCurso ? '<span class="gf-mes-estado gf-estado-azul">En curso</span>' : ''}
+            </div>
+            <div class="reg-mini-stats">
+              <span style="color:var(--green)">↑ ${fmt(totalIngresos)}</span>
+              <span style="color:var(--red)">↓ ${fmt(m.gastado)}</span>
+              ${comparativaHtml}
+            </div>
           </div>
           <div class="reg-header-right">
-            <span class="reg-saldo" style="color:var(--green)">${fmt(totalIngresos)}</span>
+            <div>
+              <div class="reg-eyebrow">Saldo</div>
+              <span class="reg-saldo" style="color:${saldoColor}">${m.saldo>=0?'+':''}${fmt(m.saldo)}</span>
+            </div>
             <svg class="reg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
         </div>
@@ -5168,10 +5279,11 @@ function renderRegistros(){
                 <span class="reg-stat-label">Total cobrado <span class="reg-stat-hint">ver detalle ↗</span></span>
                 <span class="reg-stat-value" style="color:var(--green)">${fmt(totalIngresos)}</span>
               </div>
-              <div class="reg-stat-row reg-stat-clickable" onclick="openGastosModal(${i})">
-                <span class="reg-stat-label">Gastado <span class="reg-stat-hint">ver por categoría ↗</span></span>
+              <div class="reg-stat-row">
+                <span class="reg-stat-label">Gastado</span>
                 <span class="reg-stat-value" style="color:var(--red)">${fmt(m.gastado)}</span>
               </div>
+              ${_renderCatBreakdown(m.gastosPorCategoria, m.gastado, i)}
               <div class="reg-stat-row">
                 <span class="reg-stat-label">Saldo neto</span>
                 <span class="reg-stat-value" style="color:${saldoColor};font-weight:600">
@@ -5202,7 +5314,8 @@ function renderRegistros(){
           </div>
         </div>
       </div>`;
-    }).join('');
+    }).join('') + (sinCerrados ? `
+      <div class="reg-empty" style="padding:20px 4px 4px">Todavía no hay meses cerrados — acá vas a ver el historial a medida que termines cada mes.</div>` : '');
   });
 }
 
@@ -5220,7 +5333,7 @@ function closeRegModal(id){
 function openGastosModal(idx){
   const m = _registrosData[idx];
   if(!m) return;
-  document.getElementById('reg-pie-titulo').textContent = `Gastos — ${m.mesNombre}`;
+  document.getElementById('reg-pie-titulo').textContent = `Gastos — ${capFirst(m.mesNombre)}`;
 
   const cats = Object.entries(m.gastosPorCategoria || {}).filter(([, v]) => v > 0);
   if(!cats.length){
@@ -5267,7 +5380,7 @@ function openCobrosModal(idx){
   const m = _registrosData[idx];
   if(!m) return;
   const lista = m.cobros || [];
-  document.getElementById('reg-cobros-titulo').textContent = `Cobros — ${m.mesNombre}`;
+  document.getElementById('reg-cobros-titulo').textContent = `Cobros — ${capFirst(m.mesNombre)}`;
   document.getElementById('reg-cobros-list').innerHTML = lista.length
     ? lista.map(c => `
       <div class="reg-stat-row" style="border-top:0.5px solid var(--border);align-items:flex-start">
@@ -5285,7 +5398,7 @@ function openTareasModal(idx){
   const m = _registrosData[idx];
   if(!m) return;
   const lista = m.tareas || [];
-  document.getElementById('reg-tareas-titulo').textContent = `Tareas — ${m.mesNombre}`;
+  document.getElementById('reg-tareas-titulo').textContent = `Tareas — ${capFirst(m.mesNombre)}`;
   document.getElementById('reg-tareas-list').innerHTML = lista.length
     ? lista.map(t => `
       <div class="reg-stat-row" style="border-top:0.5px solid var(--border);align-items:flex-start">
