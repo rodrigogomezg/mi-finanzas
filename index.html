@@ -552,6 +552,7 @@
     .trab-month-body { overflow-x:auto; -webkit-overflow-scrolling:touch; }
     .trab-month-hd { padding:12px 14px; }
     .trab-month-stats { font-size:11px; }
+    .trab-sec-bar { padding:8px 14px; }
 
     /* ── Registros ────────────────────────────────────────── */
     .reg-header { padding:13px 14px; }
@@ -592,7 +593,13 @@
   .trab-month-body { display:none; border-top:1px solid var(--border); opacity:0; transform:translateY(-4px); transition:opacity 220ms var(--ease-out), transform 220ms var(--ease-out), display 220ms allow-discrete; }
   .trab-month-body.open { display:block; opacity:1; transform:translateY(0); }
   @starting-style { .trab-month-body.open { opacity:0; transform:translateY(-4px); } }
-  .trab-sec-label { font-size:10px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.07em; padding:10px 14px 5px; }
+  .trab-sec-bar { display:flex; align-items:center; gap:8px; padding:9px 18px; background:var(--surface2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .trab-sec-bar:first-child { border-top:none; }
+  .trab-sec-icon { display:flex; flex-shrink:0; color:var(--muted); }
+  .trab-sec-icon svg { width:14px; height:14px; }
+  .trab-sec-titulo { font-size:12px; font-weight:600; color:var(--text); flex:1; }
+  .trab-sec-count { font-weight:400; color:var(--muted); }
+  .trab-sec-total { font-size:12px; font-weight:600; font-family:'JetBrains Mono',monospace; white-space:nowrap; }
   .info-banner { display:flex;align-items:center;gap:12px;border:none;border-left:3px solid;border-radius:0;padding:13px 16px;margin-bottom:24px;font-size:14px;line-height:1.5; }
   .info-banner.blue { background:var(--blue-bg);border-color:var(--blue-border);color:var(--blue); }
   .seg-toggle { display:flex;gap:0;background:transparent;border-radius:0;border-bottom:2px solid var(--border);padding:0;margin-bottom:18px; }
@@ -5705,6 +5712,23 @@ function renderTrabajo(){
   renderTrabajoHistorial();
 }
 
+const TRAB_ICON_DIAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
+const TRAB_ICON_PAGOS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>';
+const TRAB_ICON_ESPECIAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15 8.5 22 9.5 17 14.5 18 21.5 12 18 6 21.5 7 14.5 2 9.5 9 8.5 12 2"/></svg>';
+
+// Barra de sección dentro de un mes del historial: icono + nombre + cantidad +
+// subtotal, para que "días trabajados / pagos / ingresos especiales" se
+// distingan de un vistazo en vez de leerse como una sola lista continua.
+function _trabSecBar(icon, label, count, subtotal, color){
+  if(count === 0) return '';
+  return `
+    <div class="trab-sec-bar">
+      <span class="trab-sec-icon">${icon}</span>
+      <span class="trab-sec-titulo">${label} <span class="trab-sec-count">(${count})</span></span>
+      <span class="trab-sec-total" style="color:${color}">${fmt(subtotal)}</span>
+    </div>`;
+}
+
 function renderTrabajoHistorial(){
   const cont = document.getElementById('trabajo-historial-content');
   if(!cont) return;
@@ -5744,7 +5768,7 @@ function renderTrabajoHistorial(){
     const statsHtml = `<span style="color:var(--muted)">Ganado</span> <span style="color:var(--green);font-weight:600">${fmt(ganMes + adelMes)}</span>`;
 
     const regsHtml = regs.length === 0 ? '' : `
-      <div class="trab-sec-label">Días trabajados (${regs.length})</div>
+      ${_trabSecBar(TRAB_ICON_DIAS, 'Días trabajados', regs.length, ganMes, 'var(--green)')}
       <table>
         <thead><tr>
           <th>Fecha</th>
@@ -5765,7 +5789,7 @@ function renderTrabajoHistorial(){
       </table>`;
 
     const pagosHtml = pagos.length === 0 ? '' : `
-      <div class="trab-sec-label">Pagos recibidos (${pagos.length})</div>
+      ${_trabSecBar(TRAB_ICON_PAGOS, 'Pagos recibidos', pagos.length, cobMes, 'var(--text)')}
       <table>
         <thead><tr>
           <th>Fecha</th>
@@ -5793,7 +5817,7 @@ function renderTrabajoHistorial(){
       </table>`;
 
     const adelsHtml = adels.length === 0 ? '' : `
-      <div class="trab-sec-label">Ingresos especiales (${adels.length})</div>
+      ${_trabSecBar(TRAB_ICON_ESPECIAL, 'Ingresos especiales', adels.length, adelMes, 'var(--blue)')}
       <table>
         <thead><tr>
           <th>Fecha</th>
