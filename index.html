@@ -1934,13 +1934,6 @@ async function init(){
   }
   _actualizarModoColchon();
 
-  pagosTarjeta  = await S.get('pagosTarjeta')  || [];
-  gastosTarjeta = await S.get('gastosTarjeta') || [];
-  const fijosGuardados = await S.get('fijos_tarjeta');
-  if(fijosGuardados) FIJOS_TARJETA = fijosGuardados;
-  const savedCompras = await S.get('comprasTarjeta');
-  if(savedCompras != null){ comprasTarjeta = savedCompras; } else { await migrarComprasTarjeta(); }
-
   tarifaHora             = await S.get('tarifaHora')             || 8440;
   gf_gastosFijos         = await S.get('gastosFijos')            || [];
   gf_separacionesSemana  = await S.get('gf_separacionesSemana')  || [];
@@ -2339,7 +2332,7 @@ async function gf_marcarComoPagado(mesAnio, tipo){
   if(!monto){ toast('Configurá el monto primero', 'err'); return; }
 
   // Si ya hay un gasto registrado para esta categoría en el mes, el saldo fue
-  // deducido por esa vía — no hacer la transferencia para evitar doble descuento.
+  // deducido por esa vía — no registrar otro para evitar duplicarlo.
   // Los gastos gfAjeno (ej: tarjeta de un tercero) no cuentan como pago del mes.
   const [y, m] = mesAnio.split('-');
   const gastoYaRegistrado = movimientos.find(mv =>
@@ -2348,8 +2341,15 @@ async function gf_marcarComoPagado(mesAnio, tipo){
   );
 
   if(!gastoYaRegistrado){
-    const ok = await gf_transferirSaldo('separado', 'pagado', monto, `Pago ${tipo} ${gf_nombreMes(mesAnio)}`);
-    if(!ok) return;
+    const saldos = gf_getSaldos();
+    if(saldos.separado < monto){ toast('Saldo separado insuficiente', 'err'); return; }
+    // Se registra como gasto real (no como transferencia interna) para que sume
+    // en las estadísticas del mes (Resumen, Historial, Registros) igual que un
+    // gasto de alquiler/tarjeta cargado a mano. gf_getSaldos() ya descuenta del
+    // separado cualquier gasto con esta categoría, así que no hay doble descuento.
+    const catLabel = tipo === 'alquiler' ? 'Alquiler' : 'Tarjeta';
+    movimientos.push({ id: Date.now(), tipo:'gasto', monto, categoria: tipo, fecha: new Date().toISOString().split('T')[0], nota: `Pago ${catLabel} ${gf_nombreMes(mesAnio)}` });
+    await S.set('movimientos', movimientos);
   }
 
   item.estado = 'pagado';
@@ -2385,6 +2385,7 @@ async function gf_marcarComoPagado(mesAnio, tipo){
   gf_renderGastosFijos();
   renderResumen();
   renderPlanMes('plan-mes-resumen');
+  renderHistorial();
 }
 
 // Cuando se registra un gasto de alquiler/tarjeta por fuera de "Marcar pagado" (override manual
@@ -4181,49 +4182,6 @@ async function confirmarLimpiar(){
   renderResumen();
 }
 
-// ── OBJETIVO USD ─────────────────────────────────────────
-
-let pagosTarjeta = [];
-let gastosTarjeta = [];
-let comprasTarjeta = [];
-
-// ── DATOS FIJOS TARJETA ───────────────────────────────────
-const FIJOS_DEFAULT = [
-  { id:1, desc:'Sancor Seguros',      monto:55361,  usd:0,     tipo:'Débito automático' },
-  { id:2, desc:'ATM Cía de Seguros',  monto:122115, usd:0,     tipo:'Débito automático' },
-  { id:3, desc:'Allianz',             monto:23904,  usd:0,     tipo:'Débito automático' },
-  { id:4, desc:'Plan Turbo (NX)',     monto:8843,   usd:0,     tipo:'Mantenimiento' },
-  { id:5, desc:'Crunchyroll',         monto:9209,   usd:0,     tipo:'Débito automático' },
-  { id:6, desc:'Prime Video',         monto:7864,   usd:0,     tipo:'Débito automático' },
-  { id:7, desc:'Meli+',               monto:3490,   usd:0,     tipo:'Débito automático' },
-  { id:8, desc:'Netflix',             monto:0,      usd:10.92, tipo:'Débito automático' },
-  { id:9, desc:'Google (2 servicios)',monto:0,      usd:4.98,  tipo:'Débito automático' },
-  { id:10,desc:'Claude.ai',           monto:0,      usd:20.00, tipo:'Débito automático' },
-];
-let FIJOS_TARJETA = [...FIJOS_DEFAULT];
-
-async function migrarComprasTarjeta(){
-  const REF = '2026-06';
-  const [ry, rm] = REF.split('-').map(Number);
-  const cuotasViejas = [
-    { desc:'Merpago Infinit', cuotaAct:6, cuotaTotal:12, montoCuota:16667, cat:'Otro' },
-    { desc:'Desillas (x2)',   cuotaAct:2, cuotaTotal:5,  montoCuota:28726, cat:'Hogar' },
-    { desc:'Cachilostore',    cuotaAct:1, cuotaTotal:3,  montoCuota:26667, cat:'Hogar' },
-    { desc:'Tapicería Buon',  cuotaAct:1, cuotaTotal:6,  montoCuota:26957, cat:'Hogar' },
-  ];
-  const nuevas = cuotasViejas.map((c, i) => {
-    const primerDate = new Date(ry, rm - 1 - (c.cuotaAct - 1), 1);
-    const compraDate = new Date(primerDate.getFullYear(), primerDate.getMonth() - 1, 15);
-    const fechaCompra = `${compraDate.getFullYear()}-${String(compraDate.getMonth()+1).padStart(2,'0')}-15`;
-    return { id: 900000 + i, desc: c.desc, monto: c.montoCuota * c.cuotaTotal, montoCuota: c.montoCuota, cuotas: c.cuotaTotal, fechaCompra, cat: c.cat };
-  });
-  gastosTarjeta.forEach(g => {
-    nuevas.push({ id: g.id, desc: g.desc, monto: g.monto, montoCuota: g.montoCuota || g.monto, cuotas: g.cuotas || 1, fechaCompra: g.fecha || new Date().toISOString().split('T')[0], cat: g.cat || 'Otro' });
-  });
-  comprasTarjeta = nuevas;
-  await S.set('comprasTarjeta', comprasTarjeta);
-}
-
 // ── INVERSIONES RENDER ────────────────────────────────────
 function renderTarjeta(){
   const panel   = document.getElementById('inv-panel');
@@ -5810,10 +5768,6 @@ async function exportarDatos(){
     historialUSD,
     separados,
     tareas,
-    pagosTarjeta,
-    gastosTarjeta,
-    comprasTarjeta,
-    fijos_tarjeta: FIJOS_TARJETA,
     historial_meses: await S.get('historial_meses') || [],
     registrosDiarios,
     pagosMatisa,
@@ -5861,8 +5815,7 @@ async function importarDatos(event){
     `Esto va a reemplazar todos los datos actuales:\n` +
     `• ${datos.movimientos?.length || 0} movimientos\n` +
     `• ${datos.tareas?.length || 0} tareas\n` +
-    `• ${datos.historialUSD?.length || 0} registros de cartera USD\n` +
-    `• ${datos.gastosTarjeta?.length || 0} gastos de tarjeta`,
+    `• ${datos.historialUSD?.length || 0} registros de cartera USD`,
     { ok: 'Importar' }
   );
   if(!ok) return;
@@ -5871,14 +5824,10 @@ async function importarDatos(event){
   historialUSD     = datos.historialUSD     || [];
   separados        = datos.separados        || { alquiler:0, tarjeta:0, inversion:0, fci:0 };
   tareas           = datos.tareas           || [];
-  pagosTarjeta     = datos.pagosTarjeta     || [];
-  gastosTarjeta    = datos.gastosTarjeta    || [];
-  if(datos.comprasTarjeta) comprasTarjeta = datos.comprasTarjeta;
   registrosDiarios = datos.registrosDiarios || [];
   pagosMatisa      = datos.pagosMatisa      || [];
   adelantosEmpresa = datos.adelantosEmpresa || [];
   if(datos.tarifaHora)    tarifaHora = datos.tarifaHora;
-  if(datos.fijos_tarjeta) FIJOS_TARJETA = datos.fijos_tarjeta;
   if(datos.inversiones)             inversiones             = datos.inversiones;
   if(datos.inv_snapshots)           inv_snapshots           = datos.inv_snapshots;
   if(datos.transferencias)          transferencias          = datos.transferencias;
@@ -5892,10 +5841,6 @@ async function importarDatos(event){
   await S.set('historialUSD',  historialUSD);
   await S.set('separados',     separados);
   await S.set('tareas',        tareas);
-  await S.set('pagosTarjeta',    pagosTarjeta);
-  await S.set('gastosTarjeta',   gastosTarjeta);
-  await S.set('comprasTarjeta',  comprasTarjeta);
-  await S.set('fijos_tarjeta',   FIJOS_TARJETA);
   await S.set('registrosDiarios', registrosDiarios);
   await S.set('pagosMatisa',      pagosMatisa);
   await S.set('adelantosEmpresa', adelantosEmpresa);
