@@ -31,7 +31,12 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8123/)",
       "Bash(powershell -Command 'Get-NetTCPConnection -LocalPort 8123 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }')",
       "Bash(curl -s -o /dev/null -m 2 http://localhost:8123/)",
-      "Bash(curl -s -o /dev/null -w \"server: %{http_code}\\\\n\" http://localhost:8123/)"
+      "Bash(curl -s -o /dev/null -w \"server: %{http_code}\\\\n\" http://localhost:8123/)",
+      "Bash(git fetch *)",
+      "Bash(npx --yes serve --version)",
+      "Bash(curl -sL -o /dev/null -w \"status:%{http_code}\\\\n\" http://localhost:8123/)",
+      "Bash(curl -s http://localhost:8123/)",
+      "Bash(powershell -Command \"\\(Get-NetTCPConnection -LocalPort 8123 -State Listen -ErrorAction SilentlyContinue\\) | Out-Null\")"
     ]
   }
 }

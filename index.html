@@ -4971,8 +4971,13 @@ async function autoArchivarMesesViejos(){
   }
   await S.set('historial_meses', historialMeses);
 
-  // Remover movimientos viejos del activo
-  movimientos = movimientos.filter(m => new Date(m.fecha + 'T12:00') >= corte);
+  // Remover movimientos viejos del activo — excepto cobros de sueldo, que deben
+  // persistir indefinidamente (igual que pagosMatisa) porque alimentan el saldo
+  // adeudado y el historial de la solapa Trabajo; si se archivan, "adeudado"
+  // salta de golpe al perder ese cobro de la cuenta corriente.
+  movimientos = movimientos.filter(m =>
+    new Date(m.fecha + 'T12:00') >= corte || (m.tipo === 'cobro' && m.categoria === 'sueldo')
+  );
   await S.set('movimientos', movimientos);
 
   // Remover inversiones confirmadas viejas
