@@ -549,10 +549,10 @@
 
     /* ── Trabajo ──────────────────────────────────────────── */
     #page-trabajo .tab-btn { font-size:11px; padding:6px 4px; }
-    .trab-month-body { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-    .trab-month-hd { padding:12px 14px; }
-    .trab-month-stats { font-size:11px; }
-    .trab-sec-bar { padding:8px 14px; }
+    .trab-heatmap { gap:2px; margin:12px 14px 2px; }
+    .trab-heatmap-dow { font-size:8px; }
+    .trab-mini-bar-row { padding:5px 14px; gap:8px; }
+    .trab-mini-bar-label { width:56px; font-size:10px; }
 
     /* ── Registros ────────────────────────────────────────── */
     .reg-header { padding:13px 14px; }
@@ -585,21 +585,6 @@
   }
 
   /* TRABAJO MODULE */
-  .trab-month { background:var(--surface); border:1px solid var(--border); border-radius:0; margin-bottom:2px; overflow:hidden; }
-  .trab-month-hd { padding:14px 18px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; gap:12px; min-height:52px; }
-  @media(hover:hover) and (pointer:fine){ .trab-month-hd:hover { background:var(--surface2); } }
-  .trab-month-hd h4 { font-size:14px; font-weight:700; letter-spacing:-0.01em; margin:0; }
-  .trab-month-stats { font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; white-space:nowrap; }
-  .trab-month-body { display:none; border-top:1px solid var(--border); opacity:0; transform:translateY(-4px); transition:opacity 220ms var(--ease-out), transform 220ms var(--ease-out), display 220ms allow-discrete; }
-  .trab-month-body.open { display:block; opacity:1; transform:translateY(0); }
-  @starting-style { .trab-month-body.open { opacity:0; transform:translateY(-4px); } }
-  .trab-sec-bar { display:flex; align-items:center; gap:8px; padding:9px 18px; background:var(--surface2); border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
-  .trab-sec-bar:first-child { border-top:none; }
-  .trab-sec-icon { display:flex; flex-shrink:0; color:var(--muted); }
-  .trab-sec-icon svg { width:14px; height:14px; }
-  .trab-sec-titulo { font-size:12px; font-weight:600; color:var(--text); flex:1; }
-  .trab-sec-count { font-weight:400; color:var(--muted); }
-  .trab-sec-total { font-size:12px; font-weight:600; font-family:'JetBrains Mono',monospace; white-space:nowrap; }
   .info-banner { display:flex;align-items:center;gap:12px;border:none;border-left:3px solid;border-radius:0;padding:13px 16px;margin-bottom:24px;font-size:14px;line-height:1.5; }
   .info-banner.blue { background:var(--blue-bg);border-color:var(--blue-border);color:var(--blue); }
   .seg-toggle { display:flex;gap:0;background:transparent;border-radius:0;border-bottom:2px solid var(--border);padding:0;margin-bottom:18px; }
@@ -611,8 +596,36 @@
   .trab-pill-ef     { background:var(--surface2);  color:var(--muted);  }
   .trab-pill-transf { background:var(--blue-bg);   color:var(--blue);   }
   .trab-pill-efec   { background:var(--green-bg);  color:var(--green);  }
-  .trab-month-chevron { flex-shrink:0; color:var(--muted); transition:transform 220ms var(--ease-out); }
-  .trab-month.open .trab-month-chevron { transform:rotate(180deg); }
+
+  /* Heatmap de días trabajados (calendario tipo GitHub) */
+  .trab-heatmap { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin:14px 18px 2px; max-width:min(280px,100%); }
+  .trab-heatmap-dow { font-size:9px; color:var(--muted); text-align:center; text-transform:uppercase; letter-spacing:0.04em; padding-bottom:3px; }
+  .trab-heatmap-cell { aspect-ratio:1; border-radius:3px; background:var(--surface2); cursor:default; transition:transform 120ms var(--ease-out); }
+  .trab-heatmap-cell.empty { visibility:hidden; }
+  .trab-heatmap-cell.h1 { background:color-mix(in oklch, var(--surface2), var(--green) 30%); cursor:pointer; }
+  .trab-heatmap-cell.h2 { background:color-mix(in oklch, var(--surface2), var(--green) 52%); cursor:pointer; }
+  .trab-heatmap-cell.h3 { background:color-mix(in oklch, var(--surface2), var(--green) 74%); cursor:pointer; }
+  .trab-heatmap-cell.h4 { background:color-mix(in oklch, var(--surface2), var(--green) 100%); cursor:pointer; }
+  @media(hover:hover) and (pointer:fine){ .trab-heatmap-cell.h1:hover, .trab-heatmap-cell.h2:hover, .trab-heatmap-cell.h3:hover, .trab-heatmap-cell.h4:hover { transform:scale(1.15); } }
+
+  /* Mini-barras comparativas generado/cobrado dentro de cada mes */
+  .trab-mini-bar-row { display:flex; align-items:center; gap:10px; padding:5px 18px; }
+  .trab-mini-bar-label { font-size:11px; font-weight:600; width:62px; flex-shrink:0; }
+  .trab-mini-bar-track { flex:1; height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; }
+  .trab-mini-bar-fill { height:100%; border-radius:3px; transition:width 260ms var(--ease-out); }
+  .trab-mini-bar-val { font-size:11px; font-family:'JetBrains Mono',monospace; font-weight:600; text-align:right; flex-shrink:0; white-space:nowrap; }
+
+  /* Mini-vista semanal (form de carga) */
+  .trab-week-mini { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; max-width:min(280px,100%); }
+  .trab-week-mini + .trab-week-mini { margin-bottom:16px; }
+  .trab-week-mini-cell { aspect-ratio:1; border-radius:3px; background:var(--surface2); border:1px solid var(--border); }
+  .trab-week-mini-cell.filled { background:var(--green); border-color:var(--green); }
+  .trab-week-mini-label { font-size:9px; color:var(--muted); text-align:center; text-transform:uppercase; letter-spacing:0.04em; padding-bottom:3px; }
+
+  /* Selector de rango del gráfico de tendencia */
+  .trab-rango-toggle { display:flex; gap:2px; background:var(--surface2); border-radius:8px; padding:2px; flex-shrink:0; }
+  .trab-rango-btn { padding:4px 10px; border-radius:6px; border:none; cursor:pointer; font-size:11px; font-weight:600; background:transparent; color:var(--muted); font-family:'Manrope',sans-serif; transition:background 160ms var(--ease-out), color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
+  .trab-rango-btn.active { background:var(--surface); color:var(--text); box-shadow:0 1px 2px oklch(0% 0 0 / 0.25); }
 
   /* REGISTROS MODULE */
   .reg-card { background:var(--surface); border:1px solid var(--border); border-radius:0; margin-bottom:2px; overflow:hidden; animation:rowIn 240ms var(--ease-out) both; animation-delay:calc(var(--i,0)*35ms); }
@@ -1215,6 +1228,7 @@ service cloud.firestore {
 
       <!-- Tab: día (día de trabajo + ingreso especial) -->
       <div id="tab-trabajo-dia" class="tab-pane active">
+        <div id="trab-semana-mini"></div>
         <div class="form-card">
           <!-- Segmented toggle -->
           <div class="seg-toggle">
@@ -1266,6 +1280,7 @@ service cloud.firestore {
 
       <!-- Tab: historial -->
       <div id="tab-trabajo-hist" class="tab-pane">
+        <div id="trabajo-tendencia"></div>
         <div id="trabajo-historial-content"></div>
       </div>
 
@@ -1390,6 +1405,28 @@ service cloud.firestore {
       <button class="btn btn-sm" onclick="closeRegModal('modal-tareas-mes')" style="padding:4px 10px">✕</button>
     </div>
     <div id="reg-tareas-list" style="margin-top:8px;max-height:65vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- Modal: días trabajados del mes (Trabajo) -->
+<div id="modal-trab-dias" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeRegModal('modal-trab-dias')">
+  <div class="modal-content" style="width:min(360px,94vw)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <h3 id="trab-dias-titulo" style="font-size:15px;font-weight:600;margin:0"></h3>
+      <button class="btn btn-sm" onclick="closeRegModal('modal-trab-dias')" style="padding:4px 10px">✕</button>
+    </div>
+    <div id="trab-dias-list" style="margin-top:8px;max-height:65vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- Modal: pagos / ingresos especiales del mes (Trabajo) -->
+<div id="modal-trab-lista" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeRegModal('modal-trab-lista')">
+  <div class="modal-content" style="width:min(360px,94vw)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <h3 id="trab-lista-titulo" style="font-size:15px;font-weight:600;margin:0"></h3>
+      <button class="btn btn-sm" onclick="closeRegModal('modal-trab-lista')" style="padding:4px 10px">✕</button>
+    </div>
+    <div id="trab-lista-list" style="margin-top:8px;max-height:65vh;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -2080,6 +2117,7 @@ function switchTab(page, tab, btn){
   if(page==='config'      && tab==='categorias') renderCategoriasConfig();
   if(page==='historial'   && tab==='flujo')    renderFlujo();
   if(page==='historial'   && tab==='lista')    renderHistorial();
+  if(page==='trabajo'     && tab==='hist')     renderTrabTendencia();
 }
 
 // ── TIPO DE CAMBIO MEP ────────────────────────────────────
@@ -5714,23 +5752,152 @@ function renderTrabajo(){
   const label = document.getElementById('trab-tarifa-label');
   if(label) label.textContent = fmt(tarifaHora);
 
+  renderSemanaMiniView();
   renderTrabajoHistorial();
 }
 
-const TRAB_ICON_DIAS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
-const TRAB_ICON_PAGOS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>';
-const TRAB_ICON_ESPECIAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15 8.5 22 9.5 17 14.5 18 21.5 12 18 6 21.5 7 14.5 2 9.5 9 8.5 12 2"/></svg>';
+// Franja de 7 casilleros (L a D) de la semana en curso arriba del form de
+// carga — para detectar de un vistazo si falta cargar algún día, sin tener
+// que ir al historial.
+function renderSemanaMiniView(){
+  const cont = document.getElementById('trab-semana-mini');
+  if(!cont) return;
+  const hoy = new Date();
+  const dow = (hoy.getDay() + 6) % 7; // 0 = lunes
+  const lunes = new Date(hoy);
+  lunes.setDate(hoy.getDate() - dow);
 
-// Barra de sección dentro de un mes del historial: icono + nombre + cantidad +
-// subtotal, para que "días trabajados / pagos / ingresos especiales" se
-// distingan de un vistazo en vez de leerse como una sola lista continua.
-function _trabSecBar(icon, label, count, subtotal, color){
-  if(count === 0) return '';
+  const byDay = {};
+  registrosDiarios.forEach(r => { byDay[r.fecha] = (byDay[r.fecha] || 0) + r.monto; });
+
+  const DOW = ['L','M','X','J','V','S','D'];
+  const labels = DOW.map(d => `<span class="trab-week-mini-label">${d}</span>`).join('');
+  let cells = '';
+  for(let i = 0; i < 7; i++){
+    const d = new Date(lunes);
+    d.setDate(lunes.getDate() + i);
+    const fecha = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const monto = byDay[fecha];
+    const dLabel = d.toLocaleDateString('es-AR', { day:'numeric', month:'short' });
+    const title = monto ? `${dLabel} · ${fmt(monto)}` : dLabel;
+    cells += `<div class="trab-week-mini-cell${monto ? ' filled' : ''}" title="${title}"></div>`;
+  }
+  cont.innerHTML = `<div class="trab-week-mini">${labels}</div><div class="trab-week-mini">${cells}</div>`;
+}
+
+// ── Datos por mes (fuente única para historial, heatmap y tendencia) ────
+let _trabMesesCache = [];
+
+function _trabMesesData(){
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const movsSueldo = movimientos.filter(m => m.tipo === 'cobro' && m.categoria === 'sueldo');
+
+  const months = new Set();
+  [...registrosDiarios, ...pagosMatisa, ...adelantosEmpresa, ...movsSueldo].forEach(e => {
+    if(e.fecha) months.add(e.fecha.slice(0,7));
+  });
+
+  return [...months].sort().map(ym => {
+    const [y, m] = ym.split('-');
+    const regs = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).sort((a,b) => a.fecha.localeCompare(b.fecha));
+    const pagosMat = pagosMatisa.filter(p => p.fecha?.startsWith(ym));
+    const pagosMov = movsSueldo
+      .filter(m => m.fecha?.startsWith(ym))
+      .map(m => ({ id: m.id, fecha: m.fecha, monto: m.monto, nota: m.nota, metodo: m.metodo || 'transferencia', facturado: m.facturado || false, _fromMov: true }));
+    const pagos = [...pagosMat, ...pagosMov].sort((a,b) => a.fecha.localeCompare(b.fecha));
+    const adels = adelantosEmpresa.filter(a => a.fecha?.startsWith(ym)).sort((a,b) => a.fecha.localeCompare(b.fecha));
+
+    const ganMes  = regs.reduce((s,r) => s + r.monto, 0);
+    const adelMes = adels.reduce((s,a) => s + a.monto, 0);
+    const cobMes  = pagos.reduce((s,p) => s + p.monto, 0);
+    const generadoMes = ganMes + adelMes;
+
+    return {
+      ym, mesLabel: `${MESES[parseInt(m)-1]} ${y}`,
+      regs, pagos, adels,
+      ganMes, adelMes, cobMes, generadoMes,
+      adeudMes: generadoMes - cobMes,
+    };
+  });
+}
+
+// Calendario heatmap (L a D) de los días trabajados de un mes — reemplaza la
+// tabla fila-por-día, que en meses con muchos días se volvía interminable
+// y no dejaba comparar de un vistazo el patrón de trabajo.
+function _trabHeatmapHtml(mes){
+  const [y, m] = mes.ym.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const firstDow = (new Date(y, m-1, 1).getDay() + 6) % 7; // 0 = lunes
+
+  const byDay = {};
+  mes.regs.forEach(r => { byDay[r.fecha] = (byDay[r.fecha] || 0) + r.monto; });
+  const montos = Object.values(byDay);
+  const max = montos.length ? Math.max(...montos) : 0;
+  const min = montos.length ? Math.min(...montos) : 0;
+
+  function nivel(monto){
+    if(!monto) return 0;
+    if(max === min) return 4;
+    const pct = (monto - min) / (max - min);
+    return pct >= 0.75 ? 4 : pct >= 0.5 ? 3 : pct >= 0.25 ? 2 : 1;
+  }
+
+  const DOW = ['L','M','X','J','V','S','D'];
+  let html = DOW.map(d => `<div class="trab-heatmap-dow">${d}</div>`).join('');
+  for(let i = 0; i < firstDow; i++) html += `<div class="trab-heatmap-cell empty"></div>`;
+  for(let d = 1; d <= lastDay; d++){
+    const fecha = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const monto = byDay[fecha] || 0;
+    const dLabel = new Date(y, m-1, d).toLocaleDateString('es-AR', { day:'numeric', month:'short' });
+    const title = monto ? `${dLabel} · ${fmt(monto)}` : dLabel;
+    const cls = monto ? `h${nivel(monto)}` : '';
+    const click = monto ? ` onclick="abrirTrabDetalleDias('${mes.ym}')"` : '';
+    html += `<div class="trab-heatmap-cell ${cls}" title="${title}"${click}></div>`;
+  }
+  return `<div class="trab-heatmap">${html}</div>`;
+}
+
+// Comparación visual inmediata generado vs cobrado, sin tener que leer números.
+function _trabMiniBars(mes){
+  const max = Math.max(mes.generadoMes, mes.cobMes, 1);
+  const pctGen = Math.round(mes.generadoMes / max * 100);
+  const pctCob = Math.round(mes.cobMes / max * 100);
   return `
-    <div class="trab-sec-bar">
-      <span class="trab-sec-icon">${icon}</span>
-      <span class="trab-sec-titulo">${label} <span class="trab-sec-count">(${count})</span></span>
-      <span class="trab-sec-total" style="color:${color}">${fmt(subtotal)}</span>
+    <div class="trab-mini-bar-row">
+      <span class="trab-mini-bar-label" style="color:var(--green)">Generado</span>
+      <div class="trab-mini-bar-track"><div class="trab-mini-bar-fill" style="width:${pctGen}%;background:var(--green)"></div></div>
+      <span class="trab-mini-bar-val" style="color:var(--green)">${fmt(mes.generadoMes)}</span>
+    </div>
+    <div class="trab-mini-bar-row">
+      <span class="trab-mini-bar-label" style="color:var(--blue)">Cobrado</span>
+      <div class="trab-mini-bar-track"><div class="trab-mini-bar-fill" style="width:${pctCob}%;background:var(--blue)"></div></div>
+      <span class="trab-mini-bar-val" style="color:var(--blue)">${fmt(mes.cobMes)}</span>
+    </div>`;
+}
+
+function _trabPagosResumen(mes){
+  if(!mes.pagos.length) return '';
+  const transf = mes.pagos.filter(p => p.metodo === 'transferencia').length;
+  const efec   = mes.pagos.filter(p => p.metodo === 'efectivo').length;
+  const sfMonto = mes.pagos.filter(p => !p.facturado && p.metodo === 'transferencia').reduce((s,p) => s + p.monto, 0);
+  return `
+    <div class="reg-stat-row reg-stat-clickable" onclick="abrirTrabDetallePagos('${mes.ym}')">
+      <span class="reg-stat-label">Pagos recibidos <span class="reg-stat-hint">(${mes.pagos.length}) ver detalle ↗</span></span>
+      <span class="reg-stat-value">${fmt(mes.cobMes)}</span>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 18px 12px">
+      ${transf ? `<span class="trab-pill trab-pill-transf">${transf} transf.</span>` : ''}
+      ${efec ? `<span class="trab-pill trab-pill-efec">${efec} efectivo</span>` : ''}
+      ${sfMonto > 0 ? `<span class="trab-pill trab-pill-nf">${fmt(sfMonto)} sin facturar</span>` : ''}
+    </div>`;
+}
+
+function _trabAdelsResumen(mes){
+  if(!mes.adels.length) return '';
+  return `
+    <div class="reg-stat-row reg-stat-clickable" onclick="abrirTrabDetalleAdels('${mes.ym}')">
+      <span class="reg-stat-label">Ingresos especiales <span class="reg-stat-hint">(${mes.adels.length}) ver detalle ↗</span></span>
+      <span class="reg-stat-value" style="color:var(--blue)">${fmt(mes.adelMes)}</span>
     </div>`;
 }
 
@@ -5738,123 +5905,217 @@ function renderTrabajoHistorial(){
   const cont = document.getElementById('trabajo-historial-content');
   if(!cont) return;
 
-  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const mesesAsc  = _trabMesesData();
+  _trabMesesCache = mesesAsc;
+  const mesesDesc = [...mesesAsc].reverse();
 
-  // Collect all months that have data
-  const months = new Set();
-  const _cobrosSueldoAll = movimientos.filter(m => m.tipo === 'cobro' && m.categoria === 'sueldo');
-  [...registrosDiarios, ...pagosMatisa, ...adelantosEmpresa, ..._cobrosSueldoAll].forEach(e => {
-    if(e.fecha) months.add(e.fecha.slice(0,7));
-  });
-  const sortedMonths = [...months].sort((a,b) => b.localeCompare(a));
-
-  if(sortedMonths.length === 0){
+  if(mesesDesc.length === 0){
     cont.innerHTML = '<div class="empty-state"><p>Sin historial registrado.</p></div>';
+    renderTrabTendencia();
     return;
   }
 
-  cont.innerHTML = sortedMonths.map((ym, idx) => {
-    const [y, m] = ym.split('-');
-    const mesLabel = `${MESES[parseInt(m)-1]} ${y}`;
+  cont.innerHTML = mesesDesc.map((mes, i) => {
+    const prev = mesesDesc[i + 1];
+    let comparativaHtml = '';
+    if(prev){
+      const diff = mes.adeudMes - prev.adeudMes;
+      const pct  = prev.adeudMes !== 0 ? Math.round(Math.abs(diff) / Math.abs(prev.adeudMes) * 100) : 0;
+      const dir  = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+      const sym  = diff > 0 ? '↑' : diff < 0 ? '↓' : '=';
+      comparativaHtml = `<span class="reg-comparativa ${dir}">${sym} ${pct}% vs ${prev.mesLabel.split(' ')[0]}</span>`;
+    }
+    const isOpen  = i === 0;
+    const sinNada = !mes.regs.length && !mes.pagos.length && !mes.adels.length;
 
-    const regs  = registrosDiarios.filter(r => r.fecha && r.fecha.startsWith(ym)).sort((a,b) => b.fecha.localeCompare(a.fecha));
-    const pagosMat = pagosMatisa.filter(p => p.fecha && p.fecha.startsWith(ym));
-    const pagosMov = movimientos
-      .filter(m => m.tipo === 'cobro' && m.categoria === 'sueldo' && m.fecha?.startsWith(ym))
-      .map(m => ({ id: m.id, fecha: m.fecha, monto: m.monto, nota: m.nota, metodo: m.metodo || 'transferencia', facturado: m.facturado || false, _fromMov: true }));
-    const pagos = [...pagosMat, ...pagosMov].sort((a,b) => b.fecha.localeCompare(a.fecha));
-    const adels = adelantosEmpresa.filter(a => a.fecha && a.fecha.startsWith(ym)).sort((a,b) => b.fecha.localeCompare(a.fecha));
-
-    const ganMes   = regs.reduce((s,r) => s + r.monto, 0);
-    const adelMes  = adels.reduce((s,a) => s + a.monto, 0);
-    const cobMes   = pagos.reduce((s,p) => s + p.monto, 0);
-    const adeudMes = ganMes + adelMes - cobMes;
-
-    const statsHtml = `<span style="color:var(--muted)">Ganado</span> <span style="color:var(--green);font-weight:600">${fmt(ganMes + adelMes)}</span>`;
-
-    const regsHtml = regs.length === 0 ? '' : `
-      ${_trabSecBar(TRAB_ICON_DIAS, 'Días trabajados', regs.length, ganMes, 'var(--green)')}
-      <table>
-        <thead><tr>
-          <th>Fecha</th>
-          <th>Horario</th>
-          <th style="text-align:right">Monto</th>
-          <th style="width:36px"></th>
-        </tr></thead>
-        <tbody>${regs.map(r => {
-          const d = new Date(r.fecha+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
-          const horario = `${r.entrada}–${r.salida}`;
-          return `<tr>
-            <td>${d}${r.nota?' <span style="color:var(--muted);font-size:11px">· '+esc(r.nota)+'</span>':''}</td>
-            <td style="color:var(--muted);font-family:'JetBrains Mono',monospace">${horario}</td>
-            <td style="font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--green);text-align:right">${fmt(r.monto)}</td>
-            <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarRegistroDia(${r.id})">×</button></td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table>`;
-
-    const pagosHtml = pagos.length === 0 ? '' : `
-      ${_trabSecBar(TRAB_ICON_PAGOS, 'Pagos recibidos', pagos.length, cobMes, 'var(--text)')}
-      <table>
-        <thead><tr>
-          <th>Fecha</th>
-          <th style="text-align:right">Monto</th>
-          <th>Método / ARCA</th>
-          <th style="width:36px"></th>
-        </tr></thead>
-        <tbody>${pagos.map(p => {
-          const d = new Date(p.fecha+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
-          const toggleFn = p._fromMov ? `toggleFacturadoMovimiento(${p.id})` : `toggleFacturadoMatisa(${p.id})`;
-          const facBadge = p.facturado
-            ? `<span class="trab-pill trab-pill-f" onclick="${toggleFn}" style="cursor:pointer" title="Click para cambiar">Facturado</span>`
-            : `<span class="trab-pill trab-pill-nf" onclick="${toggleFn}" style="cursor:pointer" title="Click para marcar como facturado">Sin facturar</span>`;
-          const metClass = p.metodo === 'transferencia' ? 'trab-pill-transf' : p.metodo === 'efectivo' ? 'trab-pill-efec' : 'trab-pill-ef';
-          const metLabel = p.metodo === 'transferencia' ? 'Transferencia' : p.metodo === 'efectivo' ? 'Efectivo' : p.metodo;
-          const metBadge = `<span class="trab-pill ${metClass}">${metLabel}</span>`;
-          const delFn = p._fromMov ? `eliminar(${p.id})` : `eliminarPagoMatisa(${p.id})`;
-          return `<tr>
-            <td>${d}${p.nota?' <span style="color:var(--muted);font-size:11px">· '+esc(p.nota)+'</span>':''}</td>
-            <td style="font-family:'JetBrains Mono',monospace;font-weight:500;text-align:right">${fmt(p.monto)}</td>
-            <td><div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">${metBadge} ${facBadge}</div></td>
-            <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="${delFn}">×</button></td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table>`;
-
-    const adelsHtml = adels.length === 0 ? '' : `
-      ${_trabSecBar(TRAB_ICON_ESPECIAL, 'Ingresos especiales', adels.length, adelMes, 'var(--blue)')}
-      <table>
-        <thead><tr>
-          <th>Fecha</th>
-          <th>Descripción</th>
-          <th style="text-align:right">Monto</th>
-          <th style="width:36px"></th>
-        </tr></thead>
-        <tbody>${adels.map(a => {
-          const d = new Date(a.fecha+'T12:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'});
-          return `<tr>
-            <td>${d}</td>
-            <td style="color:var(--muted)">${esc(a.descripcion)}</td>
-            <td style="font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--blue);text-align:right">${fmt(a.monto)}</td>
-            <td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="eliminarAdelantoEmpresa(${a.id})">×</button></td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table>`;
-
-    const isOpen = idx === 0 ? 'open' : '';
     return `
-      <div class="trab-month${isOpen ? ' open' : ''}">
-        <div class="trab-month-hd" onclick="const b=this.nextElementSibling;b.classList.toggle('open');this.parentElement.classList.toggle('open')">
-          <h4>${mesLabel}</h4>
-          <div class="trab-month-stats">${statsHtml}</div>
-          <svg class="trab-month-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      <div class="reg-card${isOpen ? ' open' : ''}" style="--i:${i}">
+        <div class="reg-header" onclick="toggleRegCard(this)">
+          <div>
+            <div class="reg-mes-nombre-row"><span class="reg-mes-nombre">${capFirst(mes.mesLabel)}</span></div>
+            <div class="reg-mini-stats">
+              ${mes.regs.length ? `<span style="color:var(--green)">${mes.regs.length} día${mes.regs.length!==1?'s':''}</span>` : ''}
+              ${comparativaHtml}
+            </div>
+          </div>
+          <div class="reg-header-right">
+            <div>
+              <div class="reg-eyebrow">Adeudado</div>
+              <span class="reg-saldo" style="color:var(--amber)">${fmt(mes.adeudMes)}</span>
+            </div>
+            <svg class="reg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </div>
-        <div class="trab-month-body ${isOpen}">
-          ${regsHtml}${pagosHtml}${adelsHtml}
-          ${!regsHtml && !pagosHtml && !adelsHtml ? '<div style="padding:16px 20px;font-size:13px;color:var(--muted)">Sin movimientos registrados.</div>' : ''}
+        <div class="reg-body">
+          <div class="reg-body-inner">
+            ${mes.regs.length ? `${_trabHeatmapHtml(mes)}${_trabMiniBars(mes)}` : ''}
+            ${_trabPagosResumen(mes)}
+            ${_trabAdelsResumen(mes)}
+            ${sinNada ? '<div style="padding:16px 18px;font-size:13px;color:var(--muted)">Sin movimientos registrados.</div>' : ''}
+          </div>
         </div>
       </div>`;
   }).join('');
+
+  renderTrabTendencia();
+}
+
+// ── Gráfico de tendencia: Generado/Cobrado por mes + Adeudado acumulado ──
+let trabTendenciaRango  = 6;
+let _chartTrabTendencia = null;
+
+function setTrabRango(r){
+  trabTendenciaRango = r === 'all' ? 'all' : parseInt(r);
+  renderTrabTendencia();
+}
+
+function renderTrabTendencia(){
+  const cont = document.getElementById('trabajo-tendencia');
+  if(!cont) return;
+  const mesesAsc = _trabMesesCache;
+  if(!mesesAsc.length){ cont.innerHTML = ''; return; }
+
+  const RANGOS = [3, 6, 12, 'all'];
+  const rangoBtns = RANGOS.map(r => {
+    const active = trabTendenciaRango === r;
+    return `<button class="trab-rango-btn${active ? ' active' : ''}" onclick="setTrabRango('${r}')">${r === 'all' ? 'Todo' : r}</button>`;
+  }).join('');
+
+  cont.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h4 style="font-size:13px;font-weight:700;margin:0;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Tendencia</h4>
+      <div class="trab-rango-toggle">${rangoBtns}</div>
+    </div>
+    <div style="position:relative;height:200px;margin-bottom:22px">
+      <canvas id="trab-chart-tendencia"></canvas>
+    </div>`;
+
+  const slice = trabTendenciaRango === 'all' ? mesesAsc : mesesAsc.slice(-trabTendenciaRango);
+  const acumuladoBase = mesesAsc.slice(0, mesesAsc.length - slice.length).reduce((s, m) => s + m.adeudMes, 0);
+  let acumulado = acumuladoBase;
+  const adeudadoData = slice.map(m => { acumulado += m.adeudMes; return acumulado; });
+
+  const cs    = getComputedStyle(document.documentElement);
+  const green = cs.getPropertyValue('--green').trim();
+  const blue  = cs.getPropertyValue('--blue').trim();
+  const amber = cs.getPropertyValue('--amber').trim();
+  const muted = cs.getPropertyValue('--muted').trim();
+
+  if(_chartTrabTendencia) _chartTrabTendencia.destroy();
+  _chartTrabTendencia = new Chart(document.getElementById('trab-chart-tendencia'), {
+    type: 'bar',
+    data: {
+      labels: slice.map(m => m.mesLabel.split(' ').map((s,i) => i===0 ? capFirst(s).slice(0,3) : `'${s.slice(2)}`).join(' ')),
+      datasets: [
+        { type:'bar',  label:'Generado',       data: slice.map(m => m.generadoMes), backgroundColor: green, borderRadius:3, barPercentage:0.6, categoryPercentage:0.7 },
+        { type:'bar',  label:'Cobrado',        data: slice.map(m => m.cobMes),      backgroundColor: blue,  borderRadius:3, barPercentage:0.6, categoryPercentage:0.7 },
+        { type:'line', label:'Adeudado acum.', data: adeudadoData, borderColor: amber, backgroundColor:'transparent', borderWidth:2, pointRadius:3, pointBackgroundColor: amber, tension:0.25 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display:true, position:'top', labels:{ color: muted, font:{ size:11 }, boxWidth:10, usePointStyle:true } } },
+      scales: {
+        x: { grid:{ display:false }, ticks:{ color: muted, font:{ size:10 } } },
+        y: { grid:{ color:'oklch(33% 0.04 258 / 0.35)' }, ticks:{ color: muted, font:{ size:10 }, callback: v => fmt(v) } },
+      },
+    },
+  });
+}
+
+// ── Modales de detalle (día/pago/ingreso especial) ───────────────────────
+function abrirTrabDetalleDias(ym){
+  const mes = _trabMesesCache.find(m => m.ym === ym);
+  if(!mes) return;
+  document.getElementById('trab-dias-titulo').textContent = `Días trabajados — ${capFirst(mes.mesLabel)}`;
+  document.getElementById('trab-dias-list').innerHTML = mes.regs.length
+    ? mes.regs.slice().sort((a,b) => b.fecha.localeCompare(a.fecha)).map(r => {
+        const d = new Date(r.fecha+'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'short' });
+        return `
+        <div class="reg-stat-row" style="border-top:0.5px solid var(--border);align-items:flex-start">
+          <div>
+            <div style="font-size:13px;color:var(--text)">${d}${r.nota ? ' · '+esc(r.nota) : ''}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${r.entrada}–${r.salida}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="reg-stat-value" style="color:var(--green)">${fmt(r.monto)}</span>
+            <button class="btn btn-danger btn-sm" onclick="eliminarRegistroDia(${r.id});_refrescarTrabModal()">×</button>
+          </div>
+        </div>`;
+      }).join('')
+    : '<div class="reg-empty" style="padding:28px">Sin días registrados</div>';
+  _TRAB_MODAL_STATE.tipo = 'dias'; _TRAB_MODAL_STATE.ym = ym;
+  document.getElementById('modal-trab-dias').style.display = 'flex';
+}
+
+const _TRAB_MODAL_STATE = { tipo:null, ym:null };
+
+function abrirTrabDetallePagos(ym){ _abrirTrabLista('pagos', ym); }
+function abrirTrabDetalleAdels(ym){ _abrirTrabLista('adels', ym); }
+
+function _abrirTrabLista(tipo, ym){
+  _TRAB_MODAL_STATE.tipo = tipo; _TRAB_MODAL_STATE.ym = ym;
+  const mes = _trabMesesCache.find(m => m.ym === ym);
+  if(!mes) return;
+
+  document.getElementById('trab-lista-titulo').textContent =
+    `${tipo === 'pagos' ? 'Pagos recibidos' : 'Ingresos especiales'} — ${capFirst(mes.mesLabel)}`;
+
+  let html;
+  if(tipo === 'pagos'){
+    const pagos = mes.pagos.slice().sort((a,b) => b.fecha.localeCompare(a.fecha));
+    html = pagos.length ? pagos.map(p => {
+      const d = new Date(p.fecha+'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'short' });
+      const toggleFn = p._fromMov ? `toggleFacturadoMovimiento(${p.id})` : `toggleFacturadoMatisa(${p.id})`;
+      const facBadge = p.facturado
+        ? `<span class="trab-pill trab-pill-f" onclick="${toggleFn};_refrescarTrabModal()" style="cursor:pointer">Facturado</span>`
+        : `<span class="trab-pill trab-pill-nf" onclick="${toggleFn};_refrescarTrabModal()" style="cursor:pointer">Sin facturar</span>`;
+      const metClass = p.metodo === 'transferencia' ? 'trab-pill-transf' : p.metodo === 'efectivo' ? 'trab-pill-efec' : 'trab-pill-ef';
+      const metLabel = p.metodo === 'transferencia' ? 'Transferencia' : p.metodo === 'efectivo' ? 'Efectivo' : p.metodo;
+      const delFn = p._fromMov ? `eliminar(${p.id})` : `eliminarPagoMatisa(${p.id})`;
+      return `
+        <div class="reg-stat-row" style="border-top:0.5px solid var(--border);align-items:flex-start">
+          <div>
+            <div style="font-size:13px;color:var(--text)">${d}${p.nota ? ' · '+esc(p.nota) : ''}</div>
+            <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap"><span class="trab-pill ${metClass}">${metLabel}</span>${facBadge}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="reg-stat-value">${fmt(p.monto)}</span>
+            <button class="btn btn-danger btn-sm" onclick="${delFn};_refrescarTrabModal()">×</button>
+          </div>
+        </div>`;
+    }).join('') : '<div class="reg-empty" style="padding:28px">Sin pagos registrados</div>';
+  } else {
+    const adels = mes.adels.slice().sort((a,b) => b.fecha.localeCompare(a.fecha));
+    html = adels.length ? adels.map(a => {
+      const d = new Date(a.fecha+'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'short' });
+      return `
+        <div class="reg-stat-row" style="border-top:0.5px solid var(--border);align-items:flex-start">
+          <div>
+            <div style="font-size:13px;color:var(--text)">${esc(a.descripcion)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${d}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="reg-stat-value" style="color:var(--blue)">${fmt(a.monto)}</span>
+            <button class="btn btn-danger btn-sm" onclick="eliminarAdelantoEmpresa(${a.id});_refrescarTrabModal()">×</button>
+          </div>
+        </div>`;
+    }).join('') : '<div class="reg-empty" style="padding:28px">Sin ingresos especiales registrados</div>';
+  }
+  document.getElementById('trab-lista-list').innerHTML = html;
+  document.getElementById('modal-trab-lista').style.display = 'flex';
+}
+
+// Los botones de arriba (eliminar/toggle facturado) llaman a funciones ya
+// existentes que recalculan todo vía renderTrabajo() — pero esa llamada es
+// async (después de un await a S.set) y el modal es un elemento aparte del
+// historial, así que no se refresca solo. El setTimeout(0) corre después de
+// ese microtask y agarra el estado ya actualizado.
+function _refrescarTrabModal(){
+  setTimeout(() => {
+    if(_TRAB_MODAL_STATE.tipo === 'dias') abrirTrabDetalleDias(_TRAB_MODAL_STATE.ym);
+    else if(_TRAB_MODAL_STATE.tipo) _abrirTrabLista(_TRAB_MODAL_STATE.tipo, _TRAB_MODAL_STATE.ym);
+  }, 0);
 }
 
 // ── BACKUP STATUS ─────────────────────────────────────────
