@@ -2241,20 +2241,20 @@ function gf_getSaldos(){
       // gfAjeno: gasto de categoría alquiler/tarjeta que NO es el pago del mes
       // (ej: consumos en una tarjeta de un tercero) — sale del disponible.
       if(['alquiler','tarjeta'].includes(ev.categoria) && !ev.gfAjeno){
-        sep = Math.max(0, sep - ev.monto);
+        sep -= ev.monto;
       } else {
-        disp = Math.max(0, disp - ev.monto);
+        disp -= ev.monto;
       }
     } else if(t === 'transf'){
       // old transferencias — 'obligaciones' mapea a separado
-      if(ev.de === 'obligaciones' || ev.de === 'separado') sep  = Math.max(0, sep  - ev.monto);
+      if(ev.de === 'obligaciones' || ev.de === 'separado') sep  -= ev.monto;
       if(ev.a  === 'obligaciones' || ev.a  === 'separado') sep  += ev.monto;
-      if(ev.de === 'disponible')   disp = Math.max(0, disp - ev.monto);
+      if(ev.de === 'disponible')   disp -= ev.monto;
       if(ev.a  === 'disponible')   disp += ev.monto;
     } else if(t === 'gf_transf'){
-      if(ev.origen  === 'disponible') disp = Math.max(0, disp - ev.monto);
+      if(ev.origen  === 'disponible') disp -= ev.monto;
       if(ev.destino === 'disponible') disp += ev.monto;
-      if(ev.origen  === 'separado')   sep  = Math.max(0, sep  - ev.monto);
+      if(ev.origen  === 'separado')   sep  -= ev.monto;
       if(ev.destino === 'separado')   sep  += ev.monto;
     }
   }
