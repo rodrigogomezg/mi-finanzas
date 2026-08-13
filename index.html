@@ -2928,6 +2928,13 @@ function _registrarInteres(tipo, fecha, monto, idOffset){
   }
 }
 
+// Interés/ganancia acumulado histórico (suma de todos los ajustes de interés registrados al
+// confirmar saldos, positivos o negativos) — separa "cuánto puse" (aportes) de "cuánto gané"
+// (interés), en vez de mezclarlo todo en el saldo total.
+function _getInteresAcumulado(tipo){
+  return inversiones.filter(i => i.tipo === tipo).reduce((s, i) => s + i.monto, 0);
+}
+
 // Saldo actual = último punto de la línea de tiempo reconstruida por _getEvolucionPuntos().
 // Antes esto se recalculaba con su propia lógica (base + depósitos posteriores al último
 // snapshot), separada de la que arma la tabla de historial — y ambas podían desalinearse
@@ -4402,16 +4409,21 @@ function renderTarjeta(){
   const cedUSD   = _getCedearsSaldoUSD();
   const cedARS   = Math.round(cedUSD * tc);
 
-  // Delta vs el último snapshot confirmado — refleja aportes aún no "confirmados" con un saldo manual
-  const deltaFCI = latest ? fciSaldo - latest.fci    : (fciSaldo > 0 ? fciSaldo : null);
-  const deltaCED = latest ? cedUSD   - latest.cedears : (cedUSD   > 0 ? cedUSD   : null);
+  // Chip junto al saldo grande = ganancia por interés ACUMULADA (no "pendiente desde el
+  // último snapshot"). Los aportes ya están sumados discretamente dentro del saldo grande —
+  // este número aparte es específicamente para que la ganancia (interés/rendimiento) se note,
+  // sin mezclarse con lo que vos pusiste de tu bolsillo.
+  const huboInteresFCI = inversiones.some(i => i.tipo === 'fci_interes');
+  const huboInteresCED = inversiones.some(i => i.tipo === 'cedears_interes');
+  const deltaFCI = huboInteresFCI ? _getInteresAcumulado('fci_interes')     : null;
+  const deltaCED = huboInteresCED ? _getInteresAcumulado('cedears_interes') : null;
 
   function deltaChip(delta, isFCI){
     if(delta === null) return '';
     const sign  = delta >= 0 ? '+' : '';
     const color = delta >= 0 ? 'var(--green)' : 'var(--red)';
     const val   = isFCI ? `${sign}${fmt(delta)}` : `${sign}${fmtU(delta)}`;
-    return `<span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:${color};margin-left:8px">${val}</span>`;
+    return `<span title="Interés/ganancia acumulado" style="font-size:11px;font-family:'JetBrains Mono',monospace;color:${color};margin-left:8px">${val}</span>`;
   }
 
   const pct1   = Math.min(100, Math.round(fciSaldo / FCI_META_1  * 100));
