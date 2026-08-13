@@ -1827,14 +1827,20 @@ function abrirModalTransf(id){
 function abrirModalInv(id){
   const inv = inversiones.find(x => x.id === id);
   if(!inv) return;
-  const invLabels = { cedears:'CEDEARs', fci:'FCI / colchón' };
+  const invLabels = { cedears:'CEDEARs', fci:'FCI / colchón', fci_interes:'FCI · Interés/ganancia', cedears_interes:'CEDEARs · Interés/ganancia' };
+  const esInteres  = inv.tipo === 'fci_interes' || inv.tipo === 'cedears_interes';
+  const esUSD      = inv.tipo === 'cedears' || inv.tipo === 'cedears_interes';
+  const sign       = inv.monto >= 0 ? '+' : '';
+  const montoTxt   = `${sign}${esUSD ? fmtU(inv.monto) : fmt(inv.monto)}`;
+  const color      = esInteres ? (inv.monto >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--blue)';
   _movModalOpen(`<div class="modal-content" style="width:320px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h3 style="font-size:15px;font-weight:600;margin:0">Inversión · ${invLabels[inv.tipo]||inv.tipo}</h3>
       <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
     </div>
+    ${esInteres ? `<p style="font-size:12px;color:var(--muted);margin-bottom:8px">Diferencia entre el saldo confirmado y lo esperado por base + aportes, registrada automáticamente al actualizar el saldo.</p>` : ''}
     ${inv.nota ? `<p style="font-size:13px;margin-bottom:4px">${esc(inv.nota)}</p>` : ''}
-    <p style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--blue);margin-bottom:20px">+${fmt(inv.monto)}</p>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:${color};margin-bottom:20px">${montoTxt}</p>
     <div style="display:flex;gap:8px;justify-content:space-between">
       <button class="btn btn-danger btn-sm" onclick="_movModalClose();eliminarInversion(${inv.id})">Eliminar</button>
       <button class="btn btn-sm" onclick="_movModalClose()">Cerrar</button>
@@ -2875,6 +2881,53 @@ function _ultimoSnapshotInv(){
   return snaps.length > 0 ? snaps[snaps.length-1] : null;
 }
 
+// Último snapshot con fecha ESTRICTAMENTE anterior a la dada — se usa al confirmar un nuevo
+// saldo para saber cuál era la base previa, incluso si ya existe un snapshot en esa misma fecha
+// (caso: editar un saldo ya guardado).
+function _ultimoSnapshotAntesDe(fecha){
+  const snaps = inv_snapshots.filter(s => s.fecha < fecha).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+  return snaps.length > 0 ? snaps[snaps.length-1] : null;
+}
+
+// Saldo que "debería" tener FCI o CEDEARs en `fecha` según la base conocida (último snapshot
+// anterior) más los aportes ya registrados hasta esa fecha — sin contar todavía ninguna ganancia
+// por intereses. La diferencia contra el valor que el usuario tipea al actualizar el saldo es lo
+// que se registra como interés/ganancia (ver guardarSnapshotInv).
+function _saldoEsperado(tipo, fecha){
+  let base = 0, desdeDate = new Date(0);
+  const prev = _ultimoSnapshotAntesDe(fecha);
+  if(prev){
+    base = tipo === 'fci' ? prev.fci : prev.cedears;
+    desdeDate = new Date(prev.fecha+'T12:00');
+  } else if(tipo === 'fci'){
+    const ajustes = inversiones.filter(i => i.tipo === 'fci_saldo').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+    if(ajustes.length > 0){
+      const last = ajustes[ajustes.length-1];
+      base = last.monto;
+      desdeDate = new Date(last.fecha+'T12:00');
+    }
+  }
+  const limite = new Date(fecha+'T12:00');
+  const depositos = inversiones
+    .filter(i => i.tipo === tipo && new Date(i.fecha+'T12:00') > desdeDate && new Date(i.fecha+'T12:00') <= limite)
+    .reduce((s, i) => s + i.monto, 0);
+  return base + depositos;
+}
+
+// Registra (o reemplaza) el ajuste automático de interés/ganancia para una fecha dada, sin tocar
+// los aportes reales — así el progreso de aportes nunca se pisa con la ganancia del período.
+function _registrarInteres(tipo, fecha, monto, idOffset){
+  inversiones = inversiones.filter(i => !(i.tipo === tipo && i.fecha === fecha && i._auto));
+  if(Math.round(monto * 100) !== 0){
+    inversiones.push({
+      id: Date.now() + idOffset,
+      tipo, monto: Math.round(monto * 100) / 100, fecha,
+      nota: 'Interés/ganancia (auto)',
+      _auto: true,
+    });
+  }
+}
+
 function _getFCISaldo(){
   let base = 0, desdeDate = new Date(0);
   const snap = _ultimoSnapshotInv();
@@ -2908,60 +2961,63 @@ function _getCedearsSaldoUSD(){
   return base + depositos;
 }
 
-// Puntos para "Evolución de tenencias": snapshots manuales + un punto sintético por cada
-// depósito automático (cobro con distribución a FCI/CEDEARs) posterior al último snapshot.
+// Puntos para "Evolución de tenencias": reconstruye la línea de tiempo COMPLETA combinando
+// snapshots manuales (checkpoints de saldo real) + aportes automáticos (fci/cedears) + ajustes
+// de interés/ganancia generados al confirmar un saldo (ver guardarSnapshotInv). A diferencia de
+// la versión anterior, ningún evento se pierde de vista: aunque un snapshot posterior "corrija"
+// el total, cada aporte e interés previo sigue como su propia fila en el historial.
 function _getEvolucionPuntos(){
-  const snaps = [...inv_snapshots]
-    .map(s => ({ ...s, auto:false }))
-    .sort((a,b) => new Date(a.fecha+'T12:00') - new Date(b.fecha+'T12:00'));
+  const eventos = [];
 
-  let fci = 0, ced = 0, desdeDate = new Date(0);
-  const lastSnap = snaps[snaps.length-1] || null;
-  if(lastSnap){
-    fci = lastSnap.fci;
-    ced = lastSnap.cedears;
-    desdeDate = new Date(lastSnap.fecha+'T12:00');
-  } else {
-    const ajustes = inversiones.filter(i => i.tipo === 'fci_saldo').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
-    if(ajustes.length > 0){
-      const last = ajustes[ajustes.length-1];
-      fci = last.monto;
-      desdeDate = new Date(last.fecha+'T12:00');
-    }
-  }
-
-  const depositos = inversiones
-    .filter(i => (i.tipo === 'fci' || i.tipo === 'cedears') && new Date(i.fecha+'T12:00') > desdeDate)
-    .sort((a,b) => new Date(a.fecha+'T12:00') - new Date(b.fecha+'T12:00'));
-
-  const autoPuntos = depositos.map(d => {
-    if(d.tipo === 'fci') fci += d.monto; else ced += d.monto;
-    return { id:d.id, fecha:d.fecha, fci, cedears:ced, nota:d.nota || '', auto:true };
+  // orden: dentro de una misma fecha, los aportes/intereses van ANTES que el snapshot — el
+  // snapshot es el estado ya confirmado que los incluye, no algo a lo que se le suman después.
+  inv_snapshots.forEach(s => {
+    eventos.push({ fecha:s.fecha, orden:1, id:s.id, kind:'snapshot', fci:s.fci, cedears:s.cedears, nota:s.nota||'' });
   });
 
-  return [...snaps, ...autoPuntos];
+  inversiones.forEach(i => {
+    if(i.tipo === 'fci' || i.tipo === 'cedears' || i.tipo === 'fci_interes' || i.tipo === 'cedears_interes'){
+      eventos.push({ fecha:i.fecha, orden:0, id:i.id, kind:'aporte', tipo:i.tipo, monto:i.monto, nota:i.nota||'' });
+    }
+  });
+
+  // Seed: si todavía no hay snapshots pero sí ajustes manuales antiguos (formato previo), usarlos
+  // como punto de partida para no perder el historial de instalaciones anteriores de la app.
+  if(inv_snapshots.length === 0){
+    inversiones
+      .filter(i => i.tipo === 'fci_saldo')
+      .forEach(a => eventos.push({ fecha:a.fecha, orden:1, id:a.id, kind:'snapshot', fci:a.monto, cedears:0, nota:a.nota||'' }));
+  }
+
+  eventos.sort((a,b) => new Date(a.fecha+'T12:00') - new Date(b.fecha+'T12:00') || a.orden - b.orden);
+
+  let fci = 0, ced = 0;
+  return eventos.map(e => {
+    if(e.kind === 'snapshot'){
+      fci = e.fci; ced = e.cedears;
+      return { id:e.id, fecha:e.fecha, fci, cedears:ced, nota:e.nota, auto:false, interes:false };
+    }
+    const esInteres = e.tipo === 'fci_interes' || e.tipo === 'cedears_interes';
+    if(e.tipo === 'fci' || e.tipo === 'fci_interes') fci += e.monto; else ced += e.monto;
+    return { id:e.id, fecha:e.fecha, fci, cedears:ced, nota:e.nota, auto:true, interes:esInteres };
+  });
 }
 
-// Aportado a FCI/CEDEARs durante el mes calendario anterior (snapshots + depósitos automáticos),
-// usado como ritmo de referencia para proyectar cuánto falta para cada objetivo.
+// Aportado a FCI/CEDEARs durante el mes calendario anterior (solo aportes reales — no incluye
+// interés/ganancia auto-registrado al confirmar un saldo), usado como ritmo de referencia para
+// proyectar cuánto falta para cada objetivo.
 function _getAporteMesAnterior(){
   const hoy           = new Date();
   const inicioMesAnt  = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1);
   const finMesAnt     = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23,59,59);
-  const puntos        = _getEvolucionPuntos();
 
-  const valorAl = (limite) => {
-    const previos = puntos.filter(p => new Date(p.fecha+'T12:00') <= limite);
-    const last = previos[previos.length-1];
-    return last ? { fci: last.fci, cedears: last.cedears } : { fci:0, cedears:0 };
-  };
-
-  const inicio = valorAl(inicioMesAnt);
-  const fin    = valorAl(finMesAnt);
+  const enRango = (tipo) => inversiones
+    .filter(i => i.tipo === tipo && new Date(i.fecha+'T12:00') >= inicioMesAnt && new Date(i.fecha+'T12:00') <= finMesAnt)
+    .reduce((s, i) => s + i.monto, 0);
 
   return {
-    fci:     Math.max(0, fin.fci     - inicio.fci),
-    cedears: Math.max(0, fin.cedears - inicio.cedears),
+    fci:     Math.max(0, enRango('fci')),
+    cedears: Math.max(0, enRango('cedears')),
   };
 }
 
@@ -3395,6 +3451,15 @@ async function guardarSnapshotInv(){
   const nota   = document.getElementById('inv-snap-nota').value.trim();
   if(!fecha){ toast('Elegí una fecha', 'err'); return; }
   if(isNaN(fci) || isNaN(cedears)){ toast('Ingresá los saldos de FCI y CEDEARs', 'err'); return; }
+
+  // Lo que "debería" haber, según la base anterior + aportes ya registrados hasta esta fecha.
+  // Lo que sobra (o falta) contra el saldo real que estás tipeando queda registrado como
+  // interés/ganancia — así el saldo se actualiza sin pisar el progreso de aportes realizados.
+  const esperadoFCI = _saldoEsperado('fci', fecha);
+  const esperadoCED = _saldoEsperado('cedears', fecha);
+  const interesFCI  = fci     - esperadoFCI;
+  const interesCED  = cedears - esperadoCED;
+
   const existing = inv_snapshots.findIndex(s => s.fecha === fecha);
   if(existing >= 0){
     inv_snapshots[existing] = { ...inv_snapshots[existing], fci, cedears, nota };
@@ -3403,7 +3468,12 @@ async function guardarSnapshotInv(){
     inv_snapshots.push({ id: Date.now(), fecha, fci, cedears, nota });
     toast('Saldo registrado');
   }
+
+  _registrarInteres('fci_interes',     fecha, interesFCI, 1);
+  _registrarInteres('cedears_interes', fecha, interesCED, 2);
+
   await S.set('inv_snapshots', inv_snapshots);
+  await S.set('inversiones',   inversiones);
   document.getElementById('inv-snap-fci').value  = '';
   document.getElementById('inv-snap-ced').value  = '';
   document.getElementById('inv-snap-nota').value = '';
@@ -4382,7 +4452,7 @@ function renderTarjeta(){
         const dCED    = p ? s.cedears - p.cedears : null;
         const fmtD    = (v, isFCI) => v === null ? '' : `<span style="font-size:11px;color:${v>=0?'var(--green)':'var(--red)'}">${v>=0?'+':''}${isFCI?fmt(v):fmtU(v)}</span>`;
         const notaTxt = s.auto
-          ? `<span style="color:var(--blue);font-weight:600">Auto</span>${s.nota ? ' · '+esc(s.nota) : ''}`
+          ? `<span style="color:${s.interes ? 'var(--green)' : 'var(--blue)'};font-weight:600">${s.interes ? 'Interés' : 'Auto'}</span>${s.nota ? ' · '+esc(s.nota) : ''}`
           : esc(s.nota||'');
         const accion  = s.auto
           ? `<button class="btn btn-sm" style="background:transparent;border:1px solid var(--blue-border);color:var(--blue)" onclick="abrirModalInv(${s.id})">Ver</button>`
