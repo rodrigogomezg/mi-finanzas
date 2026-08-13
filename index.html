@@ -2928,37 +2928,20 @@ function _registrarInteres(tipo, fecha, monto, idOffset){
   }
 }
 
+// Saldo actual = último punto de la línea de tiempo reconstruida por _getEvolucionPuntos().
+// Antes esto se recalculaba con su propia lógica (base + depósitos posteriores al último
+// snapshot), separada de la que arma la tabla de historial — y ambas podían desalinearse
+// (por ejemplo, justo después de registrar un interés). Ahora las tarjetas de arriba y el
+// historial de abajo leen exactamente la misma fuente, así que nunca pueden mostrar números
+// distintos entre sí.
 function _getFCISaldo(){
-  let base = 0, desdeDate = new Date(0);
-  const snap = _ultimoSnapshotInv();
-  if(snap){
-    base = snap.fci;
-    desdeDate = new Date(snap.fecha+'T12:00');
-  } else {
-    const ajustes = inversiones.filter(i => i.tipo === 'fci_saldo').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
-    if(ajustes.length > 0){
-      const last = ajustes[ajustes.length-1];
-      base = last.monto;
-      desdeDate = new Date(last.fecha+'T12:00');
-    }
-  }
-  const depositos = inversiones
-    .filter(i => i.tipo === 'fci' && new Date(i.fecha+'T12:00') > desdeDate)
-    .reduce((s, i) => s + i.monto, 0);
-  return base + depositos;
+  const puntos = _getEvolucionPuntos();
+  return puntos.length ? puntos[puntos.length-1].fci : 0;
 }
 
 function _getCedearsSaldoUSD(){
-  let base = 0, desdeDate = new Date(0);
-  const snap = _ultimoSnapshotInv();
-  if(snap){
-    base = snap.cedears;
-    desdeDate = new Date(snap.fecha+'T12:00');
-  }
-  const depositos = inversiones
-    .filter(i => i.tipo === 'cedears' && new Date(i.fecha+'T12:00') > desdeDate)
-    .reduce((s, i) => s + i.monto, 0);
-  return base + depositos;
+  const puntos = _getEvolucionPuntos();
+  return puntos.length ? puntos[puntos.length-1].cedears : 0;
 }
 
 // Puntos para "Evolución de tenencias": reconstruye la línea de tiempo COMPLETA combinando
