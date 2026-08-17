@@ -947,14 +947,9 @@
       <div class="page-sub" id="resumen-fecha">Cargando...</div>
 
       <div id="backup-banner"></div>
-      <div id="resumen-alerta-tarjeta"></div>
-      <div id="resumen-tareas"></div>
-
-      <div class="cards-grid" id="cards-resumen"></div>
-
-      <div id="resumen-sueldo"></div>
-
-      <div id="plan-mes-resumen"></div>
+      <div id="resumen-alertas"></div>
+      <div id="resumen-hero"></div>
+      <div class="cards-grid" id="resumen-rubros"></div>
 
     </div>
 
@@ -3834,95 +3829,122 @@ function renderResumen(){
   const hoy   = new Date();
   const mes   = hoy.getMonth();
   const anio  = hoy.getFullYear();
+  const ym    = `${anio}-${String(mes+1).padStart(2,'0')}`;
   const mesNombre = hoy.toLocaleString('es-AR',{month:'long', year:'numeric'});
   document.getElementById('resumen-fecha').textContent = mesNombre.charAt(0).toUpperCase()+mesNombre.slice(1)+' · actualizá cada vez que cobrás o gastás';
 
-  const alertBox = document.getElementById('resumen-alerta-tarjeta');
-  if(alertBox) alertBox.innerHTML = '';
-
-  // ── Tareas urgentes ──
-  const urgentes = tareas.filter(t=>!t.done && diasHasta(t.venc)<=5).sort((a,b)=>new Date(a.venc)-new Date(b.venc));
-  const resumenTareas = document.getElementById('resumen-tareas');
-  if(resumenTareas){
-    if(urgentes.length){
-      resumenTareas.innerHTML = `
-        <div class="progress-section" style="margin-bottom:20px">
-          <h3>⚠ Próximos vencimientos</h3>
-          ${urgentes.map(t=>`
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px">
-              <span style="color:var(--text)">${t.desc}</span>
-              <span style="display:flex;gap:10px;align-items:center">
-                ${t.monto?`<span style="font-family:'JetBrains Mono',monospace;color:var(--red)">${fmt(t.monto)}</span>`:''}
-                <span class="tarea-venc ${vencClass(t.venc,false)}">${vencLabel(t.venc,false)}</span>
-              </span>
-            </div>`).join('')}
-        </div>`;
-    } else {
-      resumenTareas.innerHTML = '';
-    }
+  // ── Próximos vencimientos + tareas del mes ─────────────
+  const urgentes  = tareas.filter(t=>!t.done && diasHasta(t.venc)<=5).sort((a,b)=>new Date(a.venc)-new Date(b.venc));
+  const tareasMes = tareas.filter(t => t.venc?.startsWith(ym));
+  const tareasPagas = tareasMes.filter(t => t.done).length;
+  const alertasEl = document.getElementById('resumen-alertas');
+  if(alertasEl){
+    alertasEl.innerHTML = `
+      <div class="progress-section" style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <h3 style="margin:0">⚠ Próximos vencimientos</h3>
+          ${tareasMes.length ? `<span style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">Tareas del mes: ${tareasPagas}/${tareasMes.length}</span>` : ''}
+        </div>
+        ${urgentes.length ? urgentes.map(t=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px">
+            <span style="color:var(--text)">${t.desc}</span>
+            <span style="display:flex;gap:10px;align-items:center">
+              ${t.monto?`<span style="font-family:'JetBrains Mono',monospace;color:var(--red)">${fmt(t.monto)}</span>`:''}
+              <span class="tarea-venc ${vencClass(t.venc,false)}">${vencLabel(t.venc,false)}</span>
+            </span>
+          </div>`).join('') : `<div style="font-size:12px;color:var(--muted)">Sin vencimientos próximos</div>`}
+      </div>`;
   }
 
+  // ── Ingresos / gastos del mes ──────────────────────────
   const delMes = movimientos.filter(m => {
     const d = new Date(m.fecha+'T12:00');
     return d.getMonth()===mes && d.getFullYear()===anio;
   });
-
   const totalCobrado = delMes.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
   const totalGastado = delMes.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0);
-  const pctGasto     = totalCobrado > 0 ? Math.round(totalGastado/totalCobrado*100) : 0;
+  const pctGasto      = totalCobrado > 0 ? Math.round(totalGastado/totalCobrado*100) : 0;
+  const cobrosN       = delMes.filter(m=>m.tipo==='cobro').length;
 
-  // ── Saldos + semáforo ─────────────────────────────────
-  const saldos = gf_getSaldos();
-  // ── Cards ─────────────────────────────────────────────
-  const cobrosN = delMes.filter(m=>m.tipo==='cobro').length;
-  document.getElementById('cards-resumen').innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;grid-column:1/-1">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border)">
-        <span style="font-size:13px;font-weight:500;color:var(--green)">Disponible</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--green)">${fmt(saldos.disponible)}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr">
-        <div style="padding:12px 16px;border-right:1px solid var(--border)">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Cobrado</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--green)">${fmt(totalCobrado)}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">${cobrosN} cobro${cobrosN!==1?'s':''}</div>
-        </div>
-        <div style="padding:12px 16px;border-right:1px solid var(--border)">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Gastado</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--red)">${fmt(totalGastado)}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">${pctGasto}% del ingreso</div>
-        </div>
-        <div style="padding:12px 16px;cursor:pointer" onclick="showPage('gastos-fijos')">
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Separado GF</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--blue)">${fmt(saldos.separado)}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">gastos fijos</div>
-        </div>
-      </div>
-    </div>
-  `;
+  const catsMes   = Object.entries(_mesEnCursoData().gastosPorCategoria || {}).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const topCatTxt = catsMes.length ? `top: ${REG_CAT_LABELS[catsMes[0][0]] || catsMes[0][0]}` : 'sin gastos aún';
 
-  // ── Resumen sueldo ────────────────────────────────────
-  const ym = `${anio}-${String(mes+1).padStart(2,'0')}`;
+  // ── Sueldo ──────────────────────────────────────────────
   const ganM  = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).reduce((s,r) => s+r.monto, 0);
   const adelM = adelantosEmpresa.filter(a => a.fecha?.startsWith(ym)).reduce((s,a) => s+a.monto, 0);
   const cobM  = _cobradoSueldo(ym);
-  const generadoM  = ganM + adelM;
-  const pendienteM = Math.max(0, generadoM - cobM);
-  const sueldoEl   = document.getElementById('resumen-sueldo');
-  if(sueldoEl){
-    if(generadoM > 0 || cobM > 0){
-      sueldoEl.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px">
-          <span style="font-size:12px;color:var(--muted)">Sueldo generado</span>
-          <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;color:var(--green);flex:1">${fmt(generadoM)}</span>
-          <button class="btn btn-sm" onclick="showPage('trabajo')" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap;flex-shrink:0">+ Registrar día</button>
-        </div>`;
-    } else {
-      sueldoEl.innerHTML = '';
-    }
-  }
+  const generadoM = ganM + adelM;
+  const ganY  = registrosDiarios.reduce((s,r) => s + r.monto, 0);
+  const adelY = adelantosEmpresa.reduce((s,a) => s + a.monto, 0);
+  const adeudado = ganY + adelY - _cobradoSueldo();
 
-  renderPlanMes('plan-mes-resumen');
+  // ── Inversiones ─────────────────────────────────────────
+  const tc       = _getTCActual();
+  const fciSaldo = _getFCISaldo();
+  const cedUSD   = _getCedearsSaldoUSD();
+  const hayInv   = fciSaldo > 0 || cedUSD > 0;
+  const patrimonioInv = fciSaldo + Math.round(cedUSD * tc);
+
+  // ── Gastos Fijos ─────────────────────────────────────────
+  const gfMesAnio = gf_getMesActivo();
+  const gfEstado  = gf_calcularEstadoMes(gfMesAnio);
+  const gfRec     = gf_calcularRecomendacion(gfMesAnio);
+  const gfColors  = { sin_configurar:'var(--muted)', en_curso:'var(--blue)', urgente:'var(--amber)', vencido:'var(--red)', completo:'var(--green)' };
+  const gfLabels  = { sin_configurar:'Sin configurar', en_curso:'En curso', urgente:'Urgente', vencido:'Vencido', completo:'Completo' };
+  const gfColor   = gfColors[gfEstado] || 'var(--blue)';
+  const gfPct     = gfRec.fondoNecesario > 0 ? Math.min(100, Math.round(gfRec.fondoAcumulado / gfRec.fondoNecesario * 100)) : 100;
+  const gfHeadline = gfEstado === 'sin_configurar'
+    ? 'Sin configurar'
+    : (gfRec.fondoFaltante === 0 ? '✓ Cubierto' : `Falta ${fmt(gfRec.fondoFaltante)}`);
+
+  // ── Hero: Disponible ──────────────────────────────────────
+  const saldos    = gf_getSaldos();
+  const totalCtrl = saldos.disponible + saldos.separado;
+  const pctDisp   = totalCtrl > 0 ? Math.round(saldos.disponible / totalCtrl * 100) : 100;
+  document.getElementById('resumen-hero').innerHTML = `
+    <div class="metric-hero">
+      <div class="hero-label">Disponible</div>
+      <div class="hero-value" style="color:var(--green)">${fmt(saldos.disponible)}</div>
+      <div style="height:6px;display:flex;overflow:hidden;background:var(--surface2);margin-bottom:8px">
+        <div style="width:${pctDisp}%;background:var(--green)"></div>
+        <div style="width:${100-pctDisp}%;background:var(--blue)"></div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;background:var(--green);flex-shrink:0"></span>Disponible ${fmt(saldos.disponible)}</span>
+        <span style="display:flex;align-items:center;gap:5px;cursor:pointer" onclick="showPage('gastos-fijos')"><span style="width:7px;height:7px;background:var(--blue);flex-shrink:0"></span>Separado GF ${fmt(saldos.separado)}</span>
+      </div>
+    </div>`;
+
+  // ── 5 cards de rubro ──────────────────────────────────────
+  document.getElementById('resumen-rubros').innerHTML = `
+    <div class="metric-card amber" style="cursor:pointer" onclick="showPage('trabajo')">
+      <div class="label">Sueldo</div>
+      <div class="value">${fmt(generadoM)}</div>
+      <div class="sub">Cobrado ${fmt(cobM)}<br>Adeudado ${fmt(adeudado)}</div>
+    </div>
+    <div class="metric-card green" style="cursor:pointer" onclick="showPage('movimientos')">
+      <div class="label">Ingresos</div>
+      <div class="value">${fmt(totalCobrado)}</div>
+      <div class="sub">${cobrosN} cobro${cobrosN!==1?'s':''} este mes</div>
+    </div>
+    <div class="metric-card red" style="cursor:pointer" onclick="showPage('movimientos')">
+      <div class="label">Gastos</div>
+      <div class="value">${fmt(totalGastado)}</div>
+      <div style="height:4px;background:var(--surface2);margin:8px 0 6px;overflow:hidden"><div style="height:100%;width:${Math.min(100,pctGasto)}%;background:var(--red)"></div></div>
+      <div class="sub">${pctGasto}% del ingreso · ${topCatTxt}</div>
+    </div>
+    <div class="metric-card purple" style="cursor:pointer" onclick="showPage('tarjeta')">
+      <div class="label">Inversiones</div>
+      <div class="value">${hayInv ? fmt(patrimonioInv) : '—'}</div>
+      <div class="sub">${hayInv ? `FCI ${fmt(fciSaldo)}<br>CEDEARs ${fmtU(cedUSD)}` : 'Sin datos aún'}</div>
+    </div>
+    <div class="metric-card" style="cursor:pointer" onclick="showPage('gastos-fijos')">
+      <div class="label">Gastos Fijos</div>
+      <div class="value" style="color:${gfColor}">${gfHeadline}</div>
+      ${gfEstado!=='sin_configurar' ? `<div style="height:4px;background:var(--surface2);margin:8px 0 6px;overflow:hidden"><div style="height:100%;width:${gfPct}%;background:${gfColor}"></div></div>` : ''}
+      <div class="sub">${gfEstado==='sin_configurar' ? 'Configurá el mes →' : `${gfLabels[gfEstado]} · ${fmt(gfRec.fondoAcumulado)} / ${fmt(gfRec.fondoNecesario)}`}</div>
+    </div>
+  `;
 }
 
 // ── PLAN DEL MES (fuente: Gastos Fijos) ──────────────────
