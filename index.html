@@ -2152,6 +2152,10 @@ async function fetchTC(){
     if(indicador) indicador.innerHTML = `TC MEP: <strong>$${tcUSD.toLocaleString('es-AR')}</strong> · <span style="color:var(--muted)">sin conexión · último ${fechaStr}</span>`;
   }
   renderTarjeta();
+  // La card de Inversiones en Resumen convierte CEDEARs a ARS con tcUSD — si esa página
+  // ya se pintó con el valor viejo (caché/fallback) antes de que esto resuelva, hay que
+  // refrescarla también o queda desactualizada hasta que el usuario navegue y vuelva.
+  if(document.getElementById('resumen-rubros')) renderResumen();
 }
 
 
