@@ -1376,13 +1376,14 @@ service cloud.firestore {
 
 <!-- Modal: gastos por categoría (Registros) -->
 <div id="modal-gastos-pie" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeRegModal('modal-gastos-pie')">
-  <div class="modal-content" style="width:min(360px,94vw)">
+  <div class="modal-content" style="width:min(400px,94vw);max-height:86vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h3 id="reg-pie-titulo" style="font-size:15px;font-weight:600;margin:0"></h3>
       <button class="btn btn-sm" onclick="closeRegModal('modal-gastos-pie')" style="padding:4px 10px">✕</button>
     </div>
-    <div id="reg-pie-canvas-wrap" style="display:flex;justify-content:center;padding:4px 0 8px"></div>
+    <div id="reg-pie-canvas-wrap" style="display:flex;justify-content:center;padding:4px 0 8px;transition:padding .18s ease"></div>
     <div id="reg-pie-leyenda" style="border-top:1px solid var(--border)"></div>
+    <div id="reg-pie-detalle"></div>
   </div>
 </div>
 
@@ -1887,6 +1888,8 @@ async function guardarEdicion(id){
   _movModalClose();
   renderHistorial();
   renderResumen();
+  renderRegistros();
+  _refreshGastosPieModal(cat);
   if(!montoChanged || m.tipo !== 'cobro') toast('Cambio guardado', 'ok', 2000);
 }
 
@@ -4373,9 +4376,10 @@ async function eliminar(id){
     if(t) { t.done = false; await S.set('tareas', tareas); }
   }
   const esSueldo = m?.categoria === 'sueldo';
+  const catKey = m?.categoria || m?.cat || 'otro';
   softDelete({
     arr: movimientos, id, setKey: 'movimientos',
-    render: ()=>{ renderHistorial(); renderResumen(); renderTareasSelect(); if(esSueldo) renderTrabajo(); },
+    render: ()=>{ renderHistorial(); renderResumen(); renderTareasSelect(); if(esSueldo) renderTrabajo(); renderRegistros(); _refreshGastosPieModal(catKey); },
     label: 'Movimiento'
   });
 }
@@ -5377,6 +5381,8 @@ function _syncCatConfig(){
 
 let _registrosData = [];
 let _chartPieReg   = null;
+let _regPieIdx        = null;
+let _regCatSeleccionada = null;
 
 function capFirst(str){ return str ? str.charAt(0).toUpperCase() + str.slice(1) : str; }
 
@@ -5549,15 +5555,18 @@ function closeRegModal(id){
   setTimeout(() => { el.style.display = 'none'; el.classList.remove('closing'); }, 220);
 }
 
-function openGastosModal(idx){
+function openGastosModal(idx, keepCat){
   const m = _registrosData[idx];
   if(!m) return;
+  _regPieIdx = idx;
   document.getElementById('reg-pie-titulo').textContent = `Gastos — ${capFirst(m.mesNombre)}`;
 
   const cats = Object.entries(m.gastosPorCategoria || {}).filter(([, v]) => v > 0);
   if(!cats.length){
     document.getElementById('reg-pie-canvas-wrap').innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Sin gastos registrados</div>';
     document.getElementById('reg-pie-leyenda').innerHTML = '';
+    document.getElementById('reg-pie-detalle').innerHTML = '';
+    _regCatSeleccionada = null;
     document.getElementById('modal-gastos-pie').style.display = 'flex';
     return;
   }
@@ -5573,6 +5582,7 @@ function openGastosModal(idx){
     type: 'doughnut',
     data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }] },
     options: {
+      onClick: (evt, els) => { if(els.length) _openCatDetalle(cats[els[0].index][0]); },
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.raw)}` } }
@@ -5582,7 +5592,7 @@ function openGastosModal(idx){
   });
 
   document.getElementById('reg-pie-leyenda').innerHTML = cats.map(([k, v]) => `
-    <div class="reg-stat-row" style="border-top:0.5px solid var(--border)">
+    <div class="reg-stat-row" style="border-top:0.5px solid var(--border);cursor:pointer" onclick="_openCatDetalle('${k}')">
       <span class="reg-stat-label">
         <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${REG_CAT_COLORS[k]||'#94a3b8'};flex-shrink:0"></span>
         ${REG_CAT_LABELS[k] || k}
@@ -5590,7 +5600,79 @@ function openGastosModal(idx){
       <span class="reg-stat-value" style="color:var(--red)">${fmt(v)}</span>
     </div>`).join('');
 
+  document.getElementById('reg-pie-detalle').innerHTML = '';
+  document.getElementById('reg-pie-canvas-wrap').style.padding = '4px 0 8px';
+  _regCatSeleccionada = null;
+
   document.getElementById('modal-gastos-pie').style.display = 'flex';
+
+  if(keepCat && (m.gastosPorCategoria?.[keepCat] > 0)) _openCatDetalle(keepCat);
+}
+
+// Detalle de gastos individuales de una categoría, dentro del modal de torta.
+// Solo hay listado editable para el mes en curso (enCurso:true): los meses
+// archivados solo conservan el total agregado, los movimientos ya se purgaron
+// (ver autoArchivarMesesViejos) y no hay forma de reconstruir el detalle.
+function _openCatDetalle(catKey){
+  const m = _registrosData[_regPieIdx];
+  if(!m) return;
+  const wrap   = document.getElementById('reg-pie-canvas-wrap');
+  const canvas = document.getElementById('reg-pie-chart');
+
+  if(_regCatSeleccionada === catKey){
+    _regCatSeleccionada = null;
+    document.getElementById('reg-pie-detalle').innerHTML = '';
+    wrap.style.padding = '4px 0 8px';
+    if(canvas){ canvas.style.maxWidth = ''; canvas.style.maxHeight = ''; }
+    return;
+  }
+  _regCatSeleccionada = catKey;
+
+  const label = REG_CAT_LABELS[catKey] || catKey;
+  const total = m.gastosPorCategoria?.[catKey] || 0;
+  let html;
+
+  if(m.enCurso){
+    const hoy = new Date();
+    const mesKey = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+    const gastos = movimientos
+      .filter(mv => mv.tipo === 'gasto' && (mv.categoria || mv.cat || 'otro') === catKey && mv.fecha?.startsWith(mesKey))
+      .sort((a, b) => b.fecha.localeCompare(a.fecha));
+    html = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 4px;padding:0 2px">
+        <span style="font-size:13px;font-weight:600">${label} · ${gastos.length} gasto${gastos.length === 1 ? '' : 's'}</span>
+        <span class="reg-stat-value" style="color:var(--red)">${fmt(total)}</span>
+      </div>
+      <div class="tarea-table">${gastos.map(g => `
+        <div class="reg-stat-row" style="cursor:pointer" onclick="abrirModalMov(${g.id})">
+          <span class="reg-stat-label" style="flex-direction:column;align-items:flex-start;gap:2px">
+            <span style="color:var(--text)">${esc(g.nota) || label}</span>
+            <span style="font-size:11px">${g.fecha}</span>
+          </span>
+          <span class="reg-stat-value" style="color:var(--red)">${fmt(g.monto)}</span>
+        </div>`).join('') || '<div class="empty-state" style="padding:16px;font-size:12px">Sin gastos individuales</div>'}
+      </div>`;
+  } else {
+    html = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 6px;padding:0 2px">
+        <span style="font-size:13px;font-weight:600">${label}</span>
+        <span class="reg-stat-value" style="color:var(--red)">${fmt(total)}</span>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 4px;padding:0 2px">Detalle no disponible — mes archivado (los movimientos individuales se purgan a los 60 días).</p>`;
+  }
+
+  document.getElementById('reg-pie-detalle').innerHTML = html;
+  wrap.style.padding = '0';
+  if(canvas){ canvas.style.maxWidth = '130px'; canvas.style.maxHeight = '130px'; }
+}
+
+// Tras editar/eliminar/recategorizar un gasto desde abrirModalMov, si el modal
+// de torta del mes en curso sigue abierto, lo recalcula y reabre el detalle de
+// la misma categoría para no perder el contexto del usuario.
+function _refreshGastosPieModal(catKey){
+  if(_registrosData.length) _registrosData[0] = _mesEnCursoData();
+  const modalOpen = document.getElementById('modal-gastos-pie')?.style.display === 'flex';
+  if(modalOpen && _regPieIdx === 0) openGastosModal(0, catKey);
 }
 
 const REG_TIPO_LABELS = { sueldo:'Pago de sueldo', semanal:'Cobro semanal', mensual_fijo:'Mensual fijo', extra:'Ingreso extra / ventas', cobro:'Cobro' };
