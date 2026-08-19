@@ -2986,6 +2986,25 @@ function _getJubilacionSaldoUSD(){
   return puntos.length ? puntos[puntos.length-1].jubilacion : 0;
 }
 
+// Objetivo de Jubilación/QQQD a los 65 años, según la fecha de nacimiento configurada.
+// El objetivo NO es solo la suma de aportes futuros (eso subestima mucho el resultado a
+// 30+ años) — se proyecta con crecimiento compuesto (mismo criterio que ya se usa para
+// CEDEARs, 10% anual por default) vía _proyeccionValorFuturo(). Se usa tanto en la card de
+// Inversiones como en la de Resumen, así ambas quedan siempre en sincro con la misma cuenta.
+function _getObjetivoJubilacion(saldoActual, tnaAnual = 0.10){
+  const metaJubUSD = planMensual.aporteJubilacionMensualUSD ?? 0;
+  const [nacY, nacM, nacD] = (planMensual.fechaNacimiento || '1997-03-17').split('-').map(Number);
+  const fechaObjetivo = new Date(nacY + 65, nacM - 1, nacD);
+  const hoy = new Date();
+  let mesesRestantes = (fechaObjetivo.getFullYear() - hoy.getFullYear()) * 12 + (fechaObjetivo.getMonth() - hoy.getMonth());
+  if(fechaObjetivo.getDate() < hoy.getDate()) mesesRestantes -= 1;
+  mesesRestantes = Math.max(0, mesesRestantes);
+  const totalAportarUSD = metaJubUSD * mesesRestantes; // solo capital, sin crecimiento — referencia
+  const objetivoTotalUSD = _proyeccionValorFuturo(saldoActual, metaJubUSD, mesesRestantes, tnaAnual);
+  const pct = objetivoTotalUSD > 0 ? Math.min(100, Math.round(saldoActual / objetivoTotalUSD * 100)) : 0;
+  return { metaJubUSD, fechaObjetivo, mesesRestantes, aniosRestantes: (mesesRestantes / 12).toFixed(1), objetivoTotalUSD, totalAportarUSD, tnaAnual, pct };
+}
+
 // Puntos para "Evolución de tenencias": reconstruye la línea de tiempo COMPLETA combinando
 // snapshots manuales (checkpoints de saldo real) + aportes automáticos (fci/cedears) + ajustes
 // de interés/ganancia generados al confirmar un saldo (ver guardarSnapshotInv). A diferencia de
@@ -3207,6 +3226,18 @@ function _proyeccionCompuesta(saldoActual, objetivo, aporteMensual, fmtFn, tnaAn
   const txt = anios >= 1 ? `~${anios.toFixed(1)} años` : `~${meses} mes${meses!==1?'es':''}`;
   const aporteTxt = aporte > 0 ? ` + ${fmtFn(aporte)}/mes (prom. 3 meses)` : ' (sin aportes en los últimos 3 meses)';
   return `<div style="font-size:10px;color:var(--muted);margin-top:1px">Con ${Math.round(tnaAnual*100)}% anual compuesto${aporteTxt}: faltan ${txt}</div>`;
+}
+
+// Valor futuro proyectado: a diferencia de _proyeccionCompuesta (que responde "cuánto falta
+// para llegar a un objetivo fijo"), esto simula hacia adelante un número FIJO de meses —
+// usado para "cuánto vas a tener a los 65" en vez de "cuánto falta ahorrar".
+function _proyeccionValorFuturo(saldoActual, aporteMensual, meses, tnaAnual = 0.10){
+  const tasaMensual = Math.pow(1 + tnaAnual, 1/12) - 1;
+  let saldo = saldoActual;
+  for(let i = 0; i < meses; i++){
+    saldo = saldo * (1 + tasaMensual) + aporteMensual;
+  }
+  return saldo;
 }
 
 // Modo colchón con histéresis: evita "flapear" entre construyendo/estable
@@ -3960,6 +3991,11 @@ function renderResumen(){
   const hayInv   = fciSaldo > 0 || cedUSD > 0;
   const patrimonioInv = fciSaldo + Math.round(cedUSD * tc);
 
+  // ── Jubilación ────────────────────────────────────────────
+  const jubSaldo = _getJubilacionSaldoUSD();
+  const objJub   = _getObjetivoJubilacion(jubSaldo);
+  const hayJub   = jubSaldo > 0;
+
   // ── Gastos Fijos ─────────────────────────────────────────
   const gfMesAnio = gf_getMesActivo();
   const gfEstado  = gf_calcularEstadoMes(gfMesAnio);
@@ -4012,6 +4048,12 @@ function renderResumen(){
       <div class="label">Inversiones</div>
       <div class="value">${hayInv ? fmt(patrimonioInv) : '—'}</div>
       <div class="sub">${hayInv ? `FCI ${fmt(fciSaldo)}<br>CEDEARs ${fmtU(cedUSD)}` : 'Sin datos aún'}</div>
+    </div>
+    <div class="metric-card" style="cursor:pointer" onclick="showPage('tarjeta')">
+      <div class="label">Jubilación</div>
+      <div class="value" style="color:var(--amber)">${hayJub ? fmtU(jubSaldo) : '—'}</div>
+      ${hayJub ? `<div style="height:4px;background:var(--surface2);margin:8px 0 6px;overflow:hidden"><div style="height:100%;width:${objJub.pct}%;background:var(--amber)"></div></div>` : ''}
+      <div class="sub">${hayJub ? `${objJub.pct}% del objetivo · faltan ~${objJub.aniosRestantes} años` : `Meta ${fmtU(objJub.metaJubUSD)}/mes · sin aportes aún`}</div>
     </div>
     <div class="metric-card" style="cursor:pointer" onclick="showPage('gastos-fijos')">
       <div class="label">Gastos Fijos</div>
@@ -4578,21 +4620,16 @@ function renderTarjeta(){
   const proy30c  = _proyeccionCompuesta(cedUSD, 30000,  promCED, fmtU);
   const proy100c = _proyeccionCompuesta(cedUSD, 100000, promCED, fmtU);
 
-  // Jubilación / QQQD: objetivo total = meta mensual × meses restantes hasta los 65 años,
-  // usando la fecha de nacimiento configurada. El saldo se trackea igual que FCI/CEDEARs
-  // (aportes reales + interés/ganancia contra el valor de mercado tipeado a mano).
-  const jubSaldo    = _getJubilacionSaldoUSD();
-  const promJub     = _getAportePromedioMensual('jubilacion', 3);
-  const metaJubUSD  = planMensual.aporteJubilacionMensualUSD ?? 0;
-  const [jNacY, jNacM, jNacD] = (planMensual.fechaNacimiento || '1997-03-17').split('-').map(Number);
-  const fechaObjetivoJub = new Date(jNacY + 65, jNacM - 1, jNacD);
-  const hoyJub = new Date();
-  let mesesRestantesJub = (fechaObjetivoJub.getFullYear() - hoyJub.getFullYear()) * 12 + (fechaObjetivoJub.getMonth() - hoyJub.getMonth());
-  if(fechaObjetivoJub.getDate() < hoyJub.getDate()) mesesRestantesJub -= 1;
-  mesesRestantesJub = Math.max(0, mesesRestantesJub);
-  const objetivoTotalJubUSD = metaJubUSD * mesesRestantesJub;
-  const pctJub = objetivoTotalJubUSD > 0 ? Math.min(100, Math.round(jubSaldo / objetivoTotalJubUSD * 100)) : 0;
-  const aniosRestantesJub = (mesesRestantesJub / 12).toFixed(1);
+  // Jubilación / QQQD: el saldo se trackea igual que FCI/CEDEARs (aportes reales + interés/
+  // ganancia contra el valor de mercado tipeado a mano); el objetivo a los 65 años se calcula
+  // en _getObjetivoJubilacion(), compartida con la card de Resumen.
+  const jubSaldo   = _getJubilacionSaldoUSD();
+  const promJub    = _getAportePromedioMensual('jubilacion', 3);
+  const objJub     = _getObjetivoJubilacion(jubSaldo);
+  const metaJubUSD = objJub.metaJubUSD;
+  const fechaObjetivoJub   = objJub.fechaObjetivo;
+  const pctJub             = objJub.pct;
+  const aniosRestantesJub  = objJub.aniosRestantes;
 
   // Barra de composición: separa visualmente cuánto del saldo es capital aportado vs.
   // interés/ganancia acumulado — la app ya guarda esa distinción en los datos (ver
@@ -4745,7 +4782,8 @@ function renderTarjeta(){
           <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
             <div style="height:100%;transform:scaleX(${pctJub/100});transform-origin:left;background:${pctJub>=100?'var(--green)':'var(--amber)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
           </div>
-          <div style="font-size:10px;color:var(--muted);margin-top:3px">${fmtU(jubSaldo)} de ${fmtU(objetivoTotalJubUSD)} estimados al ritmo actual</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">${fmtU(jubSaldo)} de ${fmtU(objJub.objetivoTotalUSD)} proyectados · ${Math.round(objJub.tnaAnual*100)}% anual compuesto + ${fmtU(objJub.metaJubUSD)}/mes</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:1px">Sin crecimiento (solo lo que pondrías de tu bolsillo): ${fmtU(objJub.totalAportarUSD)}</div>
         </div>
       </div>` : ''}
     </div>`;
