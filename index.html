@@ -4273,8 +4273,9 @@ function abrirModalDia(dia){
   const pad      = n => String(n).padStart(2,'0');
   const fechaStr = `${anio}-${pad(mes+1)}-${pad(dia)}`;
 
-  const cobros  = movimientos.filter(m => m.fecha === fechaStr && m.tipo === 'cobro');
-  const gastos  = movimientos.filter(m => m.fecha === fechaStr && m.tipo === 'gasto');
+  const porIdDesc = (a, b) => (b.id||0) - (a.id||0);
+  const cobros  = movimientos.filter(m => m.fecha === fechaStr && m.tipo === 'cobro').sort(porIdDesc);
+  const gastos  = movimientos.filter(m => m.fecha === fechaStr && m.tipo === 'gasto').sort(porIdDesc);
   const tareasD = tareas.filter(t => t.venc === fechaStr);
   if(!cobros.length && !gastos.length && !tareasD.length) return;
 
@@ -4436,9 +4437,11 @@ function renderHistorial(){
 
   // Las inversiones (aportes a FCI/CEDEARs) no se listan acá — se ven en la solapa Inversiones.
   const transfItems = transferencias.map(t => ({ ...t, _esTransferencia: true }));
+  // Dentro del mismo día, más nuevo primero: el id es Date.now() al momento de registrar,
+  // así que ordena por hora real de carga aunque la fecha asignada sea la misma para todos.
   const baseMes = [...movimientos, ...transfItems]
     .filter(m => (m.fecha || '').startsWith(filtroMes))
-    .sort((a,b) => new Date(b.fecha+'T12:00') - new Date(a.fecha+'T12:00'));
+    .sort((a,b) => new Date(b.fecha+'T12:00') - new Date(a.fecha+'T12:00') || (b.id||0) - (a.id||0));
 
   // Populate category selector from full month data (independent of type filter)
   const catSel = document.getElementById('hist-cat-sel');
