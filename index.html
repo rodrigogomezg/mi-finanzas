@@ -1045,6 +1045,10 @@
             </div>
           </div>
           <div class="form-group">
+            <label>Jubilación · QQQD (USD)</label>
+            <input type="number" id="inv-snap-jub" placeholder="0.00" min="0" step="0.01">
+          </div>
+          <div class="form-group">
             <label>Fecha</label>
             <input type="date" id="inv-snap-fecha">
           </div>
@@ -1084,6 +1088,14 @@
               <div class="form-group">
                 <label>Margen de inversión sugerido por cobro semanal ($)</label>
                 <input type="number" id="cfg-margen-inversion" placeholder="65000" min="0">
+              </div>
+              <div class="form-group">
+                <label>Aporte mensual a Jubilación / QQQD (USD)</label>
+                <input type="number" id="cfg-aporte-jubilacion" placeholder="50" min="0" step="0.01">
+              </div>
+              <div class="form-group">
+                <label>Fecha de nacimiento (objetivo: 65 años)</label>
+                <input type="date" id="cfg-fecha-nacimiento">
               </div>
             </div>
             <div style="font-size:12px;color:var(--muted);margin-top:4px">Alquiler y tarjeta se configuran en <button onclick="showPage('gastos-fijos')" style="background:none;border:none;color:var(--blue);font-weight:600;cursor:pointer;text-decoration:underline;padding:0;font-size:inherit;font-family:inherit">G. Fijos</button> por mes.</div>
@@ -1823,9 +1835,9 @@ function abrirModalTransf(id){
 function abrirModalInv(id){
   const inv = inversiones.find(x => x.id === id);
   if(!inv) return;
-  const invLabels = { cedears:'CEDEARs', fci:'FCI / colchón', fci_interes:'FCI · Interés/ganancia', cedears_interes:'CEDEARs · Interés/ganancia' };
-  const esInteres  = inv.tipo === 'fci_interes' || inv.tipo === 'cedears_interes';
-  const esUSD      = inv.tipo === 'cedears' || inv.tipo === 'cedears_interes';
+  const invLabels = { cedears:'CEDEARs', fci:'FCI / colchón', fci_interes:'FCI · Interés/ganancia', cedears_interes:'CEDEARs · Interés/ganancia', jubilacion:'Jubilación · QQQD', jubilacion_interes:'Jubilación · Interés/ganancia' };
+  const esInteres  = inv.tipo === 'fci_interes' || inv.tipo === 'cedears_interes' || inv.tipo === 'jubilacion_interes';
+  const esUSD      = inv.tipo === 'cedears' || inv.tipo === 'cedears_interes' || inv.tipo === 'jubilacion' || inv.tipo === 'jubilacion_interes';
   const sign       = inv.monto >= 0 ? '+' : '';
   const montoTxt   = `${sign}${esUSD ? fmtU(inv.monto) : fmt(inv.monto)}`;
   const color      = esInteres ? (inv.monto >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--blue)';
@@ -1918,6 +1930,8 @@ const PLAN_DEFAULT = {
   cobroSemanalOblig:      200000,  // cuánto separar para obligaciones en cada cobro semanal
   alquilerMonto:          450000,  // componente fijo de la meta de obligaciones (día 10)
   margenInversionSemanal: 65000,   // margen semanal sugerido para FCI/CEDEARs en cobros semanales
+  aporteJubilacionMensualUSD: 50,  // meta mensual de aporte a Jubilación/QQQD, repartida entre los cobros semanales del mes
+  fechaNacimiento:        '1997-03-17', // usada para proyectar el objetivo de jubilación a los 65 años
   modoColchon:            'construyendo', // 'construyendo' | 'estable' — con histéresis entre FCI_META_1 y COLCHON_PISO
   clientesMensuales: [
     { id:1, label:'Cliente mensual', monto:200000 },
@@ -1973,6 +1987,8 @@ async function init(){
   planMensual   = await S.get('planMensual')   || JSON.parse(JSON.stringify(PLAN_DEFAULT));
   if(!planMensual.clientesMensuales) planMensual.clientesMensuales = JSON.parse(JSON.stringify(PLAN_DEFAULT.clientesMensuales));
   if(planMensual.margenInversionSemanal == null) planMensual.margenInversionSemanal = PLAN_DEFAULT.margenInversionSemanal;
+  if(planMensual.aporteJubilacionMensualUSD == null) planMensual.aporteJubilacionMensualUSD = PLAN_DEFAULT.aporteJubilacionMensualUSD;
+  if(!planMensual.fechaNacimiento) planMensual.fechaNacimiento = PLAN_DEFAULT.fechaNacimiento;
   if(!planMensual.modoColchon) planMensual.modoColchon = PLAN_DEFAULT.modoColchon;
 
   // Seed inicial de inversiones con saldos reales si aún no hay registros
@@ -2346,6 +2362,18 @@ function gf_contarSabadosHasta(fechaLimite){
   while(cur <= lim){
     count++;
     cur.setDate(cur.getDate() + 7);
+  }
+  return count;
+}
+
+// Cantidad de sábados de un mes calendario completo (día 1 a fin de mes), a diferencia de
+// gf_contarSabadosHasta que cuenta solo "desde hoy" — usado para repartir el aporte mensual
+// fijo de Jubilación/QQQD entre los cobros semanales del mes, sin importar qué día se abra la app.
+function _contarSabadosDelMes(anio, mes){
+  const ultimoDia = new Date(anio, mes + 1, 0).getDate();
+  let count = 0;
+  for(let d = 1; d <= ultimoDia; d++){
+    if(new Date(anio, mes, d).getDay() === 6) count++;
   }
   return count;
 }
@@ -2899,7 +2927,7 @@ function _saldoEsperado(tipo, fecha){
   let base = 0, desdeDate = new Date(0);
   const prev = _ultimoSnapshotAntesDe(fecha);
   if(prev){
-    base = tipo === 'fci' ? prev.fci : prev.cedears;
+    base = tipo === 'fci' ? prev.fci : tipo === 'cedears' ? prev.cedears : (prev.jubilacion || 0);
     desdeDate = new Date(prev.fecha+'T12:00');
   } else if(tipo === 'fci'){
     const ajustes = inversiones.filter(i => i.tipo === 'fci_saldo').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
@@ -2953,6 +2981,11 @@ function _getCedearsSaldoUSD(){
   return puntos.length ? puntos[puntos.length-1].cedears : 0;
 }
 
+function _getJubilacionSaldoUSD(){
+  const puntos = _getEvolucionPuntos();
+  return puntos.length ? puntos[puntos.length-1].jubilacion : 0;
+}
+
 // Puntos para "Evolución de tenencias": reconstruye la línea de tiempo COMPLETA combinando
 // snapshots manuales (checkpoints de saldo real) + aportes automáticos (fci/cedears) + ajustes
 // de interés/ganancia generados al confirmar un saldo (ver guardarSnapshotInv). A diferencia de
@@ -2964,11 +2997,12 @@ function _getEvolucionPuntos(){
   // orden: dentro de una misma fecha, los aportes/intereses van ANTES que el snapshot — el
   // snapshot es el estado ya confirmado que los incluye, no algo a lo que se le suman después.
   inv_snapshots.forEach(s => {
-    eventos.push({ fecha:s.fecha, orden:1, id:s.id, kind:'snapshot', fci:s.fci, cedears:s.cedears, nota:s.nota||'' });
+    eventos.push({ fecha:s.fecha, orden:1, id:s.id, kind:'snapshot', fci:s.fci, cedears:s.cedears, jubilacion:s.jubilacion||0, nota:s.nota||'' });
   });
 
+  const TIPOS_APORTE = ['fci', 'cedears', 'fci_interes', 'cedears_interes', 'jubilacion', 'jubilacion_interes'];
   inversiones.forEach(i => {
-    if(i.tipo === 'fci' || i.tipo === 'cedears' || i.tipo === 'fci_interes' || i.tipo === 'cedears_interes'){
+    if(TIPOS_APORTE.includes(i.tipo)){
       eventos.push({ fecha:i.fecha, orden:0, id:i.id, kind:'aporte', tipo:i.tipo, monto:i.monto, nota:i.nota||'' });
     }
   });
@@ -2978,20 +3012,22 @@ function _getEvolucionPuntos(){
   if(inv_snapshots.length === 0){
     inversiones
       .filter(i => i.tipo === 'fci_saldo')
-      .forEach(a => eventos.push({ fecha:a.fecha, orden:1, id:a.id, kind:'snapshot', fci:a.monto, cedears:0, nota:a.nota||'' }));
+      .forEach(a => eventos.push({ fecha:a.fecha, orden:1, id:a.id, kind:'snapshot', fci:a.monto, cedears:0, jubilacion:0, nota:a.nota||'' }));
   }
 
   eventos.sort((a,b) => new Date(a.fecha+'T12:00') - new Date(b.fecha+'T12:00') || a.orden - b.orden);
 
-  let fci = 0, ced = 0;
+  let fci = 0, ced = 0, jub = 0;
   return eventos.map(e => {
     if(e.kind === 'snapshot'){
-      fci = e.fci; ced = e.cedears;
-      return { id:e.id, fecha:e.fecha, fci, cedears:ced, nota:e.nota, auto:false, interes:false };
+      fci = e.fci; ced = e.cedears; jub = e.jubilacion;
+      return { id:e.id, fecha:e.fecha, fci, cedears:ced, jubilacion:jub, nota:e.nota, auto:false, interes:false };
     }
-    const esInteres = e.tipo === 'fci_interes' || e.tipo === 'cedears_interes';
-    if(e.tipo === 'fci' || e.tipo === 'fci_interes') fci += e.monto; else ced += e.monto;
-    return { id:e.id, fecha:e.fecha, fci, cedears:ced, nota:e.nota, auto:true, interes:esInteres };
+    const esInteres = e.tipo === 'fci_interes' || e.tipo === 'cedears_interes' || e.tipo === 'jubilacion_interes';
+    if(e.tipo === 'fci' || e.tipo === 'fci_interes') fci += e.monto;
+    else if(e.tipo === 'cedears' || e.tipo === 'cedears_interes') ced += e.monto;
+    else jub += e.monto;
+    return { id:e.id, fecha:e.fecha, fci, cedears:ced, jubilacion:jub, nota:e.nota, auto:true, interes:esInteres };
   });
 }
 
@@ -3032,9 +3068,15 @@ function _getHistorialFilas(){
       grupo.snapId     = p.id;
       grupo.notaManual = p.nota || '';
     } else {
-      grupo.autoIds.push(p.id);
-      if(p.nota) grupo.notasAuto.push(p.nota);
       const orig = inversiones.find(i => i.id === p.id);
+      // Esta tabla es específica de FCI/CEDEARs — los eventos de Jubilación igual suman al
+      // saldo corrido (grupo.fci/cedears ya se actualiza arriba), pero no se listan acá para
+      // no mezclar su nota con la de FCI/CEDEARs; tienen su propia card en Inversiones.
+      const esFciOCed = orig && (orig.tipo === 'fci' || orig.tipo === 'cedears' || orig.tipo === 'fci_interes' || orig.tipo === 'cedears_interes');
+      if(esFciOCed){
+        grupo.autoIds.push(p.id);
+        if(p.nota) grupo.notasAuto.push(p.nota);
+      }
       if(orig){
         if(orig.tipo === 'fci')                  grupo.aporteFCI  += orig.monto;
         else if(orig.tipo === 'cedears')         grupo.aporteCED  += orig.monto;
@@ -3058,7 +3100,7 @@ async function eliminarActualizacionSaldo(fecha){
   const snap = inv_snapshots[snapIdx];
 
   const interesRemovidos = inversiones.filter(i =>
-    i.fecha === fecha && i._auto && (i.tipo === 'fci_interes' || i.tipo === 'cedears_interes')
+    i.fecha === fecha && i._auto && (i.tipo === 'fci_interes' || i.tipo === 'cedears_interes' || i.tipo === 'jubilacion_interes')
   );
   inv_snapshots.splice(snapIdx, 1);
   inversiones = inversiones.filter(i => !interesRemovidos.includes(i));
@@ -3221,8 +3263,17 @@ function calcDistribucion(montoCobro){
   const modo    = _getModoColchon();
 
   if(tipo === 'semanal' || tipo === 'sueldo'){
-    const aOblig   = Math.min(montoCobro, rec.recomendacionPorSabado);
-    let   resto    = Math.max(0, montoCobro - aOblig);
+    // Cuota de Jubilación/QQQD: se descuenta primero, antes de gastos fijos e inversión —
+    // la meta mensual en USD se reparte entre TODOS los sábados del mes calendario (fijo,
+    // no "restantes"), así cualquier cobro semanal del mes aporta la misma cuota.
+    const hoy            = new Date();
+    const sabadosDelMes  = _contarSabadosDelMes(hoy.getFullYear(), hoy.getMonth());
+    const metaJubUSD     = planMensual.aporteJubilacionMensualUSD ?? 0;
+    const cuotaJubARS    = sabadosDelMes > 0 ? Math.round((metaJubUSD / sabadosDelMes) * _getTCActual()) : 0;
+    const aJub           = Math.min(montoCobro, cuotaJubARS);
+
+    const aOblig   = Math.min(montoCobro - aJub, rec.recomendacionPorSabado);
+    let   resto    = Math.max(0, montoCobro - aJub - aOblig);
     const gfLabel  = rec.fondoNecesario > 0
       ? `Separar para G. Fijos (${fmt(rec.fondoFaltante)} faltante)`
       : 'Separar para G. Fijos';
@@ -3248,6 +3299,7 @@ function calcDistribucion(montoCobro){
       faseLabel,
       gfSinConfigurar: rec.fondoNecesario === 0,
       asignaciones: [
+        ...(aJub > 0 ? [{ key:'jubilacion', label:`Jubilación · QQQD (${sabadosDelMes} sáb. este mes)`, monto: aJub, target: aJub }] : []),
         ...(aOblig > 0 ? [{ key:'obligaciones', label: gfLabel, monto: aOblig, target: rec.recomendacionPorSabado }] : []),
         { key:'fci',     label:'FCI Money Market', monto: aFCI,     target: aFCI },
         { key:'cedears', label:'CEDEARs (USD)',     monto: aCedears, target: aCedears },
@@ -3393,6 +3445,12 @@ async function registrarCobro(conDistribucion = true){
         inversiones.push({ id: Date.now() + 2, tipo:'cedears', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(_distrib.cedears)} ARS @ $${tc})` });
         invChanged = true;
       }
+      if(_distrib.jubilacion > 0){
+        const tc = _getTCActual();
+        const montoUSD = Math.round((_distrib.jubilacion / tc) * 100) / 100;
+        inversiones.push({ id: Date.now() + 3, tipo:'jubilacion', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(_distrib.jubilacion)} ARS @ $${tc})` });
+        invChanged = true;
+      }
       if(invChanged) await S.set('inversiones', inversiones);
     }
 
@@ -3405,6 +3463,7 @@ async function registrarCobro(conDistribucion = true){
     fabCloseSheet();
     renderResumen();
     renderPlanMes('plan-mes-resumen');
+    renderTarjeta();
     if(tipo === 'sueldo') renderTrabajo();
   } finally {
     _saving = false;
@@ -3516,6 +3575,12 @@ async function _confirmarDistEditada(){
       inversiones.push({ id: Date.now() + 2, tipo:'cedears', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(distribucion.cedears)} ARS @ $${tc})` });
       invChanged = true;
     }
+    if(distribucion.jubilacion > 0){
+      const tc = _getTCActual();
+      const montoUSD = Math.round((distribucion.jubilacion / tc) * 100) / 100;
+      inversiones.push({ id: Date.now() + 3, tipo:'jubilacion', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(distribucion.jubilacion)} ARS @ $${tc})` });
+      invChanged = true;
+    }
     if(invChanged) await S.set('inversiones', inversiones);
 
     document.getElementById('cobro-monto').value = '';
@@ -3526,6 +3591,7 @@ async function _confirmarDistEditada(){
     _distData = null;
     renderResumen();
     renderPlanMes('plan-mes-resumen');
+    renderTarjeta();
     if(tipo === 'sueldo') renderTrabajo();
     toast('✓ Cobro registrado con tu distribución');
   } finally {
@@ -3562,35 +3628,40 @@ function seleccionarTareaGasto(){
 async function guardarSnapshotInv(){
   const fci    = parseFloat(document.getElementById('inv-snap-fci').value);
   const cedears = parseFloat(document.getElementById('inv-snap-ced').value);
+  const jubilacion = parseFloat(document.getElementById('inv-snap-jub').value);
   const fecha  = document.getElementById('inv-snap-fecha').value;
   const nota   = document.getElementById('inv-snap-nota').value.trim();
   if(!fecha){ toast('Elegí una fecha', 'err'); return; }
-  if(isNaN(fci) || isNaN(cedears)){ toast('Ingresá los saldos de FCI y CEDEARs', 'err'); return; }
+  if(isNaN(fci) || isNaN(cedears) || isNaN(jubilacion)){ toast('Ingresá los saldos de FCI, CEDEARs y Jubilación', 'err'); return; }
 
   // Lo que "debería" haber, según la base anterior + aportes ya registrados hasta esta fecha.
   // Lo que sobra (o falta) contra el saldo real que estás tipeando queda registrado como
   // interés/ganancia — así el saldo se actualiza sin pisar el progreso de aportes realizados.
   const esperadoFCI = _saldoEsperado('fci', fecha);
   const esperadoCED = _saldoEsperado('cedears', fecha);
-  const interesFCI  = fci     - esperadoFCI;
-  const interesCED  = cedears - esperadoCED;
+  const esperadoJub = _saldoEsperado('jubilacion', fecha);
+  const interesFCI  = fci        - esperadoFCI;
+  const interesCED  = cedears    - esperadoCED;
+  const interesJub  = jubilacion - esperadoJub;
 
   const existing = inv_snapshots.findIndex(s => s.fecha === fecha);
   if(existing >= 0){
-    inv_snapshots[existing] = { ...inv_snapshots[existing], fci, cedears, nota };
+    inv_snapshots[existing] = { ...inv_snapshots[existing], fci, cedears, jubilacion, nota };
     toast('Saldo actualizado');
   } else {
-    inv_snapshots.push({ id: Date.now(), fecha, fci, cedears, nota });
+    inv_snapshots.push({ id: Date.now(), fecha, fci, cedears, jubilacion, nota });
     toast('Saldo registrado');
   }
 
-  _registrarInteres('fci_interes',     fecha, interesFCI, 1);
-  _registrarInteres('cedears_interes', fecha, interesCED, 2);
+  _registrarInteres('fci_interes',        fecha, interesFCI, 1);
+  _registrarInteres('cedears_interes',    fecha, interesCED, 2);
+  _registrarInteres('jubilacion_interes', fecha, interesJub, 3);
 
   await S.set('inv_snapshots', inv_snapshots);
   await S.set('inversiones',   inversiones);
   document.getElementById('inv-snap-fci').value  = '';
   document.getElementById('inv-snap-ced').value  = '';
+  document.getElementById('inv-snap-jub').value  = '';
   document.getElementById('inv-snap-nota').value = '';
   renderTarjeta();
   renderResumen();
@@ -4480,8 +4551,10 @@ function renderTarjeta(){
   // sin mezclarse con lo que vos pusiste de tu bolsillo.
   const huboInteresFCI = inversiones.some(i => i.tipo === 'fci_interes');
   const huboInteresCED = inversiones.some(i => i.tipo === 'cedears_interes');
-  const deltaFCI = huboInteresFCI ? _getInteresAcumulado('fci_interes')     : null;
-  const deltaCED = huboInteresCED ? _getInteresAcumulado('cedears_interes') : null;
+  const huboInteresJub = inversiones.some(i => i.tipo === 'jubilacion_interes');
+  const deltaFCI = huboInteresFCI ? _getInteresAcumulado('fci_interes')        : null;
+  const deltaCED = huboInteresCED ? _getInteresAcumulado('cedears_interes')    : null;
+  const deltaJub = huboInteresJub ? _getInteresAcumulado('jubilacion_interes') : null;
 
   function deltaChip(delta, isFCI){
     if(delta === null) return '';
@@ -4504,6 +4577,22 @@ function renderTarjeta(){
   const proy100 = _proyeccionLinea(100000     - cedUSD,   promCED, fmtU);
   const proy30c  = _proyeccionCompuesta(cedUSD, 30000,  promCED, fmtU);
   const proy100c = _proyeccionCompuesta(cedUSD, 100000, promCED, fmtU);
+
+  // Jubilación / QQQD: objetivo total = meta mensual × meses restantes hasta los 65 años,
+  // usando la fecha de nacimiento configurada. El saldo se trackea igual que FCI/CEDEARs
+  // (aportes reales + interés/ganancia contra el valor de mercado tipeado a mano).
+  const jubSaldo    = _getJubilacionSaldoUSD();
+  const promJub     = _getAportePromedioMensual('jubilacion', 3);
+  const metaJubUSD  = planMensual.aporteJubilacionMensualUSD ?? 0;
+  const [jNacY, jNacM, jNacD] = (planMensual.fechaNacimiento || '1997-03-17').split('-').map(Number);
+  const fechaObjetivoJub = new Date(jNacY + 65, jNacM - 1, jNacD);
+  const hoyJub = new Date();
+  let mesesRestantesJub = (fechaObjetivoJub.getFullYear() - hoyJub.getFullYear()) * 12 + (fechaObjetivoJub.getMonth() - hoyJub.getMonth());
+  if(fechaObjetivoJub.getDate() < hoyJub.getDate()) mesesRestantesJub -= 1;
+  mesesRestantesJub = Math.max(0, mesesRestantesJub);
+  const objetivoTotalJubUSD = metaJubUSD * mesesRestantesJub;
+  const pctJub = objetivoTotalJubUSD > 0 ? Math.min(100, Math.round(jubSaldo / objetivoTotalJubUSD * 100)) : 0;
+  const aniosRestantesJub = (mesesRestantesJub / 12).toFixed(1);
 
   // Barra de composición: separa visualmente cuánto del saldo es capital aportado vs.
   // interés/ganancia acumulado — la app ya guarda esa distinción en los datos (ver
@@ -4545,7 +4634,7 @@ function renderTarjeta(){
     estable:      { label:'Modo: colchón estable', color:'var(--green)', desc:`El margen se sugiere 100% a CEDEARs. Vuelve a "construyendo" si el FCI cae debajo de ${fmt(COLCHON_PISO)}.` },
   }[modo];
 
-  const hayDatos = !!latest || fciSaldo > 0 || cedUSD > 0;
+  const hayDatos = !!latest || fciSaldo > 0 || cedUSD > 0 || jubSaldo > 0;
   const noData = !hayDatos
     ? `<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin datos aún — registrá tu primer saldo abajo</div>`
     : '';
@@ -4632,6 +4721,32 @@ function renderTarjeta(){
           ${proy100c}
         </div>
         ${latest ? `<div style="font-size:11px;color:var(--muted);margin-top:8px">Actualizado: ${new Date(latest.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'})}</div>` : ''}
+      </div>
+      <div style="padding:14px 16px;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+          <span style="font-size:12px;font-weight:600;letter-spacing:-0.01em">Jubilación · QQQD</span>
+          <span style="display:flex;align-items:baseline">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:var(--amber)">${fmtU(jubSaldo)}</span>
+            ${deltaChip(deltaJub, false)}
+          </span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Meta ${fmtU(metaJubUSD)}/mes · aporte automático desde cobros semanales</div>
+        ${compBar(jubSaldo, deltaJub || 0, 'var(--amber)', 'oklch(88% 0.14 75)')}
+        ${statRow([
+          { k:'Último aporte', v:ultimoAporteTxt('jubilacion', fmtU) },
+          { k:'Prom. mensual',  v:`${fmtU(promJub)} <span style="font-size:10px;color:var(--muted);font-weight:500">· 3 meses</span>` },
+          { k:'Rendimiento',    v:rendimientoTxt(jubSaldo, deltaJub) },
+        ])}
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+            <span>Objetivo a los 65 años (${fechaObjetivoJub.getFullYear()}, ~${aniosRestantesJub} años)</span>
+            <span>${pctJub}%</span>
+          </div>
+          <div style="background:var(--border);border-radius:4px;height:5px;overflow:hidden">
+            <div style="height:100%;transform:scaleX(${pctJub/100});transform-origin:left;background:${pctJub>=100?'var(--green)':'var(--amber)'};border-radius:4px;transition:transform 0.6s var(--ease-out)"></div>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:3px">${fmtU(jubSaldo)} de ${fmtU(objetivoTotalJubUSD)} estimados al ritmo actual</div>
+        </div>
       </div>` : ''}
     </div>`;
 
@@ -4673,7 +4788,9 @@ function renderTarjeta(){
 
         const accion = f.esManual
           ? `<button class="btn btn-danger btn-sm" onclick="eliminarActualizacionSaldo('${f.fecha}')">×</button>`
-          : `<button class="btn btn-sm" style="background:transparent;border:1px solid var(--blue-border);color:var(--blue)" onclick="abrirModalInv(${f.autoIds[0]})">Ver</button>`;
+          : f.autoIds.length
+            ? `<button class="btn btn-sm" style="background:transparent;border:1px solid var(--blue-border);color:var(--blue)" onclick="abrirModalInv(${f.autoIds[0]})">Ver</button>`
+            : '';
 
         return `<tr>
           <td style="white-space:nowrap">${new Date(f.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
@@ -5050,6 +5167,8 @@ function renderConfig(){
   if(!document.getElementById('cfg-ingreso-base')) return;
   document.getElementById('cfg-ingreso-base').value = planMensual.ingresoBase || '';
   document.getElementById('cfg-margen-inversion').value = planMensual.margenInversionSemanal ?? '';
+  document.getElementById('cfg-aporte-jubilacion').value = planMensual.aporteJubilacionMensualUSD ?? '';
+  document.getElementById('cfg-fecha-nacimiento').value = planMensual.fechaNacimiento || '';
 
   const tarifaLabel = document.getElementById('trab-tarifa-label');
   if(tarifaLabel) tarifaLabel.textContent = fmt(tarifaHora);
@@ -5133,13 +5252,18 @@ async function forzarSubidaFirebase(){
 async function guardarConfig(){
   const ingresoBase = parseFloat(document.getElementById('cfg-ingreso-base').value);
   if(!(ingresoBase > 0)){ toast('Ingresá un ingreso base mayor que cero', 'err'); return; }
-  const margenInversion = parseFloat(document.getElementById('cfg-margen-inversion').value);
+  const margenInversion   = parseFloat(document.getElementById('cfg-margen-inversion').value);
+  const aporteJubilacion  = parseFloat(document.getElementById('cfg-aporte-jubilacion').value);
+  const fechaNacimiento   = document.getElementById('cfg-fecha-nacimiento').value;
   planMensual.ingresoBase = ingresoBase;
   planMensual.margenInversionSemanal = margenInversion >= 0 ? margenInversion : 0;
+  planMensual.aporteJubilacionMensualUSD = aporteJubilacion >= 0 ? aporteJubilacion : 0;
+  if(fechaNacimiento) planMensual.fechaNacimiento = fechaNacimiento;
   await S.set('planMensual', planMensual);
   toast('✓ Configuración guardada');
   renderResumen();
   renderPlanMes('plan-mes-resumen');
+  renderTarjeta();
 }
 
 function renderTareas(){
