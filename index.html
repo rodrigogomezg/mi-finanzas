@@ -1886,9 +1886,24 @@ async function guardarEdicion(id){
   m.monto = monto;
   m.categoria = cat;
   m.nota = nota;
+  let invBorradas = 0;
   if(montoChanged && m.tipo === 'cobro' && m.distribucion){
+    // La distribución vieja ya no es válida con el nuevo monto — hay que borrar
+    // también las inversiones (FCI/CEDEARs/Jubilación) que había generado, si no
+    // quedan huérfanas contando de más (mismo problema que al eliminar un cobro).
+    const invLigadas = inversiones.filter(i => i.origenCobroId === id);
+    if(invLigadas.length){
+      for(const inv of invLigadas){
+        const idx = inversiones.indexOf(inv);
+        if(idx !== -1) inversiones.splice(idx, 1);
+      }
+      await S.set('inversiones', inversiones);
+      invBorradas = invLigadas.length;
+    }
     m.distribucion = null;
-    toast('Monto editado · distribución reseteada', 'warn', 3000);
+    toast(invBorradas
+      ? `Monto editado · distribución reseteada y ${invBorradas} inversión${invBorradas!==1?'es':''} vinculada${invBorradas!==1?'s':''} eliminada${invBorradas!==1?'s':''}`
+      : 'Monto editado · distribución reseteada', 'warn', 4000);
   }
   await S.set('movimientos', movimientos);
   _flashMovId = id;
@@ -1896,6 +1911,7 @@ async function guardarEdicion(id){
   renderHistorial();
   renderResumen();
   renderRegistros();
+  renderTarjeta();
   _refreshGastosPieModal(cat);
   if(!montoChanged || m.tipo !== 'cobro') toast('Cambio guardado', 'ok', 2000);
 }
