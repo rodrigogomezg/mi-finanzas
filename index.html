@@ -2259,8 +2259,9 @@ function gf_getSaldos(){
       const aOblig = ev.distribucion?.obligaciones || 0;
       const aFCI   = ev.distribucion?.fci     || 0;
       const aCed   = ev.distribucion?.cedears  || 0;
+      const aJub   = ev.distribucion?.jubilacion || 0;
       sep  += aOblig;
-      disp += Math.max(0, ev.monto - aOblig - aFCI - aCed);
+      disp += Math.max(0, ev.monto - aOblig - aFCI - aCed - aJub);
     } else if(t === 'gasto'){
       // gfAjeno: gasto de categoría alquiler/tarjeta que NO es el pago del mes
       // (ej: consumos en una tarjeta de un tercero) — sale del disponible.
@@ -3446,40 +3447,42 @@ async function registrarCobro(conDistribucion = true){
   _saving = true;
   try {
     let _distrib = null;
+    const movId = Date.now();
     if(conDistribucion){
       const dist = calcDistribucion(monto);
       if(dist){
         const distribucion = Object.fromEntries(dist.asignaciones.map(a => [a.key, a.monto]));
-        movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion });
+        movimientos.push({ id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion });
         _distrib = distribucion;
       } else {
-        movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota });
+        movimientos.push({ id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota });
       }
       toast('✓ Cobro registrado con distribución');
     } else {
-      movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota });
+      movimientos.push({ id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota });
       toast('✓ Cobro registrado como libre disponible');
     }
 
     await S.set('movimientos', movimientos);
 
     // Registrar inversiones cuando la distribución incluye FCI o CEDEARs
+    // origenCobroId permite borrarlas en cascada si el cobro se elimina (ver eliminar()).
     if(_distrib){
       let invChanged = false;
       if(_distrib.fci > 0){
-        inversiones.push({ id: Date.now() + 1, tipo:'fci', monto: _distrib.fci, fecha, nota: `De cobro ${tipo}` });
+        inversiones.push({ id: movId + 1, tipo:'fci', monto: _distrib.fci, fecha, nota: `De cobro ${tipo}`, origenCobroId: movId });
         invChanged = true;
       }
       if(_distrib.cedears > 0){
         const tc = _getTCActual();
         const montoUSD = Math.round((_distrib.cedears / tc) * 100) / 100;
-        inversiones.push({ id: Date.now() + 2, tipo:'cedears', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(_distrib.cedears)} ARS @ $${tc})` });
+        inversiones.push({ id: movId + 2, tipo:'cedears', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(_distrib.cedears)} ARS @ $${tc})`, origenCobroId: movId });
         invChanged = true;
       }
       if(_distrib.jubilacion > 0){
         const tc = _getTCActual();
         const montoUSD = Math.round((_distrib.jubilacion / tc) * 100) / 100;
-        inversiones.push({ id: Date.now() + 3, tipo:'jubilacion', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(_distrib.jubilacion)} ARS @ $${tc})` });
+        inversiones.push({ id: movId + 3, tipo:'jubilacion', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(_distrib.jubilacion)} ARS @ $${tc})`, origenCobroId: movId });
         invChanged = true;
       }
       if(invChanged) await S.set('inversiones', inversiones);
@@ -3515,12 +3518,14 @@ function _mostrarSliders(){
     const initVal = Math.round(asigMap[o.key] || 0);
     const hintText = `Sugerido: ${fmt(o.monto)}`;
     return `<div style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:5px">
         <span style="font-size:13px;font-weight:500">${o.label}</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--blue)" id="dist-val-${o.key}">${fmt(initVal)}</span>
+        <input type="number" id="dist-val-${o.key}" value="${initVal}" min="0" step="1000" inputmode="numeric"
+          oninput="_onDistInput('${o.key}')"
+          style="width:118px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--blue);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 8px">
       </div>
       <input type="range" id="dist-sl-${o.key}" min="0" max="${total}" value="${initVal}" step="1000"
-        oninput="_onDistSlider()"
+        oninput="_onDistSlider('${o.key}')"
         style="width:100%;height:6px;accent-color:var(--blue);cursor:pointer">
       <div style="font-size:10px;color:var(--muted);margin-top:2px">${hintText}</div>
     </div>`;
@@ -3547,16 +3552,27 @@ function _mostrarSliders(){
     </div>`;
 }
 
-function _onDistSlider(){
+function _onDistSlider(key){
+  const sl  = document.getElementById(`dist-sl-${key}`);
+  const num = document.getElementById(`dist-val-${key}`);
+  if(sl && num) num.value = sl.value;
+  _recalcDistTotales();
+}
+
+function _onDistInput(key){
+  const sl  = document.getElementById(`dist-sl-${key}`);
+  const num = document.getElementById(`dist-val-${key}`);
+  if(sl && num) sl.value = num.value;
+  _recalcDistTotales();
+}
+
+function _recalcDistTotales(){
   if(!_distData) return;
   let asignados = 0;
   for(const o of _distData.asignaciones){
-    const el = document.getElementById(`dist-sl-${o.key}`);
-    if(!el) continue;
-    const v = parseInt(el.value) || 0;
-    const valEl = document.getElementById(`dist-val-${o.key}`);
-    if(valEl) valEl.textContent = fmt(v);
-    asignados += v;
+    const num = document.getElementById(`dist-val-${o.key}`);
+    if(!num) continue;
+    asignados += parseInt(num.value) || 0;
   }
   const paraVida = _distData.total - asignados;
   const vidaEl = document.getElementById('dist-vida-val');
@@ -3581,7 +3597,7 @@ async function _confirmarDistEditada(){
     const distribucion = {};
     let totalAsignado = 0;
     for(const o of _distData.asignaciones){
-      const el = document.getElementById(`dist-sl-${o.key}`);
+      const el = document.getElementById(`dist-val-${o.key}`);
       const v = el ? (parseInt(el.value) || 0) : 0;
       if(v > 0) distribucion[o.key] = v;
       totalAsignado += v;
@@ -3591,25 +3607,27 @@ async function _confirmarDistEditada(){
       return;
     }
 
-    movimientos.push({ id: Date.now(), tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion });
+    const movId = Date.now();
+    movimientos.push({ id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion });
     await S.set('movimientos', movimientos);
 
-    // Auto-crear entradas en inversiones para FCI y CEDEARs
+    // Auto-crear entradas en inversiones para FCI, CEDEARs y Jubilación.
+    // origenCobroId permite borrarlas en cascada si el cobro se elimina (ver eliminar()).
     let invChanged = false;
     if(distribucion.fci > 0){
-      inversiones.push({ id: Date.now() + 1, tipo:'fci', monto: distribucion.fci, fecha, nota: `De cobro ${tipo}` });
+      inversiones.push({ id: movId + 1, tipo:'fci', monto: distribucion.fci, fecha, nota: `De cobro ${tipo}`, origenCobroId: movId });
       invChanged = true;
     }
     if(distribucion.cedears > 0){
       const tc = _getTCActual();
       const montoUSD = Math.round((distribucion.cedears / tc) * 100) / 100;
-      inversiones.push({ id: Date.now() + 2, tipo:'cedears', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(distribucion.cedears)} ARS @ $${tc})` });
+      inversiones.push({ id: movId + 2, tipo:'cedears', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(distribucion.cedears)} ARS @ $${tc})`, origenCobroId: movId });
       invChanged = true;
     }
     if(distribucion.jubilacion > 0){
       const tc = _getTCActual();
       const montoUSD = Math.round((distribucion.jubilacion / tc) * 100) / 100;
-      inversiones.push({ id: Date.now() + 3, tipo:'jubilacion', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(distribucion.jubilacion)} ARS @ $${tc})` });
+      inversiones.push({ id: movId + 3, tipo:'jubilacion', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(distribucion.jubilacion)} ARS @ $${tc})`, origenCobroId: movId });
       invChanged = true;
     }
     if(invChanged) await S.set('inversiones', inversiones);
@@ -4554,11 +4572,36 @@ async function eliminar(id){
   }
   const esSueldo = m?.categoria === 'sueldo';
   const catKey = m?.categoria || m?.cat || 'otro';
-  softDelete({
+
+  // Si el cobro generó inversiones automáticas (FCI/CEDEARs/Jubilación), hay que
+  // borrarlas junto con el movimiento — si no, quedan huérfanas y se duplican
+  // si el cobro se vuelve a registrar.
+  const invLigadas = (m?.tipo === 'cobro' && m?.distribucion) ? inversiones.filter(i => i.origenCobroId === id) : [];
+  if(invLigadas.length){
+    for(const inv of invLigadas){
+      const idx = inversiones.indexOf(inv);
+      if(idx !== -1) inversiones.splice(idx, 1);
+    }
+    await S.set('inversiones', inversiones);
+    renderTarjeta();
+  }
+
+  await softDelete({
     arr: movimientos, id, setKey: 'movimientos',
     render: ()=>{ renderHistorial(); renderResumen(); renderTareasSelect(); if(esSueldo) renderTrabajo(); renderRegistros(); _refreshGastosPieModal(catKey); },
     label: 'Movimiento'
   });
+
+  // Extender el "Deshacer" del movimiento para que también recupere las inversiones ligadas
+  if(invLigadas.length && _pendingUndo){
+    const restoreMov = _pendingUndo.restore;
+    _pendingUndo.restore = async () => {
+      await restoreMov();
+      inversiones.push(...invLigadas);
+      await S.set('inversiones', inversiones);
+      renderTarjeta();
+    };
+  }
 }
 
 async function confirmarLimpiar(){
