@@ -94,13 +94,17 @@
     --ced-bg: oklch(94% 0.045 250); --ced-fg: oklch(46% 0.15 258);
     --jub-bg: oklch(95% 0.065 65); --jub-fg: oklch(48% 0.14 55);
 
+    /* Llena todo el panel de contenido (cancela el padding de .main con márgenes
+       negativos) en vez de flotar como una "ventana" recuadrada sobre el fondo oscuro. */
     background: var(--bg);
     color: var(--text);
-    border-radius: 20px;
-    padding: 20px 18px 28px;
-    box-shadow: 0 2px 10px oklch(0% 0 0 / .35);
+    margin: -36px;
+    padding: 28px 32px 40px;
+    min-height: 100vh;
   }
-  @media (max-width:680px) { .theme-light { padding:16px 14px 24px; border-radius:16px; } }
+  @media (max-width:680px) {
+    .theme-light { margin:-16px -16px calc(-60px - env(safe-area-inset-bottom)) -16px; padding:18px 16px calc(76px + env(safe-area-inset-bottom)); }
+  }
 
   .inv-top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
   .inv-switch { display:inline-flex; background:var(--surface2); border-radius:999px; padding:3px; gap:2px; flex-shrink:0; }
@@ -115,6 +119,9 @@
   .inv-donut-legend { display:flex; justify-content:center; gap:16px; margin-bottom:22px; font-size:12px; flex-wrap:wrap; }
   .inv-donut-legend .lg { display:flex; align-items:center; gap:6px; color:var(--muted); font-weight:600; }
   .inv-donut-legend .sw { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+  .inv-chart-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:18px; margin:18px 0 6px; }
+  .inv-chart-card h3 { font-size:12.5px; font-weight:700; margin:0; }
 
   .inv-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:6px; }
   @media (max-width:640px) { .inv-cards { grid-template-columns:1fr; } }
@@ -134,6 +141,14 @@
   .acc-card .card-detail .drow { display:flex; justify-content:space-between; padding:3px 0; }
   .acc-card .card-detail .drow .l { opacity:.75; }
   .acc-card .card-detail .drow .v { font-family:'JetBrains Mono',monospace; font-weight:700; }
+  .mov-toggle { display:block; width:100%; text-align:left; border:none; background:none; color:inherit; font-family:'Manrope',sans-serif; font-size:11px; font-weight:700; text-decoration:underline; text-underline-offset:2px; cursor:pointer; padding:6px 0 2px; opacity:.85; }
+  .mov-list { display:none; margin-top:4px; max-height:220px; overflow-y:auto; }
+  .mov-list.open { display:block; }
+  .mov-row-mini { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 0; border-top:1px dashed oklch(0% 0 0 / .1); cursor:pointer; }
+  .mov-row-mini .mrl { font-size:10.5px; font-weight:700; }
+  .mov-row-mini .mrn { font-size:10px; opacity:.7; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px; }
+  .mov-row-mini .mrv { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; flex-shrink:0; }
+  .mov-empty { font-size:11px; opacity:.7; padding:8px 0 2px; }
 
   .theme-light .expand { text-align:center; margin:6px 0 0; }
   .theme-light .expand button { border:none; background:none; color:var(--muted); font-size:12px; font-weight:700; font-family:'Manrope',sans-serif; cursor:pointer; display:inline-flex; align-items:center; gap:6px; padding:8px 14px; }
@@ -857,6 +872,7 @@
   .fab-opt-icon.cobro { color:var(--green); }
   .fab-opt-icon.gasto { color:var(--red); }
   .fab-opt-icon.transf { color:var(--blue); }
+  .fab-opt-icon.interes { color:var(--purple); }
 
   /* Backdrop */
   #fab-backdrop {
@@ -1105,55 +1121,23 @@
       <!-- Dashboard: hero + donut + 3 cuentas -->
       <div id="inv-dashboard"></div>
 
+      <!-- Evolución de tenencias — mismo lugar destacado que el resto del dashboard -->
+      <div id="inv-evolucion"></div>
+
       <div class="expand">
         <button type="button" onclick="inv_toggleDetalle()"><span id="inv-detalle-arrow">⌄</span> <span id="inv-detalle-label">Ver historial y ajustes</span></button>
       </div>
 
-      <!-- Todo lo detallado: alertas, cards completas, evolución/ritmo/historial, transferencias, actualizar saldos -->
+      <!-- Todo lo detallado: alertas, cards completas, ritmo/historial, transferencias -->
       <div id="inv-detalle" style="display:none">
-        <div class="info-banner blue" style="margin-top:16px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span id="tc-indicador" style="flex:1;min-width:0">Obteniendo tipo de cambio MEP...</span>
-          <button class="btn btn-sm" style="font-size:11px;flex-shrink:0;white-space:nowrap;background:transparent;border:1px solid var(--blue-border);color:var(--blue)" onclick="fetchTC()">↻ Actualizar</button>
-        </div>
-
         <!-- Alertas del colchón / cartera -->
         <div id="inv-alertas"></div>
 
         <!-- Panel dinámico FCI + CEDEARs + Jubilación -->
         <div id="inv-panel"></div>
 
-        <!-- Panel cartera: evolución, transferencias, historial -->
+        <!-- Panel cartera: ritmo de aportes, transferencias, historial -->
         <div id="inv-cartera"></div>
-
-        <!-- Formulario actualización semanal -->
-        <div class="form-card">
-          <h3>Actualizar saldos</h3>
-          <div class="form-grid">
-            <div class="form-pair">
-              <div class="form-group">
-                <label>Fondo de emergencia · FCI ($)</label>
-                <input type="number" id="inv-snap-fci" placeholder="0" min="0" step="1">
-              </div>
-              <div class="form-group">
-                <label>CEDEARs (USD)</label>
-                <input type="number" id="inv-snap-ced" placeholder="0.00" min="0" step="0.01">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Jubilación · QQQD (USD)</label>
-              <input type="number" id="inv-snap-jub" placeholder="0.00" min="0" step="0.01">
-            </div>
-            <div class="form-group">
-              <label>Fecha</label>
-              <input type="date" id="inv-snap-fecha">
-            </div>
-            <div class="form-group inline-action">
-              <input type="text" id="inv-snap-nota" placeholder="Nota (opcional)">
-              <button class="btn btn-primary" onclick="guardarSnapshotInv()">Guardar</button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -2088,7 +2072,7 @@ async function init(){
   document.getElementById('cobro-fecha').value     = hoy;
   document.getElementById('gasto-fecha').value     = hoy;
   document.getElementById('tarea-venc').value      = hoy;
-  document.getElementById('inv-snap-fecha').value  = hoy;
+  document.getElementById('int-fecha').value       = hoy;
   document.getElementById('trab-adel-fecha').value = hoy;
   _fillTimeSelects();
   movimientos   = await S.get('movimientos')   || [];
@@ -2562,8 +2546,8 @@ async function gf_transferirSaldo(origen, destino, monto, concepto, tipo){
   const invIds = [];
 
   // Si el origen es una cartera de inversión, se resta con un aporte NEGATIVO — mismo
-  // mecanismo que un aporte real (en sentido contrario), así _saldoEsperado() y el saldo
-  // corrido de _getEvolucionPuntos() quedan consistentes sin tocar esas funciones.
+  // mecanismo que un aporte real (en sentido contrario), así el saldo corrido de
+  // _getEvolucionPuntos() queda consistente sin tocar esa función.
   if(POTES_INVERSION.includes(origen)){
     const id = now + invIds.length + 1;
     inversiones.push({ id, tipo: origen, monto: -monto, fecha, nota: `Transferencia a ${POTES[destino]?.label || destino}${concepto ? ` — ${concepto}` : ''}` });
@@ -3190,53 +3174,6 @@ function _ultimoSnapshotInv(){
   return snaps.length > 0 ? snaps[snaps.length-1] : null;
 }
 
-// Último snapshot con fecha ESTRICTAMENTE anterior a la dada — se usa al confirmar un nuevo
-// saldo para saber cuál era la base previa, incluso si ya existe un snapshot en esa misma fecha
-// (caso: editar un saldo ya guardado).
-function _ultimoSnapshotAntesDe(fecha){
-  const snaps = inv_snapshots.filter(s => s.fecha < fecha).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
-  return snaps.length > 0 ? snaps[snaps.length-1] : null;
-}
-
-// Saldo que "debería" tener FCI o CEDEARs en `fecha` según la base conocida (último snapshot
-// anterior) más los aportes ya registrados hasta esa fecha — sin contar todavía ninguna ganancia
-// por intereses. La diferencia contra el valor que el usuario tipea al actualizar el saldo es lo
-// que se registra como interés/ganancia (ver guardarSnapshotInv).
-function _saldoEsperado(tipo, fecha){
-  let base = 0, desdeDate = new Date(0);
-  const prev = _ultimoSnapshotAntesDe(fecha);
-  if(prev){
-    base = tipo === 'fci' ? prev.fci : tipo === 'cedears' ? prev.cedears : (prev.jubilacion || 0);
-    desdeDate = new Date(prev.fecha+'T12:00');
-  } else if(tipo === 'fci'){
-    const ajustes = inversiones.filter(i => i.tipo === 'fci_saldo').sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
-    if(ajustes.length > 0){
-      const last = ajustes[ajustes.length-1];
-      base = last.monto;
-      desdeDate = new Date(last.fecha+'T12:00');
-    }
-  }
-  const limite = new Date(fecha+'T12:00');
-  const depositos = inversiones
-    .filter(i => i.tipo === tipo && new Date(i.fecha+'T12:00') > desdeDate && new Date(i.fecha+'T12:00') <= limite)
-    .reduce((s, i) => s + i.monto, 0);
-  return base + depositos;
-}
-
-// Registra (o reemplaza) el ajuste automático de interés/ganancia para una fecha dada, sin tocar
-// los aportes reales — así el progreso de aportes nunca se pisa con la ganancia del período.
-function _registrarInteres(tipo, fecha, monto, idOffset){
-  inversiones = inversiones.filter(i => !(i.tipo === tipo && i.fecha === fecha && i._auto));
-  if(Math.round(monto * 100) !== 0){
-    inversiones.push({
-      id: Date.now() + idOffset,
-      tipo, monto: Math.round(monto * 100) / 100, fecha,
-      nota: 'Interés/ganancia (auto)',
-      _auto: true,
-    });
-  }
-}
-
 // Interés/ganancia acumulado histórico (suma de todos los ajustes de interés registrados al
 // confirmar saldos, positivos o negativos) — separa "cuánto puse" (aportes) de "cuánto gané"
 // (interés), en vez de mezclarlo todo en el saldo total.
@@ -3285,10 +3222,9 @@ function _getObjetivoJubilacion(saldoActual, tnaAnual = 0.10){
 }
 
 // Puntos para "Evolución de tenencias": reconstruye la línea de tiempo COMPLETA combinando
-// snapshots manuales (checkpoints de saldo real) + aportes automáticos (fci/cedears) + ajustes
-// de interés/ganancia generados al confirmar un saldo (ver guardarSnapshotInv). A diferencia de
-// la versión anterior, ningún evento se pierde de vista: aunque un snapshot posterior "corrija"
-// el total, cada aporte e interés previo sigue como su propia fila en el historial.
+// snapshots manuales históricos (ya no se crean nuevos, ver fabRegistrarInteres) + aportes/
+// transferencias + interés/ganancia registrado directamente. Ningún evento se pierde de vista:
+// aunque haya un snapshot viejo de por medio, cada aporte e interés sigue como su propia fila.
 function _getEvolucionPuntos(){
   const eventos = [];
 
@@ -3951,52 +3887,33 @@ function seleccionarTareaGasto(){
   document.getElementById('gasto-desc').value = t.desc;
 }
 
-// ── INVERSIONES CONFIRMADAS ───────────────────────────────
-async function guardarSnapshotInv(){
-  const fci    = parseFloat(document.getElementById('inv-snap-fci').value);
-  const cedears = parseFloat(document.getElementById('inv-snap-ced').value);
-  const jubilacion = parseFloat(document.getElementById('inv-snap-jub').value);
-  const fecha  = document.getElementById('inv-snap-fecha').value;
-  const nota   = document.getElementById('inv-snap-nota').value.trim();
+// ── INVERSIONES: INTERÉS / GANANCIA ───────────────────────
+// Reemplaza el viejo flujo de "actualizar saldo total y calcular la diferencia": ahora el
+// interés/ganancia se carga directo, como un movimiento más — mismo patrón que un gasto o
+// cobro (se apila, no reemplaza lo del mismo día), en vez de un ajuste automático oculto.
+async function fabRegistrarInteres(){
+  const pote  = document.getElementById('int-pote').value;
+  const monto = parseFloat(document.getElementById('int-monto').value);
+  const fecha = document.getElementById('int-fecha').value;
+  const nota  = document.getElementById('int-nota').value.trim();
+  if(isNaN(monto) || monto === 0){ toast('Ingresá un monto distinto de cero', 'err'); return; }
   if(!fecha){ toast('Elegí una fecha', 'err'); return; }
-  if(isNaN(fci) || isNaN(cedears) || isNaN(jubilacion)){ toast('Ingresá los saldos de FCI, CEDEARs y Jubilación', 'err'); return; }
 
-  // Lo que "debería" haber, según la base anterior + aportes ya registrados hasta esta fecha.
-  // Lo que sobra (o falta) contra el saldo real que estás tipeando queda registrado como
-  // interés/ganancia — así el saldo se actualiza sin pisar el progreso de aportes realizados.
-  const esperadoFCI = _saldoEsperado('fci', fecha);
-  const esperadoCED = _saldoEsperado('cedears', fecha);
-  const esperadoJub = _saldoEsperado('jubilacion', fecha);
-  const interesFCI  = fci        - esperadoFCI;
-  const interesCED  = cedears    - esperadoCED;
-  const interesJub  = jubilacion - esperadoJub;
+  inversiones.push({
+    id: Date.now(),
+    tipo: `${pote}_interes`,
+    monto: Math.round(monto * 100) / 100,
+    fecha,
+    nota: nota || 'Interés/ganancia',
+  });
+  await S.set('inversiones', inversiones);
 
-  const existing = inv_snapshots.findIndex(s => s.fecha === fecha);
-  if(existing >= 0){
-    inv_snapshots[existing] = { ...inv_snapshots[existing], fci, cedears, jubilacion, nota };
-    toast('Saldo actualizado');
-  } else {
-    inv_snapshots.push({ id: Date.now(), fecha, fci, cedears, jubilacion, nota });
-    toast('Saldo registrado');
-  }
-
-  _registrarInteres('fci_interes',        fecha, interesFCI, 1);
-  _registrarInteres('cedears_interes',    fecha, interesCED, 2);
-  _registrarInteres('jubilacion_interes', fecha, interesJub, 3);
-
-  await S.set('inv_snapshots', inv_snapshots);
-  await S.set('inversiones',   inversiones);
-  document.getElementById('inv-snap-fci').value  = '';
-  document.getElementById('inv-snap-ced').value  = '';
-  document.getElementById('inv-snap-jub').value  = '';
-  document.getElementById('inv-snap-nota').value = '';
+  document.getElementById('int-monto').value = '';
+  document.getElementById('int-nota').value  = '';
+  toast('✓ Interés registrado');
+  fabCloseSheet();
   renderTarjeta();
   renderResumen();
-  renderPlanMes('plan-mes-resumen');
-}
-
-async function eliminarSnapshotInv(id){
-  await softDelete({ arr: inv_snapshots, id, setKey: 'inv_snapshots', render: renderTarjeta, label: 'Snapshot' });
 }
 
 async function eliminarInversion(id){
@@ -4923,6 +4840,38 @@ function inv_toggleCardDetalle(key){
   });
 }
 
+// Historial puntual de una cuenta (aportes, transferencias y retiros/interés) — vive adentro
+// del detalle de cada card, un nivel más abajo del ⓘ, para no mezclarlo con las 3 stats fijas.
+function inv_toggleMovimientos(key){
+  const listEl = document.querySelector(`.mov-list[data-movkey="${key}"]`);
+  if(!listEl) return;
+  if(listEl.classList.contains('open')){
+    listEl.classList.remove('open');
+    listEl.innerHTML = '';
+    return;
+  }
+  const fmtFn = key === 'fci' ? fmt : fmtU;
+  const movs = inversiones
+    .filter(i => i.tipo === key || i.tipo === `${key}_interes`)
+    .sort((a,b) => new Date(b.fecha+'T12:00') - new Date(a.fecha+'T12:00') || b.id - a.id);
+
+  listEl.innerHTML = movs.length ? movs.map(m => {
+    const esInteres = m.tipo.endsWith('_interes');
+    const esTransf  = (m.nota||'').startsWith('Transferencia');
+    const tag   = esInteres ? 'Interés' : esTransf ? 'Transferencia' : 'Aporte';
+    const sign  = m.monto >= 0 ? '+' : '';
+    const color = m.monto >= 0 ? 'var(--green)' : 'var(--red)';
+    return `<div class="mov-row-mini" onclick="event.stopPropagation();abrirModalInv(${m.id})">
+      <div style="min-width:0">
+        <div class="mrl">${tag} · ${new Date(m.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'short'})}</div>
+        ${m.nota ? `<div class="mrn">${esc(m.nota)}</div>` : ''}
+      </div>
+      <div class="mrv" style="color:${color}">${sign}${fmtFn(m.monto)}</div>
+    </div>`;
+  }).join('') : `<div class="mov-empty">Sin movimientos aún</div>`;
+  listEl.classList.add('open');
+}
+
 // Dashboard simple: patrimonio total en la moneda elegida, donut de composición y las 3
 // cuentas con un solo dato de progreso visible — el resto (último aporte, promedio,
 // rendimiento) vive detrás del ⓘ de cada card para no repetir el detalle completo que ya
@@ -4966,6 +4915,8 @@ function _renderInvDashboard(d){
   const cardDetalle = (key, rows) => `
     <div class="card-detail" data-key="${key}">
       ${rows.map(r => `<div class="drow"><span class="l">${r.k}</span><span class="v">${r.v}</span></div>`).join('')}
+      <button type="button" class="mov-toggle" onclick="event.stopPropagation();inv_toggleMovimientos('${key}')">Ver últimos movimientos</button>
+      <div class="mov-list" data-movkey="${key}"></div>
     </div>`;
   const rendTxt = (saldo, delta) => {
     if(delta === null) return '—';
@@ -5334,12 +5285,6 @@ function renderTarjeta(){
     : '';
 
   cartera.innerHTML = `
-    ${showChart ? `<div class="progress-section" style="margin-top:20px;margin-bottom:20px">
-      <h3>Evolución de tenencias</h3>
-      <div style="position:relative;height:200px;margin-top:10px">
-        <canvas id="chart-inv" role="img" aria-label="Evolución FCI y CEDEARs"></canvas>
-      </div>
-    </div>` : ''}
     ${showRitmo ? `<div class="progress-section" style="margin-top:20px;margin-bottom:20px">
       <h3>Ritmo de aportes</h3>
       <div style="font-size:11px;color:var(--muted);margin-top:2px">Últimos 6 meses · aportes reales, sin interés</div>
@@ -5365,44 +5310,44 @@ function renderTarjeta(){
       ${transfInvRows}
     </div>` : ''}`;
 
-  if(showChart){
-    const labels  = crono.map(s => new Date(s.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}));
-    const fciData = crono.map(s => s.fci);
-    const cedData = crono.map(s => s.cedears);
-    if(chartUSD) chartUSD.destroy();
-    chartUSD = new Chart(document.getElementById('chart-inv'),{
-      type:'line',
-      data:{
-        labels,
-        datasets:[
-          {
-            label:'FCI ($)',
-            data: fciData,
-            borderColor:'oklch(68% 0.20 300)',
-            backgroundColor:'oklch(68% 0.20 300 / 0.08)',
-            borderWidth:2, pointRadius:4, fill:true, tension:0.3,
-            yAxisID:'yFCI',
-          },
-          {
-            label:'CEDEARs (USD)',
-            data: cedData,
-            borderColor:'oklch(74% 0.16 258)',
-            backgroundColor:'oklch(74% 0.16 258 / 0.05)',
-            borderWidth:2, pointRadius:4, fill:false, tension:0.3,
-            yAxisID:'yCED',
+  // "Evolución de tenencias" vive en el dashboard principal (#inv-evolucion), no en el
+  // detalle colapsado — mismo estilo claro que el resto del dashboard, con las 3 cuentas.
+  const evolEl = document.getElementById('inv-evolucion');
+  if(evolEl){
+    evolEl.innerHTML = showChart ? `
+      <div class="inv-chart-card">
+        <h3>Evolución de tenencias</h3>
+        <div style="position:relative;height:220px;margin-top:14px">
+          <canvas id="chart-inv" role="img" aria-label="Evolución de FCI, CEDEARs y Jubilación"></canvas>
+        </div>
+      </div>` : '';
+    if(showChart){
+      const labels  = crono.map(s => new Date(s.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}));
+      const fciData = crono.map(s => s.fci);
+      const cedData = crono.map(s => s.cedears);
+      const jubData = crono.map(s => s.jubilacion || 0);
+      if(chartUSD) chartUSD.destroy();
+      chartUSD = new Chart(document.getElementById('chart-inv'),{
+        type:'line',
+        data:{
+          labels,
+          datasets:[
+            { label:'Fondo emergencia ($)', data:fciData, borderColor:'oklch(40% 0.13 155)', backgroundColor:'oklch(40% 0.13 155 / 0.08)', borderWidth:2, pointRadius:3, fill:true, tension:0.3, yAxisID:'yFCI' },
+            { label:'CEDEARs (USD)', data:cedData, borderColor:'oklch(46% 0.15 258)', backgroundColor:'oklch(46% 0.15 258 / 0.06)', borderWidth:2, pointRadius:3, fill:false, tension:0.3, yAxisID:'yUSD' },
+            { label:'Jubilación (USD)', data:jubData, borderColor:'oklch(48% 0.14 55)', backgroundColor:'oklch(48% 0.14 55 / 0.06)', borderWidth:2, pointRadius:3, fill:false, tension:0.3, yAxisID:'yUSD' },
+          ]
+        },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{ display:true, position:'top', labels:{ color:'oklch(52% 0.02 258)', font:{ size:11 }, boxWidth:10 } } },
+          scales:{
+            x:{ grid:{display:false}, ticks:{ font:{size:10}, color:'oklch(52% 0.02 258)' } },
+            yFCI:{ position:'left', grid:{ color:'oklch(90% 0.012 258)' }, ticks:{ font:{size:10}, color:'oklch(52% 0.02 258)', callback: v=>'$'+Math.round(v/1000)+'k' } },
+            yUSD:{ position:'right', grid:{ display:false }, ticks:{ font:{size:10}, color:'oklch(52% 0.02 258)', callback: v=>'US$'+Math.round(v).toLocaleString() } },
           }
-        ]
-      },
-      options:{
-        responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{ display:true, position:'top', labels:{ color:'#9999a8', font:{ size:11 } } } },
-        scales:{
-          x:{ grid:{display:false}, ticks:{ font:{size:10}, color:'#666660' } },
-          yFCI:{ position:'left', grid:{ color:'rgba(255,255,255,0.05)' }, ticks:{ font:{size:10}, color:'#666660', callback: v=>'$'+Math.round(v/1000)+'k' } },
-          yCED:{ position:'right', grid:{ display:false }, ticks:{ font:{size:10}, color:'#666660', callback: v=>'US$'+Math.round(v).toLocaleString() } },
         }
-      }
-    });
+      });
+    }
   }
 
   if(showRitmo){
@@ -7522,9 +7467,49 @@ if ('serviceWorker' in navigator) {
   </div>
 </div>
 
+<!-- SHEET: INTERÉS / GANANCIA -->
+<div id="fab-sheet-interes" class="fab-sheet">
+  <div class="fab-sheet-inner">
+    <div class="fab-sheet-header">
+      <h3>Interés / ganancia</h3>
+      <button class="fab-sheet-close" onclick="fabCloseSheet()" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Cartera</label>
+        <select id="int-pote">
+          <option value="fci">Fondo de emergencia · FCI</option>
+          <option value="cedears">CEDEARs</option>
+          <option value="jubilacion">Jubilación</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Monto (negativo si fue pérdida)</label>
+        <input type="number" id="int-monto" placeholder="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Fecha</label>
+        <input type="date" id="int-fecha">
+      </div>
+      <div class="form-group inline-action full">
+        <input type="text" id="int-nota" placeholder="Nota (opcional)">
+        <button class="btn btn-primary" onclick="fabRegistrarInteres()">Registrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- FAB ROOT -->
 <div id="fab-root">
   <div id="fab-menu">
+    <button class="fab-opt" onclick="fabOpenSheet('interes')" type="button">
+      <span class="fab-opt-label">Interés / ganancia</span>
+      <div class="fab-opt-icon interes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>
+      </div>
+    </button>
     <button class="fab-opt" onclick="fabOpenSheet('transf')" type="button">
       <span class="fab-opt-label">Transferencia</span>
       <div class="fab-opt-icon transf">
