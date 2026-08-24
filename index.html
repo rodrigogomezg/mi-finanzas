@@ -126,6 +126,7 @@
   .inv-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:6px; }
   @media (max-width:640px) { .inv-cards { grid-template-columns:1fr; } }
   .acc-card { border-radius:16px; padding:18px; position:relative; overflow:hidden; cursor:pointer; }
+  .acc-card:focus-visible { outline:2px solid var(--text); outline-offset:2px; }
   .acc-card .icon { font-size:20px; margin-bottom:10px; display:block; }
   .acc-card .name { font-size:12.5px; font-weight:700; margin-bottom:8px; padding-right:26px; }
   .acc-card .amt { font-family:'JetBrains Mono',monospace; font-size:21px; font-weight:800; letter-spacing:-0.01em; margin-bottom:10px; }
@@ -153,6 +154,12 @@
   .theme-light .expand { text-align:center; margin:6px 0 0; }
   .theme-light .expand button { border:none; background:none; color:var(--muted); font-size:12px; font-weight:700; font-family:'Manrope',sans-serif; cursor:pointer; display:inline-flex; align-items:center; gap:6px; padding:8px 14px; }
   .theme-light .expand button:hover { color:var(--text); }
+
+  /* El detalle expandido (modo colchón, historial, ritmo de aportes, transferencias) usaba
+     el mismo chrome de esquina recta que el resto de la app oscura — acá se redondea para
+     que no se note como una capa de rediseño distinta pegada debajo del dashboard nuevo. */
+  .theme-light .table-wrap { border-radius:16px; }
+  .theme-light .progress-section { border:1px solid var(--border); border-radius:16px; background:var(--surface); padding:16px; border-bottom:none; }
 
   * { margin:0; padding:0; box-sizing:border-box; }
   :root { color-scheme: dark; }
@@ -1922,16 +1929,26 @@ function abrirModalInv(id){
   const sign       = inv.monto >= 0 ? '+' : '';
   const montoTxt   = `${sign}${esUSD ? fmtU(inv.monto) : fmt(inv.monto)}`;
   const color      = esInteres ? (inv.monto >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--blue)';
+
+  // Si esta inversión es una de las dos patas de una transferencia entre potes (ver
+  // gf_transferirSaldo), borrarla sola dejaría la otra pata huérfana y el saldo descuadrado.
+  // Hay que borrar la transferencia completa (las dos patas juntas) vía gf_eliminarTransferenciaSaldo.
+  const transfLigada = gf_transferenciasSaldo.find(t => t.invIds && t.invIds.includes(inv.id));
+  const deleteAction = transfLigada
+    ? `_movModalClose();gf_eliminarTransferenciaSaldo(${transfLigada.id})`
+    : `_movModalClose();eliminarInversion(${inv.id})`;
+
   _movModalOpen(`<div class="modal-content" style="width:320px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h3 style="font-size:15px;font-weight:600;margin:0">Inversión · ${invLabels[inv.tipo]||inv.tipo}</h3>
       <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
     </div>
     ${esInteres ? `<p style="font-size:12px;color:var(--muted);margin-bottom:8px">Diferencia entre el saldo confirmado y lo esperado por base + aportes, registrada automáticamente al actualizar el saldo.</p>` : ''}
+    ${transfLigada ? `<p style="font-size:12px;color:var(--muted);margin-bottom:8px">Es una mitad de una transferencia entre potes (${POTES[transfLigada.origen]?.label||transfLigada.origen} → ${POTES[transfLigada.destino]?.label||transfLigada.destino}). Al eliminar se borran las dos patas juntas para que el saldo no quede descuadrado.</p>` : ''}
     ${inv.nota ? `<p style="font-size:13px;margin-bottom:4px">${esc(inv.nota)}</p>` : ''}
     <p style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:${color};margin-bottom:20px">${montoTxt}</p>
     <div style="display:flex;gap:8px;justify-content:space-between">
-      <button class="btn btn-danger btn-sm" onclick="_movModalClose();eliminarInversion(${inv.id})">Eliminar</button>
+      <button class="btn btn-danger btn-sm" onclick="${deleteAction}">${transfLigada ? 'Eliminar transferencia' : 'Eliminar'}</button>
       <button class="btn btn-sm" onclick="_movModalClose()">Cerrar</button>
     </div>
   </div>`);
@@ -3371,18 +3388,23 @@ function _getUltimoAporte(tipo){
 // ya cerrados (no cuenta el mes en curso, todavía incompleto) — ritmo de referencia para
 // las proyecciones y para mostrar "cuánto vengo aportando por mes" de forma más estable
 // que mirar un solo mes.
+// Solo cuenta monto > 0: una transferencia de SALIDA hacia otro pote (ver gf_transferirSaldo)
+// también queda registrada con tipo 'fci'/'cedears'/'jubilacion' pero monto NEGATIVO — sin este
+// filtro, un retiro grande diluye o incluso vuelve negativo el "ritmo de aportes", que se supone
+// mide específicamente cuánto estás poniendo, no el flujo neto.
 function _getAportePromedioMensual(tipo, meses = 3){
   const hoy    = new Date();
   const inicio = new Date(hoy.getFullYear(), hoy.getMonth() - meses, 1);
   const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), 0, 23, 59, 59);
   const total = inversiones
-    .filter(i => i.tipo === tipo && new Date(i.fecha + 'T12:00') >= inicio && new Date(i.fecha + 'T12:00') <= fin)
+    .filter(i => i.tipo === tipo && i.monto > 0 && new Date(i.fecha + 'T12:00') >= inicio && new Date(i.fecha + 'T12:00') <= fin)
     .reduce((s, i) => s + i.monto, 0);
-  return Math.max(0, total) / meses;
+  return total / meses;
 }
 
 // Aportes reales por mes calendario (FCI y CEDEARs por separado), últimos `meses` meses
-// incluyendo el actual — para el gráfico de ritmo de aportes.
+// incluyendo el actual — para el gráfico de ritmo de aportes. Igual que en
+// _getAportePromedioMensual, se excluyen los montos negativos (retiros/transferencias de salida).
 function _getAportesPorMes(meses = 6){
   const hoy = new Date();
   const out = [];
@@ -3391,7 +3413,7 @@ function _getAportesPorMes(meses = 6){
     const inicio = new Date(d.getFullYear(), d.getMonth(), 1);
     const fin    = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
     const enRango = (tipo) => inversiones
-      .filter(v => v.tipo === tipo && new Date(v.fecha + 'T12:00') >= inicio && new Date(v.fecha + 'T12:00') <= fin)
+      .filter(v => v.tipo === tipo && v.monto > 0 && new Date(v.fecha + 'T12:00') >= inicio && new Date(v.fecha + 'T12:00') <= fin)
       .reduce((s, v) => s + v.monto, 0);
     out.push({
       label: d.toLocaleDateString('es-AR', { month: 'short' }).replace('.', ''),
@@ -3413,13 +3435,21 @@ function _getRendimientoPct(saldoTotal, interesAcumulado){
 }
 
 // Texto de proyección: a cuántos meses, al ritmo del mes anterior, se completa lo que falta.
+// Mismo tope de 1200 meses (100 años) que _proyeccionCompuesta(), para que un aporte promedio
+// muy chico no muestre un número de meses absurdo ("faltan ~2701 meses") — a partir de 2 años
+// se expresa en años en vez de meses, que es más legible.
 function _proyeccionLinea(restante, aporteMensual, fmtFn){
   if(restante <= 0) return '';
   if(!aporteMensual || aporteMensual <= 0){
     return `<div style="font-size:10px;color:var(--muted);margin-top:3px">Sin aportes en los últimos 3 meses para proyectar</div>`;
   }
   const meses = restante / aporteMensual;
-  const mesesTxt = meses < 1 ? 'menos de 1 mes' : `~${Math.ceil(meses)} mes${Math.ceil(meses)!==1?'es':''}`;
+  if(meses >= 1200){
+    return `<div style="font-size:10px;color:var(--muted);margin-top:3px">Al ritmo de ${fmtFn(aporteMensual)}/mes (prom. 3 meses): no es realista proyectar una fecha (llevaría más de 100 años)</div>`;
+  }
+  const mesesTxt = meses < 1 ? 'menos de 1 mes'
+    : meses <= 24 ? `~${Math.ceil(meses)} mes${Math.ceil(meses)!==1?'es':''}`
+    : `~${(meses/12).toFixed(1)} años`;
   return `<div style="font-size:10px;color:var(--muted);margin-top:3px">Al ritmo de ${fmtFn(aporteMensual)}/mes (prom. 3 meses) faltan ${mesesTxt}</div>`;
 }
 
@@ -4936,7 +4966,7 @@ function _renderInvDashboard(d){
       <span class="lg"><span class="sw" style="background:var(--jub-fg)"></span>Jubilación ${Math.round(pJub)}%</span>
     </div>` : ''}
     <div class="inv-cards">
-      <div class="acc-card acc-fci" onclick="inv_toggleCardDetalle('fci')">
+      <div class="acc-card acc-fci" onclick="inv_toggleCardDetalle('fci')" tabindex="0" role="button" aria-label="Fondo de emergencia, ${fmtSel(fciDisp)}, ${d.pct2}% del objetivo — ver detalle" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
         <button class="info-btn" style="pointer-events:none">i</button>
         <span class="icon">🛟</span>
         <div class="name">Fondo de emergencia</div>
@@ -4949,7 +4979,7 @@ function _renderInvDashboard(d){
           { k:'Rendimiento', v: rendTxt(d.fciSaldo, d.deltaFCI) },
         ])}
       </div>
-      <div class="acc-card acc-ced" onclick="inv_toggleCardDetalle('cedears')">
+      <div class="acc-card acc-ced" onclick="inv_toggleCardDetalle('cedears')" tabindex="0" role="button" aria-label="CEDEARs, ${fmtSel(cedDisp)}, ${d.pct100}% de US$100.000 — ver detalle" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
         <button class="info-btn" style="pointer-events:none">i</button>
         <span class="icon">📈</span>
         <div class="name">CEDEARs</div>
@@ -4962,7 +4992,7 @@ function _renderInvDashboard(d){
           { k:'Rendimiento', v: rendTxt(d.cedUSD, d.deltaCED) },
         ])}
       </div>
-      <div class="acc-card acc-jub" onclick="inv_toggleCardDetalle('jubilacion')">
+      <div class="acc-card acc-jub" onclick="inv_toggleCardDetalle('jubilacion')" tabindex="0" role="button" aria-label="Jubilación, ${fmtSel(jubDisp)}, ${d.pctJub}% del objetivo a los 65 — ver detalle" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
         <button class="info-btn" style="pointer-events:none">i</button>
         <span class="icon">🎯</span>
         <div class="name">Jubilación</div>
@@ -5094,18 +5124,25 @@ function renderTarjeta(){
     : `TC $${tc.toLocaleString('es-AR')}`;
   _renderInvDashboard({ fciSaldo, cedUSD, jubSaldo, tc, hayDatos, pct2, pct100, pctJub, objJub, deltaFCI, deltaCED, deltaJub, promFCI, promCED, promJub });
 
-  panel.innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:0;overflow:hidden;margin-bottom:20px">
-      <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+  // Cada bloque es su propia tarjeta redondeada (mismo lenguaje visual que las 3 cards de
+  // arriba, con su ícono a juego) en vez de un único panel de esquinas rectas con divisores —
+  // antes esta sección quedaba visualmente pegada del rediseño claro de más arriba.
+  const cardWrap = (inner) => `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:14px">${inner}</div>`;
+  const cardHeader = (icon, label) => `<div style="font-size:12px;font-weight:600;letter-spacing:-0.01em;display:flex;align-items:center;gap:7px;margin-bottom:10px"><span style="font-size:15px">${icon}</span>${label}</div>`;
+
+  panel.innerHTML =
+    cardWrap(`
+      <div style="padding:14px 16px">
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:3px">Modo del colchón</div>
         <div style="font-size:14px;font-weight:600;letter-spacing:-0.01em;color:${faseInfo.color}">${faseInfo.label}</div>
         <div style="font-size:12px;color:var(--muted);margin-top:2px">${faseInfo.desc}</div>
       </div>
-      ${noData}
-      ${hayDatos ? `
-      <div style="padding:14px 16px;border-bottom:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
-          <span style="font-size:12px;font-weight:600;letter-spacing:-0.01em">Fondo de emergencia · FCI</span>
+    `) +
+    (noData ? cardWrap(`<div style="padding:16px">${noData}</div>`) : '') +
+    (!hayDatos ? '' : cardWrap(`
+      <div style="padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+          ${cardHeader('🛟', 'Fondo de emergencia · FCI')}
           <span style="display:flex;align-items:baseline">
             <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:var(--purple)">${fmt(fciSaldo)}</span>
             ${deltaChip(deltaFCI, true)}
@@ -5138,9 +5175,11 @@ function renderTarjeta(){
           ${proy2}
         </div>
       </div>
-      <div style="padding:14px 16px">
+    `)) +
+    (!hayDatos ? '' : cardWrap(`
+      <div style="padding:16px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
-          <span style="font-size:12px;font-weight:600;letter-spacing:-0.01em">CEDEARs</span>
+          ${cardHeader('📈', 'CEDEARs')}
           <span style="display:flex;align-items:baseline">
             <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:var(--blue)">${fmtU(cedUSD)}</span>
             ${deltaChip(deltaCED, false)}
@@ -5177,9 +5216,11 @@ function renderTarjeta(){
         </div>
         ${latest ? `<div style="font-size:11px;color:var(--muted);margin-top:8px">Actualizado: ${new Date(latest.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'long',year:'numeric'})}</div>` : ''}
       </div>
-      <div style="padding:14px 16px;border-top:1px solid var(--border)">
+    `)) +
+    (!hayDatos ? '' : cardWrap(`
+      <div style="padding:16px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
-          <span style="font-size:12px;font-weight:600;letter-spacing:-0.01em">Jubilación · QQQD</span>
+          ${cardHeader('🎯', 'Jubilación · QQQD')}
           <span style="display:flex;align-items:baseline">
             <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;color:var(--amber)">${fmtU(jubSaldo)}</span>
             ${deltaChip(deltaJub, false)}
@@ -5203,8 +5244,8 @@ function renderTarjeta(){
           <div style="font-size:10px;color:var(--muted);margin-top:3px">${fmtU(jubSaldo)} de ${fmtU(objJub.objetivoTotalUSD)} proyectados · ${Math.round(objJub.tnaAnual*100)}% anual compuesto + ${fmtU(objJub.metaJubUSD)}/mes</div>
           <div style="font-size:10px;color:var(--muted);margin-top:1px">Sin crecimiento (solo lo que pondrías de tu bolsillo): ${fmtU(objJub.totalAportarUSD)}</div>
         </div>
-      </div>` : ''}
-    </div>`;
+      </div>
+    `));
 
   // ── Evolución + historial: snapshots manuales + depósitos automáticos ──
   if(!cartera) return;
@@ -5326,6 +5367,11 @@ function renderTarjeta(){
       const fciData = crono.map(s => s.fci);
       const cedData = crono.map(s => s.cedears);
       const jubData = crono.map(s => s.jubilacion || 0);
+      // Jubilación recién empieza y es mucho más chica que CEDEARs (decenas de USD contra
+      // miles) — si comparte eje con CEDEARs, su línea queda pegada al piso e ilegible. Le
+      // damos un eje propio (Chart.js apila automáticamente los ejes en el mismo lado) solo
+      // cuando ya tiene algo de saldo; si todavía está en $0 no vale la pena el eje extra.
+      const showJubAxis = jubData.some(v => v > 0);
       if(chartUSD) chartUSD.destroy();
       chartUSD = new Chart(document.getElementById('chart-inv'),{
         type:'line',
@@ -5334,7 +5380,7 @@ function renderTarjeta(){
           datasets:[
             { label:'Fondo emergencia ($)', data:fciData, borderColor:'oklch(40% 0.13 155)', backgroundColor:'oklch(40% 0.13 155 / 0.08)', borderWidth:2, pointRadius:3, fill:true, tension:0.3, yAxisID:'yFCI' },
             { label:'CEDEARs (USD)', data:cedData, borderColor:'oklch(46% 0.15 258)', backgroundColor:'oklch(46% 0.15 258 / 0.06)', borderWidth:2, pointRadius:3, fill:false, tension:0.3, yAxisID:'yUSD' },
-            { label:'Jubilación (USD)', data:jubData, borderColor:'oklch(48% 0.14 55)', backgroundColor:'oklch(48% 0.14 55 / 0.06)', borderWidth:2, pointRadius:3, fill:false, tension:0.3, yAxisID:'yUSD' },
+            { label:'Jubilación (USD)', data:jubData, borderColor:'oklch(48% 0.14 55)', backgroundColor:'oklch(48% 0.14 55 / 0.06)', borderWidth:2, pointRadius:3, fill:false, tension:0.3, yAxisID: showJubAxis ? 'yJub' : 'yUSD' },
           ]
         },
         options:{
@@ -5344,6 +5390,7 @@ function renderTarjeta(){
             x:{ grid:{display:false}, ticks:{ font:{size:10}, color:'oklch(52% 0.02 258)' } },
             yFCI:{ position:'left', grid:{ color:'oklch(90% 0.012 258)' }, ticks:{ font:{size:10}, color:'oklch(52% 0.02 258)', callback: v=>'$'+Math.round(v/1000)+'k' } },
             yUSD:{ position:'right', grid:{ display:false }, ticks:{ font:{size:10}, color:'oklch(52% 0.02 258)', callback: v=>'US$'+Math.round(v).toLocaleString() } },
+            ...(showJubAxis ? { yJub:{ position:'right', grid:{ display:false }, ticks:{ font:{size:10}, color:'oklch(48% 0.14 55)', callback: v=>'US$'+Math.round(v).toLocaleString() } } } : {}),
           }
         }
       });
