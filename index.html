@@ -5259,46 +5259,6 @@ function renderTarjeta(){
   const ritmoMeses = _getAportesPorMes(6);
   const showRitmo  = typeof Chart !== 'undefined' && ritmoMeses.some(m => m.fci > 0 || m.cedears > 0);
 
-  // Historial: UNA fila por fecha (snapshot + aportes + interés de ese día consolidados),
-  // con el desglose de aporte vs. interés en la nota.
-  const filas = _getHistorialFilas();
-  const snapRows = filas.length
-    ? filas.slice().reverse().map((f,i,arr) => {
-        const p       = arr[i+1] || null;
-        const dFCI    = p ? f.fci - p.fci : null;
-        const dCED    = p ? f.cedears - p.cedears : null;
-        const fmtD    = (v, isFCI) => v === null ? '' : `<span style="font-size:11px;color:${v>=0?'var(--green)':'var(--red)'}">${v>=0?'+':''}${isFCI?fmt(v):fmtU(v)}</span>`;
-
-        const bits = [];
-        if(Math.round(f.aporteFCI*100)!==0 || Math.round(f.aporteCED*100)!==0){
-          bits.push(`Aporte ${_fmtDeltaPar(f.aporteFCI, f.aporteCED)}`);
-        }
-        if(Math.round(f.interesFCI*100)!==0 || Math.round(f.interesCED*100)!==0){
-          bits.push(`<span style="color:var(--green)">Interés ${_fmtDeltaPar(f.interesFCI, f.interesCED)}</span>`);
-        }
-        const notaOtros = [f.notaManual, ...f.notasAuto].filter(Boolean).join(' · ');
-        const notaTxt = [
-          !f.esManual ? `<span style="color:var(--blue);font-weight:600">Auto</span>` : '',
-          bits.join(' · '),
-          notaOtros ? esc(notaOtros) : ''
-        ].filter(Boolean).join(' · ') || '<span style="color:var(--muted)">—</span>';
-
-        const accion = f.esManual
-          ? `<button class="btn btn-danger btn-sm" onclick="eliminarActualizacionSaldo('${f.fecha}')">×</button>`
-          : f.autoIds.length
-            ? `<button class="btn btn-sm" style="background:transparent;border:1px solid var(--blue-border);color:var(--blue)" onclick="abrirModalInv(${f.autoIds[0]})">Ver</button>`
-            : '';
-
-        return `<tr>
-          <td style="white-space:nowrap">${new Date(f.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
-          <td style="font-family:'JetBrains Mono',monospace;color:var(--purple)">${fmt(f.fci)} ${fmtD(dFCI,true)}</td>
-          <td style="font-family:'JetBrains Mono',monospace;color:var(--blue)">${fmtU(f.cedears)} ${fmtD(dCED,false)}</td>
-          <td style="color:var(--muted);font-size:12px">${notaTxt}</td>
-          <td style="text-align:right">${accion}</td>
-        </tr>`;
-      }).join('')
-    : `<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin registros aún</td></tr>`;
-
   // Transferencias que tocan alguna cartera de inversión (FCI/CEDEARs/Jubilación) — las que
   // son puramente Disponible↔Separado se ven en Gastos Fijos, no acá (ver gf_renderHistorialMes).
   const transfInv = gf_transferenciasSaldo
@@ -5333,19 +5293,6 @@ function renderTarjeta(){
         <canvas id="chart-inv-ritmo" role="img" aria-label="Aportes mensuales a FCI y CEDEARs"></canvas>
       </div>
     </div>` : ''}
-    <div class="table-wrap table-wrap-sm" style="margin-top:20px">
-      <div class="table-header"><h3>Historial semanal</h3></div>
-      <table>
-        <thead><tr>
-          <th>Fecha</th>
-          <th>FCI ($)</th>
-          <th>CEDEARs (USD)</th>
-          <th>Nota</th>
-          <th></th>
-        </tr></thead>
-        <tbody>${snapRows}</tbody>
-      </table>
-    </div>
     ${transfInv.length ? `<div class="progress-section" style="margin-top:20px">
       <h3>Transferencias entre potes</h3>
       ${transfInvRows}
