@@ -2247,6 +2247,25 @@ function _sfSueldo(filtroYm){
 }
 
 // ── SALDO BOLSILLOS ───────────────────────────────────────
+// Los 5 "potes" en los que se puede guardar plata — fuente única de nombres/moneda para
+// el sheet de Transferencia, las listas de historial y el modal de edición, en vez de tener
+// varios mapas locales duplicados (como pasaba antes con GF_LABELS).
+const POTES = {
+  disponible: { label:'Disponible',  moneda:'ARS' },
+  separado:   { label:'Separado GF', moneda:'ARS' },
+  fci:        { label:'FCI',         moneda:'ARS' },
+  cedears:    { label:'CEDEARs',     moneda:'USD' },
+  jubilacion: { label:'Jubilación',  moneda:'USD' },
+};
+
+function _getSaldoPote(pote){
+  if(pote === 'disponible' || pote === 'separado') return gf_getSaldos()[pote];
+  if(pote === 'fci') return _getFCISaldo();
+  if(pote === 'cedears') return _getCedearsSaldoUSD();
+  if(pote === 'jubilacion') return _getJubilacionSaldoUSD();
+  return 0;
+}
+
 function gf_getSaldos(){
   const ORDER = { saldo_inicial: -1, cobro: 0, transf: 1, gf_transf: 1, gasto: 2 };
   const events = [
@@ -2293,10 +2312,14 @@ function gf_getSaldos(){
       if(ev.de === 'disponible')   disp -= ev.monto;
       if(ev.a  === 'disponible')   disp += ev.monto;
     } else if(t === 'gf_transf'){
+      // ev.monto siempre está en la moneda del ORIGEN; ev.montoDestino (si difiere de
+      // moneda) es lo que realmente entra del lado del destino — usar el que corresponda
+      // a cada pata para no sumar/restar un monto en la moneda equivocada.
+      const montoDestino = ev.montoDestino ?? ev.monto;
       if(ev.origen  === 'disponible') disp -= ev.monto;
-      if(ev.destino === 'disponible') disp += ev.monto;
+      if(ev.destino === 'disponible') disp += montoDestino;
       if(ev.origen  === 'separado')   sep  -= ev.monto;
-      if(ev.destino === 'separado')   sep  += ev.monto;
+      if(ev.destino === 'separado')   sep  += montoDestino;
     }
   }
   return { separado: sep, disponible: disp };
@@ -2415,22 +2438,73 @@ function gf_calcularRecomendacion(mesAnio){
   return { fondoNecesario, fondoAcumulado, fondoFaltante, sabadosRestantes, recomendacionPorSabado };
 }
 
+const POTES_INVERSION = ['fci', 'cedears', 'jubilacion'];
+
+// Una transferencia cruzada puede necesitar hasta 3 ids nuevos en el mismo tick (2 patas en
+// inversiones + el evento). Date.now() solo no alcanza si dos transferencias se disparan en
+// el mismo milisegundo (ej. tests automatizados, o doble-click) — este contador garantiza que
+// cada llamada reserva un rango de ids que nunca se pisa con el de la llamada anterior.
+let _ultimoIdTransferencia = 0;
+function _reservarIdsTransferencia(cantidad){
+  const base = Math.max(Date.now(), _ultimoIdTransferencia + 1);
+  _ultimoIdTransferencia = base + cantidad;
+  return base;
+}
+
 async function gf_transferirSaldo(origen, destino, monto, concepto, tipo){
-  const saldos = gf_getSaldos();
-  if(origen === 'disponible' && saldos.disponible < monto){
-    toast('Saldo disponible insuficiente', 'err'); return false;
+  if(origen === destino){
+    toast('Elegí dos potes distintos', 'err'); return false;
   }
-  if(origen === 'separado' && saldos.separado < monto){
-    toast('Saldo separado insuficiente', 'err'); return false;
+  const saldoOrigen = _getSaldoPote(origen);
+  if(saldoOrigen < monto){
+    toast(`Saldo insuficiente en ${POTES[origen]?.label || origen}`, 'err'); return false;
   }
+
+  const fecha = new Date().toISOString().split('T')[0];
+  const now   = _reservarIdsTransferencia(3);
+  const invIds = [];
+
+  // Si el origen es una cartera de inversión, se resta con un aporte NEGATIVO — mismo
+  // mecanismo que un aporte real (en sentido contrario), así _saldoEsperado() y el saldo
+  // corrido de _getEvolucionPuntos() quedan consistentes sin tocar esas funciones.
+  if(POTES_INVERSION.includes(origen)){
+    const id = now + invIds.length + 1;
+    inversiones.push({ id, tipo: origen, monto: -monto, fecha, nota: `Transferencia a ${POTES[destino]?.label || destino}${concepto ? ` — ${concepto}` : ''}` });
+    invIds.push(id);
+  }
+
+  // El monto se escribe siempre en la moneda del pote de ORIGEN; si el destino usa otra
+  // moneda se convierte al TC actual, mismo criterio que ya usa la distribución de cobros.
+  const monedaOrigen  = POTES[origen]?.moneda  || 'ARS';
+  const monedaDestino = POTES[destino]?.moneda || 'ARS';
+  const tc = _getTCActual();
+  let montoDestino = monto;
+  if(monedaOrigen !== monedaDestino){
+    montoDestino = monedaOrigen === 'ARS'
+      ? Math.round((monto / tc) * 100) / 100  // ARS -> USD
+      : Math.round(monto * tc);               // USD -> ARS
+  }
+
+  if(POTES_INVERSION.includes(destino)){
+    const id = now + invIds.length + 1;
+    inversiones.push({ id, tipo: destino, monto: montoDestino, fecha, nota: `Transferencia desde ${POTES[origen]?.label || origen}${concepto ? ` — ${concepto}` : ''}` });
+    invIds.push(id);
+  }
+  if(invIds.length) await S.set('inversiones', inversiones);
+
   const entrada = {
-    id: Date.now(),
-    fecha: new Date().toISOString().split('T')[0],
+    id: now,
+    fecha,
     origen,
     destino,
     monto,
+    montoDestino,
+    monedaOrigen,
+    monedaDestino,
+    tc: monedaOrigen !== monedaDestino ? tc : null,
     concepto: concepto || '',
     tipo: tipo || 'transferencia',
+    invIds: invIds.length ? invIds : undefined,
   };
   gf_transferenciasSaldo.push(entrada);
   await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
@@ -2534,15 +2608,50 @@ async function gf_registrarSeparacion(){
   gf_renderGastosFijos();
 }
 
+function gf_actualizarPreviewTransferencia(){
+  const origenEl  = document.getElementById('gf-transf-origen');
+  const destinoEl = document.getElementById('gf-transf-destino');
+  const montoEl   = document.getElementById('gf-transf-monto');
+  const previewEl = document.getElementById('gf-transf-preview');
+  if(!origenEl || !destinoEl || !montoEl || !previewEl) return;
+
+  const origen  = origenEl.value;
+  const destino = destinoEl.value;
+  const potOrigen = POTES[origen];
+  if(!potOrigen) return;
+
+  montoEl.placeholder = `Monto (${potOrigen.moneda})`;
+  const saldoOrigen = _getSaldoPote(origen);
+  const fmtOrigen = potOrigen.moneda === 'USD' ? fmtU : fmt;
+
+  if(origen === destino){
+    previewEl.textContent = 'Elegí dos potes distintos';
+    previewEl.style.color = 'var(--red)';
+    return;
+  }
+
+  let txt = `Disponible en ${potOrigen.label}: ${fmtOrigen(saldoOrigen)}`;
+  const monto = parseFloat(montoEl.value);
+  const potDestino = POTES[destino];
+  if(monto > 0 && potDestino && potDestino.moneda !== potOrigen.moneda){
+    const tc = _getTCActual();
+    const montoDestino = potOrigen.moneda === 'ARS' ? Math.round((monto/tc)*100)/100 : Math.round(monto*tc);
+    const fmtDestino = potDestino.moneda === 'USD' ? fmtU : fmt;
+    txt += ` · ≈ ${fmtDestino(montoDestino)} a ${potDestino.label} @ TC $${tc.toLocaleString('es-AR')}`;
+  }
+  previewEl.textContent = txt;
+  previewEl.style.color = 'var(--muted)';
+}
+
 async function gf_hacerTransferencia(){
-  const dirEl   = document.getElementById('gf-transf-dir');
-  const montoEl = document.getElementById('gf-transf-monto');
-  const concEl  = document.getElementById('gf-transf-concepto');
-  const dir     = dirEl?.value; // 'disp-sep' | 'sep-disp'
+  const origenEl  = document.getElementById('gf-transf-origen');
+  const destinoEl = document.getElementById('gf-transf-destino');
+  const montoEl   = document.getElementById('gf-transf-monto');
+  const concEl    = document.getElementById('gf-transf-concepto');
+  const origen  = origenEl?.value;
+  const destino = destinoEl?.value;
   const monto   = parseFloat(montoEl?.value);
   if(!monto || monto <= 0){ toast('Ingresá un monto válido', 'err'); return; }
-  const origen  = dir === 'disp-sep' ? 'disponible' : 'separado';
-  const destino = dir === 'disp-sep' ? 'separado'   : 'disponible';
   const ok = await gf_transferirSaldo(origen, destino, monto, concEl?.value || '');
   if(!ok) return;
   if(montoEl) montoEl.value = '';
@@ -2550,6 +2659,8 @@ async function gf_hacerTransferencia(){
   toast('✓ Transferencia realizada');
   fabCloseSheet();
   gf_renderGastosFijos();
+  renderTarjeta();
+  renderResumen();
 }
 
 function gf_abrirModalConfig(mesAnio){
@@ -2658,32 +2769,78 @@ async function gf_eliminarSeparacion(id){
 }
 
 async function gf_eliminarTransferenciaSaldo(id){
-  await softDelete({
-    arr:     gf_transferenciasSaldo,
-    id,
-    setKey:  'gf_transferenciasSaldo',
-    render:  gf_renderGastosFijos,
-    label:   'Transferencia',
-  });
+  const t = gf_transferenciasSaldo.find(x => x.id === id);
+  if(!t) return;
+
+  // Transferencia clásica disponible↔separado (o una "separación semanal") — sin patas en
+  // inversiones, se puede usar el softDelete() genérico sin más.
+  if(!t.invIds || !t.invIds.length){
+    await softDelete({
+      arr:     gf_transferenciasSaldo,
+      id,
+      setKey:  'gf_transferenciasSaldo',
+      render:  () => { gf_renderGastosFijos(); renderTarjeta(); },
+      label:   'Transferencia',
+    });
+    return;
+  }
+
+  // Transferencia cruzada: el evento y sus patas en `inversiones` tienen que borrarse (y
+  // deshacerse) juntos — mismo patrón que eliminarActualizacionSaldo() para snapshots+interés.
+  if(_pendingUndo){ clearTimeout(_pendingUndo.timer); _pendingUndo = null; }
+
+  const idx = gf_transferenciasSaldo.findIndex(x => x.id === id);
+  const invRemovidas = inversiones.filter(i => t.invIds.includes(i.id));
+
+  gf_transferenciasSaldo.splice(idx, 1);
+  inversiones = inversiones.filter(i => !t.invIds.includes(i.id));
+
+  await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
+  await S.set('inversiones', inversiones);
+  gf_renderGastosFijos();
+  renderTarjeta();
+
+  const timer = setTimeout(() => { _pendingUndo = null; }, 4500);
+  _pendingUndo = {
+    timer,
+    async restore(){
+      gf_transferenciasSaldo.splice(idx, 0, t);
+      inversiones = [...inversiones, ...invRemovidas];
+      await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
+      await S.set('inversiones', inversiones);
+      gf_renderGastosFijos();
+      renderTarjeta();
+    }
+  };
+  toast(`Transferencia eliminada · <button onclick="undoDelete()" style="background:none;border:none;color:var(--text);font-weight:600;cursor:pointer;text-decoration:underline;padding:0 0 0 6px;font-size:inherit;font-family:inherit">Deshacer</button>`, 'warn', 4800);
 }
 
 function gf_abrirModalEditarTransf(id){
   const t = gf_transferenciasSaldo.find(x => x.id === id);
   if(!t) return;
-  const GF_LABELS = { disponible:'Disponible', separado:'Separado' };
-  const label = esc(t.concepto) || `${GF_LABELS[t.origen]||t.origen} → ${GF_LABELS[t.destino]||t.destino}`;
+  const label = esc(t.concepto) || `${POTES[t.origen]?.label || t.origen} → ${POTES[t.destino]?.label || t.destino}`;
+  const esCruzada = !!(t.invIds && t.invIds.length);
+  const montoTxt  = t.monedaOrigen === 'USD' ? fmtU(t.monto) : fmt(t.monto);
+  // Las cruzadas (con patas en inversiones) no se editan en línea — cambiar el monto acá
+  // desincronizaría el saldo del pote de inversión, que quedó escrito en un registro aparte.
+  // Más simple y seguro: borrar y recrear con el monto correcto.
   _movModalOpen(`<div class="modal-content" style="width:300px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h3 style="font-size:15px;font-weight:600;margin:0">Editar movimiento</h3>
       <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
     </div>
     <p style="font-size:13px;color:var(--muted);margin-bottom:10px">${label}</p>
+    ${esCruzada ? `
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Monto: <strong style="color:var(--text)">${montoTxt}</strong><br>Esta transferencia mueve plata hacia/desde una cartera de inversión — no se puede editar el monto en línea. Borrala y creá una nueva con el monto correcto.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-sm" onclick="_movModalClose()">Cerrar</button>
+    </div>` : `
     <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Monto</label>
     <input type="number" id="gf-edit-transf-monto" value="${t.monto}" min="1" style="margin-bottom:16px;width:100%">
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-sm" onclick="_movModalClose()">Cancelar</button>
       <button class="btn btn-primary btn-sm" onclick="gf_guardarEditTransf(${id})">Guardar</button>
-    </div>
+    </div>`}
   </div>`);
 }
 
@@ -2835,21 +2992,29 @@ function gf_renderHistorialMes(mesAnio){
   const el = document.getElementById('gf-historial-mes');
   if(!el) return;
   const separaciones = gf_separacionesSemana.filter(s => s.mesAnio === mesAnio);
+  // Solo transferencias que realmente tocan el separado — con los 5 potes, una transferencia
+  // que no lo involucra (ej. Disponible→FCI) no pertenece a esta lista (se ve en Inversiones).
   const transferencias = gf_transferenciasSaldo.filter(t => {
     const [y,m] = mesAnio.split('-').map(Number);
     const d = new Date(t.fecha+'T12:00');
-    return d.getFullYear() === y && d.getMonth()+1 === m;
+    if(d.getFullYear() !== y || d.getMonth()+1 !== m) return false;
+    return t.origen === 'separado' || t.destino === 'separado';
   });
 
   const rows = [
     ...separaciones.map(s => ({ _tipo:'sep',   _id: s.id, fecha: s.fecha, tipo: 'Separación semanal', monto: s.monto, dir: 'entrada' })),
-    ...transferencias.map(t => ({
-      _tipo:'transf', _id: t.id,
-      fecha: t.fecha,
-      tipo: t.concepto || `${t.origen} → ${t.destino}`,
-      monto: t.monto,
-      dir: t.destino === 'separado' ? 'entrada' : 'salida',
-    })),
+    ...transferencias.map(t => {
+      // El monto guardado está en la moneda del ORIGEN; para esta lista (siempre en pesos,
+      // porque separado es ARS) hay que tomar el lado que corresponde a separado.
+      const montoSeparado = t.origen === 'separado' ? t.monto : (t.montoDestino ?? t.monto);
+      return {
+        _tipo:'transf', _id: t.id,
+        fecha: t.fecha,
+        tipo: t.concepto || `${POTES[t.origen]?.label || t.origen} → ${POTES[t.destino]?.label || t.destino}`,
+        monto: montoSeparado,
+        dir: t.destino === 'separado' ? 'entrada' : 'salida',
+      };
+    }),
   ].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
 
   const rowsHtml = rows.length
@@ -4902,6 +5067,32 @@ function renderTarjeta(){
       }).join('')
     : `<tr><td colspan="5" style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin registros aún</td></tr>`;
 
+  // Transferencias que tocan alguna cartera de inversión (FCI/CEDEARs/Jubilación) — las que
+  // son puramente Disponible↔Separado se ven en Gastos Fijos, no acá (ver gf_renderHistorialMes).
+  const transfInv = gf_transferenciasSaldo
+    .filter(t => POTES_INVERSION.includes(t.origen) || POTES_INVERSION.includes(t.destino))
+    .sort((a,b) => new Date(b.fecha+'T12:00') - new Date(a.fecha+'T12:00') || b.id - a.id);
+  const transfInvRows = transfInv.length
+    ? transfInv.map(t => {
+        const label = esc(t.concepto) || `${POTES[t.origen]?.label || t.origen} → ${POTES[t.destino]?.label || t.destino}`;
+        const fmtOrigen  = t.monedaOrigen === 'USD' ? fmtU : fmt;
+        const fmtDestino = t.monedaDestino === 'USD' ? fmtU : fmt;
+        const montoTxt = t.monedaOrigen !== t.monedaDestino
+          ? `${fmtOrigen(t.monto)} → ${fmtDestino(t.montoDestino)}`
+          : fmtOrigen(t.monto);
+        return `<div class="reg-stat-row" style="border-top:0.5px solid var(--border)">
+          <span class="reg-stat-label" style="flex-direction:column;align-items:flex-start;gap:2px">
+            <span style="color:var(--text)">${label}</span>
+            <span style="font-size:11px">${t.fecha}</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <span class="reg-stat-value">${montoTxt}</span>
+            <button class="btn btn-danger btn-sm" onclick="gf_eliminarTransferenciaSaldo(${t.id})" style="padding:2px 8px;font-size:12px">×</button>
+          </span>
+        </div>`;
+      }).join('')
+    : '';
+
   cartera.innerHTML = `
     ${showChart ? `<div class="progress-section" style="margin-top:20px;margin-bottom:20px">
       <h3>Evolución de tenencias</h3>
@@ -4928,7 +5119,11 @@ function renderTarjeta(){
         </tr></thead>
         <tbody>${snapRows}</tbody>
       </table>
-    </div>`;
+    </div>
+    ${transfInv.length ? `<div class="progress-section" style="margin-top:20px">
+      <h3>Transferencias entre potes</h3>
+      ${transfInvRows}
+    </div>` : ''}`;
 
   if(showChart){
     const labels  = crono.map(s => new Date(s.fecha+'T12:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}));
@@ -6935,6 +7130,7 @@ function fabOpenSheet(type){
   sheet.classList.add('visible');
   document.getElementById('fab-backdrop').classList.add('visible');
   if(type === 'gasto') renderTareasSelect();
+  if(type === 'transf') gf_actualizarPreviewTransferencia();
 }
 
 function fabCloseSheet(){
@@ -7052,15 +7248,32 @@ if ('serviceWorker' in navigator) {
       </button>
     </div>
     <div class="form-grid">
-      <div class="form-group">
-        <input type="number" id="gf-transf-monto" placeholder="Monto ($)" min="1">
+      <div class="form-pair">
+        <div class="form-group">
+          <label>Desde</label>
+          <select id="gf-transf-origen" onchange="gf_actualizarPreviewTransferencia()">
+            <option value="disponible" selected>Disponible</option>
+            <option value="separado">Separado GF</option>
+            <option value="fci">FCI</option>
+            <option value="cedears">CEDEARs</option>
+            <option value="jubilacion">Jubilación</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Hacia</label>
+          <select id="gf-transf-destino" onchange="gf_actualizarPreviewTransferencia()">
+            <option value="disponible">Disponible</option>
+            <option value="separado" selected>Separado GF</option>
+            <option value="fci">FCI</option>
+            <option value="cedears">CEDEARs</option>
+            <option value="jubilacion">Jubilación</option>
+          </select>
+        </div>
       </div>
       <div class="form-group">
-        <select id="gf-transf-dir">
-          <option value="disp-sep">Disponible → Separado</option>
-          <option value="sep-disp">Separado → Disponible</option>
-        </select>
+        <input type="number" id="gf-transf-monto" placeholder="Monto ($)" min="0.01" step="0.01" oninput="gf_actualizarPreviewTransferencia()">
       </div>
+      <div id="gf-transf-preview" style="font-size:11px;color:var(--muted);margin-top:-6px">Disponible en Disponible: $0</div>
       <div class="form-group inline-action full">
         <input type="text" id="gf-transf-concepto" placeholder="Concepto (opcional)">
         <button class="btn btn-primary" onclick="gf_hacerTransferencia()">Transferir</button>
