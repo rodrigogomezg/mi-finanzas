@@ -1699,6 +1699,17 @@ const S = (() => {
     localStorage.setItem(PFX+'_lastSync', JSON.stringify(now));
   }
 
+  // Fuerza el flush pendiente YA, sin esperar el debounce de 1.5s — se llama cuando la
+  // página se oculta/cierra (ver listeners más abajo). Sin esto, una acción justo antes de
+  // salir de la app (ej. cerrar la pestaña a los pocos cientos de ms) nunca llega a
+  // escribirse en Firestore: el timer de _scheduleFlush() se pierde con el contexto de JS,
+  // y al volver a entrar _loadOrPush() compara timestamps y pisa el localStorage recién
+  // escrito con el snapshot remoto viejo (que nunca se enteró del cambio).
+  function _flushSync(){
+    if(_flushTimer){ clearTimeout(_flushTimer); _flushTimer = null; }
+    if(_db && _uid && Object.keys(_dirty).length) _flush();
+  }
+
   return {
     syncState(){ return _syncState; },
 
@@ -1708,6 +1719,8 @@ const S = (() => {
       _lsSet(k, v);
       if(_db && _uid){ _dirty[PFX+k] = v; _scheduleFlush(); }
     },
+
+    flushNow(){ _flushSync(); },
 
     async forcePush(payload){
       if(!_db || !_uid) throw new Error('No hay conexión Firebase activa. Conectate primero.');
@@ -1780,6 +1793,14 @@ const S = (() => {
     }
   };
 })();
+
+// Red de seguridad contra el debounce de 1.5s de S.set(): si el usuario cierra la pestaña,
+// cambia de app o la PWA se va a segundo plano justo después de una acción, el timer de
+// _scheduleFlush() nunca llega a dispararse y ese cambio queda solo en localStorage, nunca
+// en Firestore — al volver a entrar, la reconciliación de _loadOrPush() puede pisarlo con el
+// snapshot remoto viejo. 'visibilitychange' es más confiable que 'beforeunload' en mobile/PWA.
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') S.flushNow(); });
+window.addEventListener('pagehide', () => S.flushNow());
 
 // ── TOAST ────────────────────────────────────────────────
 function toast(msg, type='ok', duration=3000){
@@ -2760,6 +2781,7 @@ async function gf_hacerTransferencia(){
   gf_renderGastosFijos();
   renderTarjeta();
   renderResumen();
+  renderHistorial();
 }
 
 function gf_abrirModalConfig(mesAnio){
@@ -2878,7 +2900,7 @@ async function gf_eliminarTransferenciaSaldo(id){
       arr:     gf_transferenciasSaldo,
       id,
       setKey:  'gf_transferenciasSaldo',
-      render:  () => { gf_renderGastosFijos(); renderTarjeta(); },
+      render:  () => { gf_renderGastosFijos(); renderTarjeta(); renderHistorial(); },
       label:   'Transferencia',
     });
     return;
@@ -2898,6 +2920,7 @@ async function gf_eliminarTransferenciaSaldo(id){
   await S.set('inversiones', inversiones);
   gf_renderGastosFijos();
   renderTarjeta();
+  renderHistorial();
 
   const timer = setTimeout(() => { _pendingUndo = null; }, 4500);
   _pendingUndo = {
@@ -2909,6 +2932,7 @@ async function gf_eliminarTransferenciaSaldo(id){
       await S.set('inversiones', inversiones);
       gf_renderGastosFijos();
       renderTarjeta();
+      renderHistorial();
     }
   };
   toast(`Transferencia eliminada · <button onclick="undoDelete()" style="background:none;border:none;color:var(--text);font-weight:600;cursor:pointer;text-decoration:underline;padding:0 0 0 6px;font-size:inherit;font-family:inherit">Deshacer</button>`, 'warn', 4800);
@@ -2953,6 +2977,7 @@ async function gf_guardarEditTransf(id){
   _movModalClose();
   toast('✓ Movimiento actualizado');
   gf_renderGastosFijos();
+  renderHistorial();
 }
 
 function gf_renderAlertas(mesAnio){
@@ -4681,9 +4706,15 @@ function renderHistorial(){
 
   // Las inversiones (aportes a FCI/CEDEARs) no se listan acá — se ven en la solapa Inversiones.
   const transfItems = transferencias.map(t => ({ ...t, _esTransferencia: true }));
+  // Transferencias entre los 5 potes (Disponible/Separado/FCI/CEDEARs/Jubilación) — flag
+  // propio (_esTransferenciaPote) porque el shape es distinto al de la lista legacy de arriba
+  // (origen/destino/concepto en vez de de/a/nota).
+  const transfPoteItems = gf_transferenciasSaldo
+    .filter(t => t.tipo !== 'separacion')
+    .map(t => ({ ...t, _esTransferenciaPote: true }));
   // Dentro del mismo día, más nuevo primero: el id es Date.now() al momento de registrar,
   // así que ordena por hora real de carga aunque la fecha asignada sea la misma para todos.
-  const baseMes = [...movimientos, ...transfItems]
+  const baseMes = [...movimientos, ...transfItems, ...transfPoteItems]
     .filter(m => (m.fecha || '').startsWith(filtroMes))
     .sort((a,b) => new Date(b.fecha+'T12:00') - new Date(a.fecha+'T12:00') || (b.id||0) - (a.id||0));
 
@@ -4764,6 +4795,17 @@ function renderHistorial(){
         <div class="mov-date">${fmtFecha(m.fecha)}</div>
         <div><div class="mov-desc">${label}</div><div class="mov-cat"><span class="badge badge-purple">Transferencia</span></div></div>
         <div class="mov-amt" style="color:var(--purple)">${fmt(m.monto)}</div>
+      </div>`;
+    }
+    if(m._esTransferenciaPote){
+      const label = esc(m.concepto) || `${POTES[m.origen]?.label || m.origen} → ${POTES[m.destino]?.label || m.destino}`;
+      const fmtOrigen = m.monedaOrigen === 'USD' ? fmtU : fmt;
+      const fmtDestino = m.monedaDestino === 'USD' ? fmtU : fmt;
+      const montoTxt = m.monedaOrigen !== m.monedaDestino ? `${fmtOrigen(m.monto)} → ${fmtDestino(m.montoDestino)}` : fmtOrigen(m.monto);
+      return `<div class="mov-row" ${si} onclick="gf_abrirModalEditarTransf(${m.id})">
+        <div class="mov-date">${fmtFecha(m.fecha)}</div>
+        <div><div class="mov-desc">${label}</div><div class="mov-cat"><span class="badge badge-purple">Transferencia</span></div></div>
+        <div class="mov-amt" style="color:var(--purple)">${montoTxt}</div>
       </div>`;
     }
     if(m.tipo === 'saldo_inicial'){
