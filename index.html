@@ -2624,7 +2624,10 @@ async function gf_transferirSaldo(origen, destino, monto, concepto, tipo){
     tc: monedaOrigen !== monedaDestino ? tc : null,
     concepto: concepto || '',
     tipo: tipo || 'transferencia',
-    invIds: invIds.length ? invIds : undefined,
+    // Firestore rechaza cualquier campo con valor `undefined` (a diferencia de
+    // localStorage, que lo descarta sin quejarse) — solo se agrega la key si hay
+    // patas en inversiones, en vez de escribir invIds:undefined cuando no las hay.
+    ...(invIds.length ? { invIds } : {}),
   };
   gf_transferenciasSaldo.push(entrada);
   await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
