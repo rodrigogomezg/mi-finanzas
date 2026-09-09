@@ -2841,20 +2841,31 @@ async function gf_confirmarCierreTarjeta(){
   mes.tarjeta.cierreRealizado  = true;
 
   const estimado = mes.tarjeta.montoEstimado || 0;
+  mes.tarjeta.montoEstimado = montoReal; // ajustar estimado al real, antes de recalcular el fondo necesario
+
   if(montoReal > estimado){
     const diff = montoReal - estimado;
     toast(`⚠ Tarjeta superó lo estimado en ${fmt(diff)}. Ajustá el separado si es necesario.`, 'err');
   } else {
-    // Liberar excedente al disponible
     const excedente = estimado - montoReal;
     if(excedente > 0){
-      await gf_transferirSaldo('separado', 'disponible', excedente, `Excedente tarjeta ${gf_nombreMes(mesAnio)}`);
-      toast(`✓ Cierre registrado. Se liberaron ${fmt(excedente)} al disponible.`);
+      // El fondo separado es compartido con alquiler y puede no estar 100% acumulado
+      // todavía al momento del cierre — "estimado - real" es solo lo que YA NO hace
+      // falta separar, no necesariamente plata de sobra hoy en el pote. Solo se libera
+      // a Disponible la parte que realmente excede lo que el fondo todavía necesita
+      // (alquiler + tarjeta ya ajustada al real).
+      const rec = gf_calcularRecomendacion(mesAnio);
+      const aLiberar = Math.min(excedente, Math.max(0, rec.fondoAcumulado - rec.fondoNecesario));
+      if(aLiberar > 0){
+        await gf_transferirSaldo('separado', 'disponible', aLiberar, `Excedente tarjeta ${gf_nombreMes(mesAnio)}`);
+        toast(`✓ Cierre registrado. Se liberaron ${fmt(aLiberar)} al disponible.`);
+      } else {
+        toast('✓ Cierre de tarjeta registrado. El fondo separado todavía no cubre lo necesario, no se liberó excedente.');
+      }
     } else {
       toast('✓ Cierre de tarjeta registrado');
     }
   }
-  mes.tarjeta.montoEstimado = montoReal; // ajustar estimado al real
   await S.set('gastosFijos', gf_gastosFijos);
   gf_cerrarModalCierre();
   gf_renderGastosFijos();
