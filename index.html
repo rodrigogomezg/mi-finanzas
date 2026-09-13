@@ -2058,7 +2058,7 @@ let gf_ingresosEspeciales  = [];
 
 // ── PLAN MENSUAL ─────────────────────────────────────────
 const FCI_META_1   = 1000000; // hito intermedio del colchón: al alcanzarlo, modo pasa a "estable"
-const FCI_META_2   = 2400000; // objetivo final del colchón (3 meses de gastos fijos)
+const FCI_META_2   = 4404915; // objetivo final del colchón (3 meses de gastos TOTALES: tarjeta $451.000 + alquiler $475.000 + comida $362.555 + combustible $179.750 = $1.468.305/mes × 3 — recalculado ago 2026; a diferencia de "gastos fijos" (GF), esto no se trackea mes a mes en la app, así que hay que revisar este número a mano si el gasto total promedio cambia)
 const COLCHON_PISO = 800000;  // si el colchón cae debajo de esto en modo "estable", vuelve a "construyendo"
 
 const PLAN_DEFAULT = {
