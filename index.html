@@ -1282,9 +1282,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{uid} {
       allow read, write: if request.auth.uid == uid;
+      match /{coleccion}/{docId} {
+        allow read, write: if request.auth.uid == uid;
+      }
     }
   }
 }</pre>
+              <div style="margin-top:8px;font-size:11px;color:var(--amber)">⚠ La segunda regla (subcolecciones) es necesaria desde la migración a "colecciones" de movimientos/inversiones/transferencias — si ya tenías Firestore configurado con la regla vieja (solo el documento), actualizala en la consola de Firebase o los nuevos guardados van a fallar en silencio y seguir usando el formato viejo hasta que la actualices.</div>
               <div style="margin-top:10px;line-height:1.8">
                 7. Configurá tu dominio en <em>Authentication → Authorized domains</em><br>
                 8. Conectá desde este dispositivo → iniciá sesión con Google<br>
@@ -1588,6 +1592,14 @@ const S = (() => {
   const PFX = 'mf_';
   let _db = null, _uid = null;
   let _docFn = null, _setDocFn = null;
+  // Funciones de Firestore para el modelo "un documento por registro" (colecciones) —
+  // se completan en initFirebase() junto con doc/getDoc/setDoc. Null mientras no haya
+  // conexión Firebase activa; ver usaColecciones()/getCollection()/batch() más abajo.
+  let _collectionFn = null, _getDocsFn = null, _writeBatchFn = null, _deleteDocFn = null;
+  // Claves migradas al modelo de colecciones (ver plan de migración) — el resto sigue
+  // usando el blob viejo (S.get/S.set de un array entero) hasta que se migren también.
+  const COLECCION_KEYS = new Set(['movimientos', 'inversiones', 'gf_transferenciasSaldo']);
+  let _coleccionesListas = false; // true una vez que init() confirma que la migración ya corrió
   let _dirty = {}, _flushTimer = null;
   let _syncState = 'off'; // 'off' | 'pending' | 'ok' | 'err' | 'noauth'
 
@@ -1722,9 +1734,94 @@ const S = (() => {
 
     flushNow(){ _flushSync(); },
 
+    isConnected(){ return !!_db && !!_uid; },
+
     async forcePush(payload){
       if(!_db || !_uid) throw new Error('No hay conexión Firebase activa. Conectate primero.');
       await _setDocFn(_docFn(_db, 'users', _uid), payload);
+    },
+
+    // ── Modelo "colecciones" (un documento Firestore por registro) ──────────
+    // Solo tiene sentido cuando hay Firebase conectado: sin eso no existe "otro
+    // dispositivo" con el que pueda haber conflicto, así que las claves en
+    // COLECCION_KEYS siguen usando el blob viejo (get/set de array completo) hasta
+    // que haya conexión Y la migración ya haya corrido (ver marcarColeccionesListas).
+    usaColecciones(key){
+      return _coleccionesListas && !!_db && !!_uid && COLECCION_KEYS.has(key);
+    },
+
+    marcarColeccionesListas(v){ _coleccionesListas = v; },
+
+    // Trae todos los documentos de users/{uid}/{key} como array plano.
+    async getCollection(key){
+      if(!_db || !_uid) return null;
+      const snap = await _getDocsFn(_collectionFn(_db, 'users', _uid, key));
+      const out = [];
+      snap.forEach(d => out.push(d.data()));
+      return out;
+    },
+
+    // Batch atómico entre una o más colecciones — o se aplican todos los set/delete
+    // juntos, o ninguno (writeBatch de Firestore). Uso: S.batch().set('movimientos', id,
+    // mov).set('inversiones', id2, inv).commit() — todo o nada, nunca a medias.
+    // Las operaciones se acumulan acá (no se mandan a Firestore todavía) para poder
+    // trocearlas en commit() — un writeBatch real de Firestore acepta come máximo 500
+    // operaciones; "Borrar todos los movimientos" u otras operaciones grandes podrían
+    // superarlo con el tiempo.
+    batch(){
+      if(!_db || !_uid) throw new Error('No hay conexión Firebase activa.');
+      const ops = [];
+      const api = {
+        set(key, id, data){ ops.push({ t:'set', key, id, data }); return api; },
+        delete(key, id){ ops.push({ t:'delete', key, id }); return api; },
+        async commit(){
+          const LIMITE = 450; // margen bajo el límite real de 500 por writeBatch
+          for(let i = 0; i < ops.length; i += LIMITE){
+            const wb = _writeBatchFn(_db);
+            for(const op of ops.slice(i, i + LIMITE)){
+              const ref = _docFn(_db, 'users', _uid, op.key, String(op.id));
+              if(op.t === 'set') wb.set(ref, op.data);
+              else wb.delete(ref);
+            }
+            await wb.commit();
+          }
+        },
+      };
+      return api;
+    },
+
+    // Guarda un array completo de una clave migrada a colecciones: solo escribe/borra
+    // los ids indicados (setIds) o elimina los indicados (deleteIds), no reescribe todo
+    // el array. Si la clave no está migrada o no hay Firebase conectado, cae al S.set()
+    // de siempre (array entero) — así los call-sites no necesitan saber en qué modo están.
+    async saveArray(key, arr, { setIds = [], deleteIds = [] } = {}){
+      if(this.usaColecciones(key)){
+        const b = this.batch();
+        for(const id of setIds){
+          const item = arr.find(x => x.id === id);
+          if(item) b.set(key, id, item);
+        }
+        for(const id of deleteIds) b.delete(key, id);
+        await b.commit();
+      } else {
+        await this.set(key, arr);
+      }
+    },
+
+    // Reemplaza TODA una colección para que quede igual a newArr — usado por
+    // importarDatos() al restaurar un backup completo. Borra los documentos existentes
+    // que ya no están en newArr y escribe/actualiza el resto, todo en el mismo batch
+    // (troceado automáticamente si hay muchos). Si la clave no está migrada, cae al
+    // S.set() de siempre.
+    async replaceCollection(key, newArr){
+      if(!this.usaColecciones(key)){ await this.set(key, newArr); return; }
+      const actuales = (await this.getCollection(key)) || [];
+      const idsNuevos = new Set(newArr.map(x => x.id));
+      const idsABorrar = actuales.map(x => x.id).filter(id => !idsNuevos.has(id));
+      const b = this.batch();
+      for(const item of newArr) b.set(key, item.id, item);
+      for(const id of idsABorrar) b.delete(key, id);
+      await b.commit();
     },
 
     async initFirebase(config){
@@ -1735,7 +1832,7 @@ const S = (() => {
         const { getAuth, signInWithPopup,
                 getRedirectResult, onAuthStateChanged, GoogleAuthProvider } =
           await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
-        const { getFirestore, doc, getDoc, setDoc } =
+        const { getFirestore, doc, getDoc, setDoc, collection, getDocs, writeBatch, deleteDoc } =
           await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js');
 
         const app  = getApps().length ? getApps()[0] : initializeApp(config);
@@ -1743,6 +1840,10 @@ const S = (() => {
         const db   = getFirestore(app);
         _docFn    = doc;
         _setDocFn = setDoc;
+        _collectionFn = collection;
+        _getDocsFn    = getDocs;
+        _writeBatchFn = writeBatch;
+        _deleteDocFn  = deleteDoc;
 
         // Check for redirect result first (mobile sign-in return)
         let user = null;
@@ -1851,18 +1952,38 @@ async function softDelete({ arr, id, setKey, render, label }){
   if(idx === -1) return;
   const item = arr[idx];
   arr.splice(idx, 1);
-  await S.set(setKey, arr); // persiste inmediatamente — no espera 4.5s
+  await S.saveArray(setKey, arr, { deleteIds: [id] }); // persiste inmediatamente — no espera 4.5s
   render();
   const timer = setTimeout(() => { _pendingUndo = null; }, 4500);
   _pendingUndo = {
     timer,
     async restore(){
       arr.splice(idx, 0, item);
-      await S.set(setKey, arr);
+      await S.saveArray(setKey, arr, { setIds: [id] });
       render();
     }
   };
   toast(`${label} eliminado · <button onclick="undoDelete()" style="background:none;border:none;color:var(--text);font-weight:600;cursor:pointer;text-decoration:underline;padding:0 0 0 6px;font-size:inherit;font-family:inherit">Deshacer</button>`, 'warn', 4800);
+}
+
+// Persiste varias claves que cambiaron juntas por UNA sola acción del usuario (ej: una
+// transferencia entre potes toca inversiones + gf_transferenciasSaldo; un cobro con
+// distribución toca movimientos + inversiones). Las claves ya migradas a colecciones se
+// escriben en un solo writeBatch atómico (todo o nada); el resto sigue con el S.set() de
+// siempre. ops: [{ key, arr, setIds?, deleteIds? }, ...] — arr es el array en memoria ya
+// mutado por el llamador, setIds/deleteIds son los ids afectados dentro de ese array.
+async function _guardarMulti(ops){
+  const activo = ops.filter(o => S.usaColecciones(o.key));
+  const legacy = ops.filter(o => !S.usaColecciones(o.key));
+  if(activo.length){
+    const b = S.batch();
+    for(const o of activo){
+      for(const id of (o.setIds||[])){ const item = o.arr.find(x => x.id === id); if(item) b.set(o.key, id, item); }
+      for(const id of (o.deleteIds||[])) b.delete(o.key, id);
+    }
+    await b.commit();
+  }
+  for(const o of legacy) await S.set(o.key, o.arr);
 }
 
 async function undoDelete(){
@@ -2007,17 +2128,17 @@ async function guardarEdicion(id){
   m.categoria = cat;
   m.nota = nota;
   let invBorradas = 0;
+  let invLigadas = [];
   if(montoChanged && m.tipo === 'cobro' && m.distribucion){
     // La distribución vieja ya no es válida con el nuevo monto — hay que borrar
     // también las inversiones (FCI/CEDEARs/Jubilación) que había generado, si no
     // quedan huérfanas contando de más (mismo problema que al eliminar un cobro).
-    const invLigadas = inversiones.filter(i => i.origenCobroId === id);
+    invLigadas = inversiones.filter(i => i.origenCobroId === id);
     if(invLigadas.length){
       for(const inv of invLigadas){
         const idx = inversiones.indexOf(inv);
         if(idx !== -1) inversiones.splice(idx, 1);
       }
-      await S.set('inversiones', inversiones);
       invBorradas = invLigadas.length;
     }
     m.distribucion = null;
@@ -2025,7 +2146,10 @@ async function guardarEdicion(id){
       ? `Monto editado · distribución reseteada y ${invBorradas} inversión${invBorradas!==1?'es':''} vinculada${invBorradas!==1?'s':''} eliminada${invBorradas!==1?'s':''}`
       : 'Monto editado · distribución reseteada', 'warn', 4000);
   }
-  await S.set('movimientos', movimientos);
+  await _guardarMulti([
+    { key: 'movimientos', arr: movimientos, setIds: [id] },
+    { key: 'inversiones', arr: inversiones, deleteIds: invLigadas.map(i => i.id) },
+  ]);
   _flashMovId = id;
   _movModalClose();
   renderHistorial();
@@ -2101,6 +2225,26 @@ async function _migrarGastosFijos(){
   if(dirty) await S.set('gastosFijos', gf_gastosFijos);
 }
 
+// Copia movimientos/inversiones/gf_transferenciasSaldo (ya cargados en memoria desde el blob
+// viejo) a colecciones Firestore, un documento por registro. Usa el id numérico existente de
+// cada registro como id de documento — si esto corriera dos veces (falla a mitad y se
+// reintenta, o dos dispositivos migran casi al mismo tiempo) escribe sobre el mismo documento
+// en vez de duplicar, así que es seguro reintentar. writeBatch tiene un límite de 500
+// operaciones, por eso se trocea de a 400.
+async function _migrarAColecciones(){
+  const CHUNK = 400;
+  async function migrarClave(key, arr){
+    for(let i = 0; i < arr.length; i += CHUNK){
+      const b = S.batch();
+      for(const item of arr.slice(i, i + CHUNK)) b.set(key, item.id, item);
+      await b.commit();
+    }
+  }
+  await migrarClave('movimientos', movimientos);
+  await migrarClave('inversiones', inversiones);
+  await migrarClave('gf_transferenciasSaldo', gf_transferenciasSaldo);
+}
+
 // ── INIT ─────────────────────────────────────────────────
 async function init(){
   // Firebase sync — must run before any S.get() to load remote data first
@@ -2114,11 +2258,19 @@ async function init(){
   document.getElementById('int-fecha').value       = hoy;
   document.getElementById('trab-adel-fecha').value = hoy;
   _fillTimeSelects();
-  movimientos   = await S.get('movimientos')   || [];
+  // Modelo "colecciones" (ver plan de migración): movimientos/inversiones/gf_transferenciasSaldo
+  // pasan a guardarse como un documento Firestore por registro en vez de un array serializado
+  // entero, para que dos dispositivos nunca se pisen el historial completo entre sí. Mientras
+  // no haya Firebase conectado o la migración de este usuario no haya corrido todavía, se sigue
+  // leyendo el blob de siempre — _migrarAColecciones() más abajo hace la transición una sola vez.
+  const _coleccionesFlag = await S.get('coleccionesV1') || 0;
+  if(_coleccionesFlag >= 1) S.marcarColeccionesListas(true);
+
+  movimientos   = S.usaColecciones('movimientos') ? (await S.getCollection('movimientos')) || [] : (await S.get('movimientos') || []);
   historialUSD  = await S.get('historialUSD')  || [{fecha:'2026-05-11', valor:4244.48, nota:'Cartera inicial'}];
   separados     = await S.get('separados')     || { alquiler:0, tarjeta:0, inversion:0, fci:0 };
   tareas        = await S.get('tareas')        || tareasIniciales();
-  inversiones    = await S.get('inversiones')    || [];
+  inversiones    = S.usaColecciones('inversiones') ? (await S.getCollection('inversiones')) || [] : (await S.get('inversiones') || []);
   transferencias = await S.get('transferencias') || [];
   planMensual   = await S.get('planMensual')   || JSON.parse(JSON.stringify(PLAN_DEFAULT));
   if(!planMensual.clientesMensuales) planMensual.clientesMensuales = JSON.parse(JSON.stringify(PLAN_DEFAULT.clientesMensuales));
@@ -2130,9 +2282,10 @@ async function init(){
   // Seed inicial de inversiones con saldos reales si aún no hay registros
   const invSeedVer = await S.get('invSeedVersion') || 0;
   if(invSeedVer < 1 && inversiones.length === 0){
-    inversiones.push({ id: Date.now(),     tipo:'fci_saldo',  monto:8014,    fecha:'2026-05-23', nota:'Saldo inicial FCI' });
-    inversiones.push({ id: Date.now() + 1, tipo:'cedears',    monto:4296.60, fecha:'2026-05-23', nota:'Saldo inicial CEDEARs' });
-    await S.set('inversiones', inversiones);
+    const seed1 = { id: Date.now(),     tipo:'fci_saldo',  monto:8014,    fecha:'2026-05-23', nota:'Saldo inicial FCI' };
+    const seed2 = { id: Date.now() + 1, tipo:'cedears',    monto:4296.60, fecha:'2026-05-23', nota:'Saldo inicial CEDEARs' };
+    inversiones.push(seed1, seed2);
+    await S.saveArray('inversiones', inversiones, { setIds: [seed1.id, seed2.id] });
     await S.set('invSeedVersion', 1);
   }
   inv_snapshots = await S.get('inv_snapshots') || [];
@@ -2153,8 +2306,22 @@ async function init(){
   tarifaHora             = await S.get('tarifaHora')             || 8440;
   gf_gastosFijos         = await S.get('gastosFijos')            || [];
   gf_separacionesSemana  = await S.get('gf_separacionesSemana')  || [];
-  gf_transferenciasSaldo = await S.get('gf_transferenciasSaldo') || [];
+  gf_transferenciasSaldo = S.usaColecciones('gf_transferenciasSaldo') ? (await S.getCollection('gf_transferenciasSaldo')) || [] : (await S.get('gf_transferenciasSaldo') || []);
   gf_ingresosEspeciales  = await S.get('gf_ingresosEspeciales')  || [];
+
+  // Migración única: recién ahora están cargados movimientos/inversiones/gf_transferenciasSaldo
+  // (desde el blob viejo, si _coleccionesFlag todavía era 0) — se copian a colecciones y se
+  // marca hecho. Si algo falla acá, NO se marca el flag: sigue en modo blob y se reintenta
+  // solo la próxima vez que se abra la app, sin romper la carga de hoy.
+  if(S.isConnected() && _coleccionesFlag < 1){
+    try{
+      await _migrarAColecciones();
+      await S.set('coleccionesV1', 1);
+      S.marcarColeccionesListas(true);
+    }catch(e){
+      console.warn('Migración a colecciones falló, se reintenta en el próximo inicio:', e);
+    }
+  }
   await _migrarGastosFijos();
   const savedCats = await S.get('categorias_config');
   if(savedCats){ Object.assign(categoriasConfig, savedCats); }
@@ -2610,8 +2777,6 @@ async function gf_transferirSaldo(origen, destino, monto, concepto, tipo){
     inversiones.push({ id, tipo: destino, monto: montoDestino, fecha, nota: `Transferencia desde ${POTES[origen]?.label || origen}${concepto ? ` — ${concepto}` : ''}` });
     invIds.push(id);
   }
-  if(invIds.length) await S.set('inversiones', inversiones);
-
   const entrada = {
     id: now,
     fecha,
@@ -2630,7 +2795,12 @@ async function gf_transferirSaldo(origen, destino, monto, concepto, tipo){
     ...(invIds.length ? { invIds } : {}),
   };
   gf_transferenciasSaldo.push(entrada);
-  await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
+  // Las dos patas en inversiones + el registro de la transferencia se guardan juntos: o
+  // queda todo (saldo consistente en los dos potes) o no queda nada, nunca a medias.
+  await _guardarMulti([
+    { key: 'inversiones', arr: inversiones, setIds: invIds },
+    { key: 'gf_transferenciasSaldo', arr: gf_transferenciasSaldo, setIds: [entrada.id] },
+  ]);
   return true;
 }
 
@@ -2659,8 +2829,9 @@ async function gf_marcarComoPagado(mesAnio, tipo){
     // gasto de alquiler/tarjeta cargado a mano. gf_getSaldos() ya descuenta del
     // separado cualquier gasto con esta categoría, así que no hay doble descuento.
     const catLabel = tipo === 'alquiler' ? 'Alquiler' : 'Tarjeta';
-    movimientos.push({ id: Date.now(), tipo:'gasto', monto, categoria: tipo, fecha: new Date().toISOString().split('T')[0], nota: `Pago ${catLabel} ${gf_nombreMes(mesAnio)}` });
-    await S.set('movimientos', movimientos);
+    const nuevoGasto = { id: Date.now(), tipo:'gasto', monto, categoria: tipo, fecha: new Date().toISOString().split('T')[0], nota: `Pago ${catLabel} ${gf_nombreMes(mesAnio)}` };
+    movimientos.push(nuevoGasto);
+    await S.saveArray('movimientos', movimientos, { setIds: [nuevoGasto.id] });
   }
 
   item.estado = 'pagado';
@@ -2885,8 +3056,10 @@ async function gf_eliminarSeparacion(id){
 
   gf_separacionesSemana.splice(sepIdx, 1);
   if(transfIdx !== -1) gf_transferenciasSaldo.splice(transfIdx, 1);
-  await S.set('gf_separacionesSemana',  gf_separacionesSemana);
-  await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
+  await _guardarMulti([
+    { key: 'gf_separacionesSemana', arr: gf_separacionesSemana },
+    { key: 'gf_transferenciasSaldo', arr: gf_transferenciasSaldo, deleteIds: transf ? [transf.id] : [] },
+  ]);
   gf_renderGastosFijos();
 
   const timer = setTimeout(() => { _pendingUndo = null; }, 4500);
@@ -2895,8 +3068,10 @@ async function gf_eliminarSeparacion(id){
     async restore(){
       gf_separacionesSemana.splice(sepIdx, 0, sep);
       if(transf) gf_transferenciasSaldo.splice(transfIdx, 0, transf);
-      await S.set('gf_separacionesSemana',  gf_separacionesSemana);
-      await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
+      await _guardarMulti([
+        { key: 'gf_separacionesSemana', arr: gf_separacionesSemana },
+        { key: 'gf_transferenciasSaldo', arr: gf_transferenciasSaldo, setIds: transf ? [transf.id] : [] },
+      ]);
       gf_renderGastosFijos();
     }
   };
@@ -2930,8 +3105,10 @@ async function gf_eliminarTransferenciaSaldo(id){
   gf_transferenciasSaldo.splice(idx, 1);
   inversiones = inversiones.filter(i => !t.invIds.includes(i.id));
 
-  await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
-  await S.set('inversiones', inversiones);
+  await _guardarMulti([
+    { key: 'gf_transferenciasSaldo', arr: gf_transferenciasSaldo, deleteIds: [t.id] },
+    { key: 'inversiones', arr: inversiones, deleteIds: t.invIds },
+  ]);
   gf_renderGastosFijos();
   renderTarjeta();
   renderHistorial();
@@ -2942,8 +3119,10 @@ async function gf_eliminarTransferenciaSaldo(id){
     async restore(){
       gf_transferenciasSaldo.splice(idx, 0, t);
       inversiones = [...inversiones, ...invRemovidas];
-      await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
-      await S.set('inversiones', inversiones);
+      await _guardarMulti([
+        { key: 'gf_transferenciasSaldo', arr: gf_transferenciasSaldo, setIds: [t.id] },
+        { key: 'inversiones', arr: inversiones, setIds: t.invIds },
+      ]);
       gf_renderGastosFijos();
       renderTarjeta();
       renderHistorial();
@@ -2987,7 +3166,7 @@ async function gf_guardarEditTransf(id){
   const t = gf_transferenciasSaldo.find(x => x.id === id);
   if(!t) return;
   t.monto = monto;
-  await S.set('gf_transferenciasSaldo', gf_transferenciasSaldo);
+  await S.saveArray('gf_transferenciasSaldo', gf_transferenciasSaldo, { setIds: [t.id] });
   _movModalClose();
   toast('✓ Movimiento actualizado');
   gf_renderGastosFijos();
@@ -3396,8 +3575,10 @@ async function eliminarActualizacionSaldo(fecha){
   inv_snapshots.splice(snapIdx, 1);
   inversiones = inversiones.filter(i => !interesRemovidos.includes(i));
 
-  await S.set('inv_snapshots', inv_snapshots);
-  await S.set('inversiones',   inversiones);
+  await _guardarMulti([
+    { key: 'inv_snapshots', arr: inv_snapshots },
+    { key: 'inversiones', arr: inversiones, deleteIds: interesRemovidos.map(i => i.id) },
+  ]);
   renderTarjeta();
   renderResumen();
 
@@ -3407,8 +3588,10 @@ async function eliminarActualizacionSaldo(fecha){
     async restore(){
       inv_snapshots.splice(snapIdx, 0, snap);
       inversiones = [...inversiones, ...interesRemovidos];
-      await S.set('inv_snapshots', inv_snapshots);
-      await S.set('inversiones',   inversiones);
+      await _guardarMulti([
+        { key: 'inv_snapshots', arr: inv_snapshots },
+        { key: 'inversiones', arr: inversiones, setIds: interesRemovidos.map(i => i.id) },
+      ]);
       renderTarjeta();
       renderResumen();
     }
@@ -3747,30 +3930,33 @@ async function registrarCobro(conDistribucion = true){
       toast('✓ Cobro registrado como libre disponible');
     }
 
-    await S.set('movimientos', movimientos);
-
     // Registrar inversiones cuando la distribución incluye FCI o CEDEARs
     // origenCobroId permite borrarlas en cascada si el cobro se elimina (ver eliminar()).
+    const nuevasInvIds = [];
     if(_distrib){
-      let invChanged = false;
       if(_distrib.fci > 0){
         inversiones.push({ id: movId + 1, tipo:'fci', monto: _distrib.fci, fecha, nota: `De cobro ${tipo}`, origenCobroId: movId });
-        invChanged = true;
+        nuevasInvIds.push(movId + 1);
       }
       if(_distrib.cedears > 0){
         const tc = _getTCActual();
         const montoUSD = Math.round((_distrib.cedears / tc) * 100) / 100;
         inversiones.push({ id: movId + 2, tipo:'cedears', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(_distrib.cedears)} ARS @ $${tc})`, origenCobroId: movId });
-        invChanged = true;
+        nuevasInvIds.push(movId + 2);
       }
       if(_distrib.jubilacion > 0){
         const tc = _getTCActual();
         const montoUSD = Math.round((_distrib.jubilacion / tc) * 100) / 100;
         inversiones.push({ id: movId + 3, tipo:'jubilacion', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(_distrib.jubilacion)} ARS @ $${tc})`, origenCobroId: movId });
-        invChanged = true;
+        nuevasInvIds.push(movId + 3);
       }
-      if(invChanged) await S.set('inversiones', inversiones);
     }
+    // El cobro y las inversiones que genera se guardan en un solo batch: o queda todo
+    // registrado, o no queda nada — nunca un cobro "fantasma" sin sus inversiones.
+    await _guardarMulti([
+      { key: 'movimientos', arr: movimientos, setIds: [movId] },
+      { key: 'inversiones', arr: inversiones, setIds: nuevasInvIds },
+    ]);
 
     document.getElementById('cobro-monto').value = '';
     document.getElementById('cobro-nota').value  = '';
@@ -3893,28 +4079,30 @@ async function _confirmarDistEditada(){
 
     const movId = Date.now();
     movimientos.push({ id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion });
-    await S.set('movimientos', movimientos);
 
     // Auto-crear entradas en inversiones para FCI, CEDEARs y Jubilación.
     // origenCobroId permite borrarlas en cascada si el cobro se elimina (ver eliminar()).
-    let invChanged = false;
+    const nuevasInvIds = [];
     if(distribucion.fci > 0){
       inversiones.push({ id: movId + 1, tipo:'fci', monto: distribucion.fci, fecha, nota: `De cobro ${tipo}`, origenCobroId: movId });
-      invChanged = true;
+      nuevasInvIds.push(movId + 1);
     }
     if(distribucion.cedears > 0){
       const tc = _getTCActual();
       const montoUSD = Math.round((distribucion.cedears / tc) * 100) / 100;
       inversiones.push({ id: movId + 2, tipo:'cedears', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(distribucion.cedears)} ARS @ $${tc})`, origenCobroId: movId });
-      invChanged = true;
+      nuevasInvIds.push(movId + 2);
     }
     if(distribucion.jubilacion > 0){
       const tc = _getTCActual();
       const montoUSD = Math.round((distribucion.jubilacion / tc) * 100) / 100;
       inversiones.push({ id: movId + 3, tipo:'jubilacion', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(distribucion.jubilacion)} ARS @ $${tc})`, origenCobroId: movId });
-      invChanged = true;
+      nuevasInvIds.push(movId + 3);
     }
-    if(invChanged) await S.set('inversiones', inversiones);
+    await _guardarMulti([
+      { key: 'movimientos', arr: movimientos, setIds: [movId] },
+      { key: 'inversiones', arr: inversiones, setIds: nuevasInvIds },
+    ]);
 
     document.getElementById('cobro-monto').value = '';
     document.getElementById('cobro-nota').value  = '';
@@ -3969,14 +4157,15 @@ async function fabRegistrarInteres(){
   if(isNaN(monto) || monto === 0){ toast('Ingresá un monto distinto de cero', 'err'); return; }
   if(!fecha){ toast('Elegí una fecha', 'err'); return; }
 
-  inversiones.push({
+  const nuevoInteres = {
     id: Date.now(),
     tipo: `${pote}_interes`,
     monto: Math.round(monto * 100) / 100,
     fecha,
     nota: nota || 'Interés/ganancia',
-  });
-  await S.set('inversiones', inversiones);
+  };
+  inversiones.push(nuevoInteres);
+  await S.saveArray('inversiones', inversiones, { setIds: [nuevoInteres.id] });
 
   document.getElementById('int-monto').value = '';
   document.getElementById('int-nota').value  = '';
@@ -4123,12 +4312,14 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId }){
       t.done = true;
       tareaCompletada = t;
       gasto.tareaId = tareaId; // guardamos la referencia para poder revertirla si se borra el gasto
-      await S.set('tareas', tareas);
     }
   }
 
   movimientos.push(gasto);
-  await S.set('movimientos', movimientos);
+  await _guardarMulti([
+    { key: 'movimientos', arr: movimientos, setIds: [gasto.id] },
+    { key: 'tareas', arr: tareas },
+  ]);
 
   document.getElementById('gasto-monto').value = '';
   document.getElementById('gasto-desc').value  = '';
@@ -4171,12 +4362,14 @@ async function _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId,
       t.done = true;
       tareaCompletada = t;
       gasto.tareaId = tareaId;
-      await S.set('tareas', tareas);
     }
   }
 
   movimientos.push(gasto);
-  await S.set('movimientos', movimientos);
+  await _guardarMulti([
+    { key: 'movimientos', arr: movimientos, setIds: [gasto.id] },
+    { key: 'tareas', arr: tareas },
+  ]);
   if(!gfAjeno) await gf_sincronizarEstadoDesdeGasto(gasto);
 
   document.getElementById('gasto-monto').value = '';
@@ -4864,7 +5057,7 @@ async function eliminar(id){
       const idx = inversiones.indexOf(inv);
       if(idx !== -1) inversiones.splice(idx, 1);
     }
-    await S.set('inversiones', inversiones);
+    await S.saveArray('inversiones', inversiones, { deleteIds: invLigadas.map(i => i.id) });
     renderTarjeta();
   }
 
@@ -4880,7 +5073,7 @@ async function eliminar(id){
     _pendingUndo.restore = async () => {
       await restoreMov();
       inversiones.push(...invLigadas);
-      await S.set('inversiones', inversiones);
+      await S.saveArray('inversiones', inversiones, { setIds: invLigadas.map(i => i.id) });
       renderTarjeta();
     };
   }
@@ -4889,9 +5082,10 @@ async function eliminar(id){
 async function confirmarLimpiar(){
   const ok = await _confirmar('¿Borrar <strong>todos</strong> los movimientos? Esta acción no se puede deshacer.', { ok: 'Borrar todo' });
   if(!ok) return;
+  const idsBorrados = movimientos.map(m => m.id);
   movimientos = [];
   separados   = { alquiler:0, tarjeta:0, inversion:0, fci:0 };
-  await S.set('movimientos', movimientos);
+  await S.saveArray('movimientos', movimientos, { deleteIds: idsBorrados });
   await S.set('separados',   separados);
   renderHistorial();
   renderResumen();
@@ -5496,7 +5690,7 @@ async function _registrarGastoDesdeTarea(t, gfAjeno = false){
   const gasto = { id: Date.now(), tipo:'gasto', monto: t.monto, categoria: t.cat, fecha: hoy, nota: t.desc, tareaId: t.id };
   if(gfAjeno) gasto.gfAjeno = true;
   movimientos.push(gasto);
-  await S.set('movimientos', movimientos);
+  await S.saveArray('movimientos', movimientos, { setIds: [gasto.id] });
   if(!gfAjeno) await gf_sincronizarEstadoDesdeGasto(gasto);
   renderHistorial();
   renderResumen();
@@ -5645,15 +5839,16 @@ async function guardarSaldoInicial(){
   const fecha = document.getElementById('si-fecha').value;
   if(!fecha){ toast('Elegí una fecha', 'err'); return; }
   if(oblig < 0 || disp < 0){ toast('Los saldos no pueden ser negativos', 'err'); return; }
-  movimientos.push({
+  const checkpoint = {
     id: Date.now(),
     tipo: 'saldo_inicial',
     fecha,
     monto: 0,
     distribucion: { obligaciones: oblig, disponible: disp },
     nota: `Checkpoint — Oblig: ${fmt(oblig)}, Disp: ${fmt(disp)}`,
-  });
-  await S.set('movimientos', movimientos);
+  };
+  movimientos.push(checkpoint);
+  await S.saveArray('movimientos', movimientos, { setIds: [checkpoint.id] });
   document.getElementById('si-oblig').value = '';
   document.getElementById('si-disp').value  = '';
   renderResumen();
@@ -5989,16 +6184,17 @@ async function autoArchivarMesesViejos(){
   // persistir indefinidamente (igual que pagosMatisa) porque alimentan el saldo
   // adeudado y el historial de la solapa Trabajo; si se archivan, "adeudado"
   // salta de golpe al perder ese cobro de la cuenta corriente.
-  movimientos = movimientos.filter(m =>
-    new Date(m.fecha + 'T12:00') >= corte || (m.tipo === 'cobro' && m.categoria === 'sueldo')
+  const movViejos = movimientos.filter(m =>
+    !(new Date(m.fecha + 'T12:00') >= corte || (m.tipo === 'cobro' && m.categoria === 'sueldo'))
   );
-  await S.set('movimientos', movimientos);
+  movimientos = movimientos.filter(m => !movViejos.includes(m));
+  await S.saveArray('movimientos', movimientos, { deleteIds: movViejos.map(m => m.id) });
 
   // Remover inversiones confirmadas viejas
   const invViejas = inversiones.filter(i => new Date(i.fecha + 'T12:00') < corte);
   if(invViejas.length > 0){
     inversiones = inversiones.filter(i => new Date(i.fecha + 'T12:00') >= corte);
-    await S.set('inversiones', inversiones);
+    await S.saveArray('inversiones', inversiones, { deleteIds: invViejas.map(i => i.id) });
   }
 }
 
@@ -6737,7 +6933,7 @@ async function toggleFacturadoMatisa(id){
 
 async function toggleFacturadoMovimiento(id){
   const m = movimientos.find(m => m.id === id);
-  if(m){ m.facturado = !m.facturado; await S.set('movimientos', movimientos); renderTrabajo(); }
+  if(m){ m.facturado = !m.facturado; await S.saveArray('movimientos', movimientos, { setIds: [id] }); renderTrabajo(); }
 }
 
 function switchTrabMetric(mode){
@@ -7239,6 +7435,12 @@ async function exportarDatos(){
     gf_separacionesSemana:  gf_separacionesSemana,
     gf_transferenciasSaldo: gf_transferenciasSaldo,
     gf_ingresosEspeciales:  gf_ingresosEspeciales,
+    // Antes faltaban estos dos — categorias_config es dato real del usuario (categorías
+    // personalizadas), y los *SeedVersion evitan que un import re-dispare una migración
+    // de seed ya hecha (ver init()).
+    categorias_config:      await S.get('categorias_config') || null,
+    seedVersion:            await S.get('seedVersion') || 0,
+    invSeedVersion:         await S.get('invSeedVersion') || 0,
   };
   const json     = JSON.stringify(datos, null, 2);
   const blob     = new Blob([json], { type:'application/json' });
@@ -7295,7 +7497,11 @@ async function importarDatos(event){
   if(datos.gf_transferenciasSaldo)  gf_transferenciasSaldo  = datos.gf_transferenciasSaldo;
   if(datos.gf_ingresosEspeciales)   gf_ingresosEspeciales   = datos.gf_ingresosEspeciales;
 
-  await S.set('movimientos',   movimientos);
+  if(datos.categorias_config) await S.set('categorias_config', datos.categorias_config);
+  if(datos.seedVersion)       await S.set('seedVersion', datos.seedVersion);
+  if(datos.invSeedVersion)    await S.set('invSeedVersion', datos.invSeedVersion);
+
+  await S.replaceCollection('movimientos',   movimientos);
   await S.set('historialUSD',  historialUSD);
   await S.set('separados',     separados);
   await S.set('tareas',        tareas);
@@ -7303,13 +7509,13 @@ async function importarDatos(event){
   await S.set('pagosMatisa',      pagosMatisa);
   await S.set('adelantosEmpresa', adelantosEmpresa);
   await S.set('tarifaHora',       tarifaHora);
-  await S.set('inversiones',             inversiones);
+  await S.replaceCollection('inversiones',             inversiones);
   await S.set('inv_snapshots',           inv_snapshots);
   await S.set('transferencias',          transferencias);
   await S.set('planMensual',             planMensual);
   await S.set('gastosFijos',             gf_gastosFijos);
   await S.set('gf_separacionesSemana',   gf_separacionesSemana);
-  await S.set('gf_transferenciasSaldo',  gf_transferenciasSaldo);
+  await S.replaceCollection('gf_transferenciasSaldo',  gf_transferenciasSaldo);
   await S.set('gf_ingresosEspeciales',   gf_ingresosEspeciales);
   if(datos.historial_meses) await S.set('historial_meses', datos.historial_meses);
   renderResumen();
