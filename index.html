@@ -6305,9 +6305,13 @@ async function autoArchivarMesesViejos(){
   // Remover movimientos viejos del activo — excepto cobros de sueldo, que deben
   // persistir indefinidamente (igual que pagosMatisa) porque alimentan el saldo
   // adeudado y el historial de la solapa Trabajo; si se archivan, "adeudado"
-  // salta de golpe al perder ese cobro de la cuenta corriente.
+  // salta de golpe al perder ese cobro de la cuenta corriente. Los checkpoints
+  // (saldo_inicial) tampoco se archivan nunca: son el punto de partida del que
+  // depende gf_getSaldos(), y borrarlos hace que el cálculo vuelva a sumar todo
+  // el historial desde cero (bug detectado: el checkpoint se auto-borró a los
+  // 60 días e infló "disponible" con años de cobros de sueldo nunca compensados).
   const movViejos = movimientos.filter(m =>
-    !(new Date(m.fecha + 'T12:00') >= corte || (m.tipo === 'cobro' && m.categoria === 'sueldo'))
+    !(new Date(m.fecha + 'T12:00') >= corte || (m.tipo === 'cobro' && m.categoria === 'sueldo') || m.tipo === 'saldo_inicial')
   );
   movimientos = movimientos.filter(m => !movViejos.includes(m));
   await S.saveArray('movimientos', movimientos, { deleteIds: movViejos.map(m => m.id) });
