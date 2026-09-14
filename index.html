@@ -2051,11 +2051,19 @@ function abrirModalMov(id){
     : [['comida','Comida'],['servicios','Servicios'],['combustible','Combustible'],['alquiler','Alquiler'],['tarjeta','Tarjeta'],['otro','Otro']]
   ).map(([v,l]) => `<option value="${v}"${m.categoria===v?' selected':''}>${l}</option>`).join('');
   const distRow = esCobro ? `<div style="margin-bottom:12px"><button class="btn btn-sm" style="color:var(--blue);border-color:var(--blue);width:100%" onclick="document.getElementById('_mov-modal-overlay').remove();_showDistModal(${m.id})">Ver distribución</button></div>` : '';
+  // Saldo justo después de este movimiento (ver _adjuntarSaldoActual) — solo existe en
+  // registros nuevos; los viejos, de antes de agregar esto, no lo tienen.
+  const saldoRow = m.saldoDisponibleAlRegistrar !== undefined ? `
+    <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);margin-bottom:12px;padding:8px 10px;background:var(--surface2);border-radius:6px">
+      <span>Disponible después: <strong style="color:var(--text)">${fmt(m.saldoDisponibleAlRegistrar)}</strong></span>
+      <span>Separado después: <strong style="color:var(--text)">${fmt(m.saldoSeparadoAlRegistrar)}</strong></span>
+    </div>` : '';
   _movModalOpen(`<div class="modal-content" style="width:360px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h3 style="font-size:15px;font-weight:600;margin:0">${esCobro?'Cobro':'Gasto'}</h3>
       <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
     </div>
+    ${saldoRow}
     <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <div class="form-group"><label>Fecha</label><input type="date" id="edit-fecha-${m.id}" value="${m.fecha}"></div>
       <div class="form-group"><label>Monto</label><input type="number" id="edit-monto-${m.id}" value="${m.monto}" min="1" step="1"></div>
@@ -2688,6 +2696,18 @@ function gf_getSaldos(){
   return { separado: sep, disponible: disp };
 }
 
+// Graba en el propio registro (movimiento o transferencia) el saldo separado/disponible
+// que quedó justo DESPUÉS de aplicarlo — para poder auditar el historial más adelante sin
+// tener que rejugar todos los eventos desde el checkpoint. Se llama SIEMPRE después de
+// empujar el item al array correspondiente (gf_getSaldos() rejuega el array completo, así
+// que necesita que el item ya esté adentro para que el snapshot lo incluya a él mismo).
+function _adjuntarSaldoActual(item){
+  const s = gf_getSaldos();
+  item.saldoDisponibleAlRegistrar = Math.round(s.disponible);
+  item.saldoSeparadoAlRegistrar   = Math.round(s.separado);
+  return item;
+}
+
 // Alias de compatibilidad — código existente sigue funcionando
 function _getSaldoReservas(){
   const s = gf_getSaldos();
@@ -2871,6 +2891,7 @@ async function gf_transferirSaldo(origen, destino, monto, concepto, tipo){
     ...(invIds.length ? { invIds } : {}),
   };
   gf_transferenciasSaldo.push(entrada);
+  _adjuntarSaldoActual(entrada);
   // Las dos patas en inversiones + el registro de la transferencia se guardan juntos: o
   // queda todo (saldo consistente en los dos potes) o no queda nada, nunca a medias.
   await _guardarMulti([
@@ -2907,6 +2928,7 @@ async function gf_marcarComoPagado(mesAnio, tipo){
     const catLabel = tipo === 'alquiler' ? 'Alquiler' : 'Tarjeta';
     const nuevoGasto = { id: Date.now(), tipo:'gasto', monto, categoria: tipo, fecha: new Date().toISOString().split('T')[0], nota: `Pago ${catLabel} ${gf_nombreMes(mesAnio)}` };
     movimientos.push(nuevoGasto);
+    _adjuntarSaldoActual(nuevoGasto);
     await S.saveArray('movimientos', movimientos, { setIds: [nuevoGasto.id] });
   }
 
@@ -3216,12 +3238,18 @@ function gf_abrirModalEditarTransf(id){
   // Las cruzadas (con patas en inversiones) no se editan en línea — cambiar el monto acá
   // desincronizaría el saldo del pote de inversión, que quedó escrito en un registro aparte.
   // Más simple y seguro: borrar y recrear con el monto correcto.
+  const saldoRow = t.saldoDisponibleAlRegistrar !== undefined ? `
+    <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:var(--surface2);border-radius:6px">
+      <span>Disponible después: <strong style="color:var(--text)">${fmt(t.saldoDisponibleAlRegistrar)}</strong></span>
+      <span>Separado después: <strong style="color:var(--text)">${fmt(t.saldoSeparadoAlRegistrar)}</strong></span>
+    </div>` : '';
   _movModalOpen(`<div class="modal-content" style="width:300px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h3 style="font-size:15px;font-weight:600;margin:0">Editar movimiento</h3>
       <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
     </div>
     <p style="font-size:13px;color:var(--muted);margin-bottom:10px">${label}</p>
+    ${saldoRow}
     ${esCruzada ? `
     <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Monto: <strong style="color:var(--text)">${montoTxt}</strong><br>Esta transferencia mueve plata hacia/desde una cartera de inversión — no se puede editar el monto en línea. Borrala y creá una nueva con el monto correcto.</p>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -3991,18 +4019,22 @@ async function registrarCobro(conDistribucion = true){
   try {
     let _distrib = null;
     const movId = Date.now();
+    let nuevoCobro;
     if(conDistribucion){
       const dist = calcDistribucion(monto);
       if(dist){
         const distribucion = Object.fromEntries(dist.asignaciones.map(a => [a.key, a.monto]));
-        movimientos.push({ id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion });
+        nuevoCobro = { id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion };
+        movimientos.push(nuevoCobro);
         _distrib = distribucion;
       } else {
-        movimientos.push({ id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota });
+        nuevoCobro = { id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota };
+        movimientos.push(nuevoCobro);
       }
       toast('✓ Cobro registrado con distribución');
     } else {
-      movimientos.push({ id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota });
+      nuevoCobro = { id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota };
+      movimientos.push(nuevoCobro);
       toast('✓ Cobro registrado como libre disponible');
     }
 
@@ -4027,6 +4059,7 @@ async function registrarCobro(conDistribucion = true){
         nuevasInvIds.push(movId + 3);
       }
     }
+    _adjuntarSaldoActual(nuevoCobro);
     // El cobro y las inversiones que genera se guardan en un solo batch: o queda todo
     // registrado, o no queda nada — nunca un cobro "fantasma" sin sus inversiones.
     await _guardarMulti([
@@ -4154,7 +4187,8 @@ async function _confirmarDistEditada(){
     }
 
     const movId = Date.now();
-    movimientos.push({ id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion });
+    const nuevoCobro = { id: movId, tipo:'cobro', monto, categoria: tipo, metodo, fecha, nota, distribucion };
+    movimientos.push(nuevoCobro);
 
     // Auto-crear entradas en inversiones para FCI, CEDEARs y Jubilación.
     // origenCobroId permite borrarlas en cascada si el cobro se elimina (ver eliminar()).
@@ -4175,6 +4209,7 @@ async function _confirmarDistEditada(){
       inversiones.push({ id: movId + 3, tipo:'jubilacion', monto: montoUSD, fecha, nota: `De cobro ${tipo} (${fmt(distribucion.jubilacion)} ARS @ $${tc})`, origenCobroId: movId });
       nuevasInvIds.push(movId + 3);
     }
+    _adjuntarSaldoActual(nuevoCobro);
     await _guardarMulti([
       { key: 'movimientos', arr: movimientos, setIds: [movId] },
       { key: 'inversiones', arr: inversiones, setIds: nuevasInvIds },
@@ -4392,6 +4427,7 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId }){
   }
 
   movimientos.push(gasto);
+  _adjuntarSaldoActual(gasto);
   await _guardarMulti([
     { key: 'movimientos', arr: movimientos, setIds: [gasto.id] },
     { key: 'tareas', arr: tareas },
@@ -4442,6 +4478,7 @@ async function _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId,
   }
 
   movimientos.push(gasto);
+  _adjuntarSaldoActual(gasto);
   await _guardarMulti([
     { key: 'movimientos', arr: movimientos, setIds: [gasto.id] },
     { key: 'tareas', arr: tareas },
@@ -5767,6 +5804,7 @@ async function _registrarGastoDesdeTarea(t, gfAjeno = false){
   const gasto = { id: Date.now(), tipo:'gasto', monto: t.monto, categoria: t.cat, fecha: hoy, nota: t.desc, tareaId: t.id };
   if(gfAjeno) gasto.gfAjeno = true;
   movimientos.push(gasto);
+  _adjuntarSaldoActual(gasto);
   await S.saveArray('movimientos', movimientos, { setIds: [gasto.id] });
   if(!gfAjeno) await gf_sincronizarEstadoDesdeGasto(gasto);
   renderHistorial();
@@ -5925,6 +5963,7 @@ async function guardarSaldoInicial(){
     nota: `Checkpoint — Oblig: ${fmt(oblig)}, Disp: ${fmt(disp)}`,
   };
   movimientos.push(checkpoint);
+  _adjuntarSaldoActual(checkpoint);
   await S.saveArray('movimientos', movimientos, { setIds: [checkpoint.id] });
   document.getElementById('si-oblig').value = '';
   document.getElementById('si-disp').value  = '';
