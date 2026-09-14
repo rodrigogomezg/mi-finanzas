@@ -2651,12 +2651,18 @@ function gf_getSaldos(){
 
   let sep  = lastInicial ? (lastInicial.distribucion?.obligaciones || 0) : 0;
   let disp = lastInicial ? (lastInicial.distribucion?.disponible   || 0) : 0;
-  const cutoff = lastInicial ? new Date(lastInicial.fecha+'T12:00') : null;
+  // Corte por posición en la secuencia ya ordenada, no por fecha calendario: un
+  // movimiento cargado el mismo día que el checkpoint debe contar igual (el
+  // checkpoint siempre ordena primero ese día por ORDER.saldo_inicial === -1).
+  // Comparar fechas con <= descartaba por error todo lo del mismo día que el
+  // checkpoint, dejando el saldo "trabado" en el valor del checkpoint.
+  const cutoffIdx = lastInicial ? events.indexOf(lastInicial) : -1;
 
-  for(const ev of events){
+  for(let i = 0; i < events.length; i++){
+    const ev = events[i];
     const t = ev._tipo || ev.tipo;
     if(t === 'saldo_inicial') continue;
-    if(cutoff && new Date(ev.fecha+'T12:00') <= cutoff) continue;
+    if(cutoffIdx >= 0 && i <= cutoffIdx) continue;
 
     if(t === 'cobro'){
       const aOblig = ev.distribucion?.obligaciones || 0;
