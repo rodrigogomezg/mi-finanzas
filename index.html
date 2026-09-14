@@ -293,7 +293,7 @@
   .btn-danger:active { background:var(--red-bg); color:var(--red); }
   .btn-sm { padding:8px 14px; font-size:13px; min-height:36px; }
   /* LISTA DE MOVIMIENTOS */
-  .mov-row { display:grid; grid-template-columns:48px 1fr auto; align-items:center; gap:0 14px; padding:13px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 120ms var(--ease-out); -webkit-tap-highlight-color:transparent; animation:rowIn 220ms var(--ease-out) both; animation-delay:calc(var(--i,0) * 22ms); }
+  .mov-row { display:grid; grid-template-columns:48px 1fr auto auto; align-items:center; gap:0 14px; padding:13px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 120ms var(--ease-out); -webkit-tap-highlight-color:transparent; animation:rowIn 220ms var(--ease-out) both; animation-delay:calc(var(--i,0) * 22ms); }
   .mov-row:last-child { border-bottom:none; }
   @media (hover:hover) and (pointer:fine) { .mov-row:hover { background:var(--surface2); } }
   .mov-row:active { background:var(--surface2); }
@@ -306,6 +306,10 @@
   .mov-desc { font-size:14px; color:var(--text); line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mov-cat  { margin-top:3px; }
   .mov-amt  { font-size:15px; font-family:'JetBrains Mono',monospace; font-weight:700; text-align:right; white-space:nowrap; }
+  /* Saldo disponible justo DESPUÉS de aplicar ese movimiento (ver _adjuntarSaldoActual) —
+     el saldo "antes" de una fila es simplemente el de la fila siguiente en la lista, que
+     está ordenada del más nuevo al más viejo. Vacío para movimientos de antes de este campo. */
+  .mov-saldo { font-size:11px; font-family:'JetBrains Mono',monospace; color:var(--muted); text-align:right; white-space:nowrap; }
   @keyframes row-flash { 0% { background-color:oklch(72% 0.18 145 / 0.2); } 100% { background-color:transparent; } }
   [data-flash] { animation:row-flash 1.4s var(--ease-out) forwards; }
 
@@ -553,6 +557,7 @@
     .mov-date b { font-size:14px; }
     .mov-desc { font-size:13px; }
     .mov-amt { font-size:14px; }
+    .mov-saldo { font-size:10px; }
 
     /* ── Tareas ───────────────────────────────────────────── */
     .tarea-item { padding:12px 12px; }
@@ -2051,19 +2056,11 @@ function abrirModalMov(id){
     : [['comida','Comida'],['servicios','Servicios'],['combustible','Combustible'],['alquiler','Alquiler'],['tarjeta','Tarjeta'],['otro','Otro']]
   ).map(([v,l]) => `<option value="${v}"${m.categoria===v?' selected':''}>${l}</option>`).join('');
   const distRow = esCobro ? `<div style="margin-bottom:12px"><button class="btn btn-sm" style="color:var(--blue);border-color:var(--blue);width:100%" onclick="document.getElementById('_mov-modal-overlay').remove();_showDistModal(${m.id})">Ver distribución</button></div>` : '';
-  // Saldo justo después de este movimiento (ver _adjuntarSaldoActual) — solo existe en
-  // registros nuevos; los viejos, de antes de agregar esto, no lo tienen.
-  const saldoRow = m.saldoDisponibleAlRegistrar !== undefined ? `
-    <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);margin-bottom:12px;padding:8px 10px;background:var(--surface2);border-radius:6px">
-      <span>Disponible después: <strong style="color:var(--text)">${fmt(m.saldoDisponibleAlRegistrar)}</strong></span>
-      <span>Separado después: <strong style="color:var(--text)">${fmt(m.saldoSeparadoAlRegistrar)}</strong></span>
-    </div>` : '';
   _movModalOpen(`<div class="modal-content" style="width:360px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h3 style="font-size:15px;font-weight:600;margin:0">${esCobro?'Cobro':'Gasto'}</h3>
       <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
     </div>
-    ${saldoRow}
     <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <div class="form-group"><label>Fecha</label><input type="date" id="edit-fecha-${m.id}" value="${m.fecha}"></div>
       <div class="form-group"><label>Monto</label><input type="number" id="edit-monto-${m.id}" value="${m.monto}" min="1" step="1"></div>
@@ -3238,18 +3235,12 @@ function gf_abrirModalEditarTransf(id){
   // Las cruzadas (con patas en inversiones) no se editan en línea — cambiar el monto acá
   // desincronizaría el saldo del pote de inversión, que quedó escrito en un registro aparte.
   // Más simple y seguro: borrar y recrear con el monto correcto.
-  const saldoRow = t.saldoDisponibleAlRegistrar !== undefined ? `
-    <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:var(--surface2);border-radius:6px">
-      <span>Disponible después: <strong style="color:var(--text)">${fmt(t.saldoDisponibleAlRegistrar)}</strong></span>
-      <span>Separado después: <strong style="color:var(--text)">${fmt(t.saldoSeparadoAlRegistrar)}</strong></span>
-    </div>` : '';
   _movModalOpen(`<div class="modal-content" style="width:300px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h3 style="font-size:15px;font-weight:600;margin:0">Editar movimiento</h3>
       <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
     </div>
     <p style="font-size:13px;color:var(--muted);margin-bottom:10px">${label}</p>
-    ${saldoRow}
     ${esCruzada ? `
     <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Monto: <strong style="color:var(--text)">${montoTxt}</strong><br>Esta transferencia mueve plata hacia/desde una cartera de inversión — no se puede editar el monto en línea. Borrala y creá una nueva con el monto correcto.</p>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -5107,6 +5098,9 @@ function renderHistorial(){
 
   const _MS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const fmtFecha = f => { const d = new Date(f+'T12:00'); return `<b>${String(d.getDate()).padStart(2,'0')}</b>${_MS[d.getMonth()]}`; };
+  // Columna "saldo": disponible justo DESPUÉS de aplicar esta fila (ver _adjuntarSaldoActual).
+  // Movimientos de antes de agregar este campo no lo tienen — muestran "—".
+  const saldoCell = m => `<div class="mov-saldo">${m.saldoDisponibleAlRegistrar !== undefined ? fmt(m.saldoDisponibleAlRegistrar) : '—'}</div>`;
   const rows = sorted.map((m, idx) => {
     const si = `style="--i:${idx}"`;
     if(m._esTransferencia){
@@ -5115,6 +5109,7 @@ function renderHistorial(){
         <div class="mov-date">${fmtFecha(m.fecha)}</div>
         <div><div class="mov-desc">${label}</div><div class="mov-cat"><span class="badge badge-purple">Transferencia</span></div></div>
         <div class="mov-amt" style="color:var(--purple)">${fmt(m.monto)}</div>
+        ${saldoCell(m)}
       </div>`;
     }
     if(m._esTransferenciaPote){
@@ -5126,6 +5121,7 @@ function renderHistorial(){
         <div class="mov-date">${fmtFecha(m.fecha)}</div>
         <div><div class="mov-desc">${label}</div><div class="mov-cat"><span class="badge badge-purple">Transferencia</span></div></div>
         <div class="mov-amt" style="color:var(--purple)">${montoTxt}</div>
+        ${saldoCell(m)}
       </div>`;
     }
     if(m.tipo === 'saldo_inicial'){
@@ -5133,6 +5129,7 @@ function renderHistorial(){
         <div class="mov-date">${fmtFecha(m.fecha)}</div>
         <div><div class="mov-desc">Checkpoint</div><div class="mov-cat" style="font-size:11px;color:var(--muted)">Oblig: ${fmt(m.distribucion?.obligaciones||0)} · Disp: ${fmt(m.distribucion?.disponible||0)}</div></div>
         <div class="mov-amt"><span class="badge badge-blue">·</span></div>
+        ${saldoCell(m)}
       </div>`;
     }
     const esCobro  = m.tipo === 'cobro';
@@ -5144,6 +5141,7 @@ function renderHistorial(){
       <div class="mov-date">${fmtFecha(m.fecha)}</div>
       <div><div class="mov-desc">${descText}${distHint}</div><div class="mov-cat"><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span>${ajenoTag}</div></div>
       <div class="mov-amt" style="color:${esCobro?'var(--green)':'var(--red)'}">${esCobro?'+':'−'}${fmt(m.monto)}</div>
+      ${saldoCell(m)}
     </div>`;
   }).join('');
   _flashMovId = null;
