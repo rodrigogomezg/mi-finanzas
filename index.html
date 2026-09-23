@@ -1409,6 +1409,22 @@ service cloud.firestore {
 
       <div class="gf-card">
         <div class="gf-card-header">
+          <span class="gf-card-title">Débitos automáticos de tarjeta</span>
+        </div>
+        <div id="gf-debitos-lista"></div>
+        <div style="display:flex;gap:8px;align-items:flex-end;margin-top:12px">
+          <div class="form-group" style="flex:1">
+            <input type="text" id="gf-debito-label" placeholder="Nombre (ej: Netflix)">
+          </div>
+          <div class="form-group" style="width:110px">
+            <input type="number" id="gf-debito-monto" placeholder="Monto" min="0">
+          </div>
+          <button class="btn btn-primary" onclick="gf_agregarDebitoTarjeta()">Agregar</button>
+        </div>
+      </div>
+
+      <div class="gf-card">
+        <div class="gf-card-header">
           <span class="gf-card-title">Nueva tarea</span>
         </div>
         <div class="form-grid">
@@ -2213,6 +2229,7 @@ let gf_gastosFijos         = [];
 let gf_separacionesSemana  = [];
 let gf_transferenciasSaldo = [];
 let gf_ingresosEspeciales  = [];
+let gf_debitosTarjeta      = []; // débitos fijos mensuales (ej: Netflix, gimnasio) — se suman solos cada mes, sin recargarlos a mano
 
 // ── PLAN MENSUAL ─────────────────────────────────────────
 const FCI_META_1   = 1000000; // hito intermedio del colchón: al alcanzarlo, modo pasa a "estable"
@@ -2376,6 +2393,7 @@ async function init(){
   gf_separacionesSemana  = await S.get('gf_separacionesSemana')  || [];
   gf_transferenciasSaldo = S.usaColecciones('gf_transferenciasSaldo') ? (await S.getCollection('gf_transferenciasSaldo')) || [] : (await S.get('gf_transferenciasSaldo') || []);
   gf_ingresosEspeciales  = await S.get('gf_ingresosEspeciales')  || [];
+  gf_debitosTarjeta      = await S.get('gf_debitosTarjeta')      || [];
 
   // Migración única (tanda 1): movimientos/inversiones/gf_transferenciasSaldo — se copian a
   // colecciones y se marca hecho. Si algo falla acá, NO se marca el flag: sigue en modo blob
@@ -2672,9 +2690,13 @@ function gf_getSaldos(){
       sep  += aOblig;
       disp += Math.max(0, ev.monto - aOblig - aFCI - aCed - aJub);
     } else if(t === 'gasto'){
-      // gfAjeno: gasto de categoría alquiler/tarjeta que NO es el pago del mes
-      // (ej: consumos en una tarjeta de un tercero) — sale del disponible.
-      if(['alquiler','tarjeta'].includes(ev.categoria) && !ev.gfAjeno){
+      // soloTarjeta: compra con tarjeta que todavía no se pagó — no es salida de caja
+      // hoy, solo se suma al próximo resumen (ver gf_getCargosTarjeta). No toca disp/sep.
+      if(ev.soloTarjeta){
+        // no-op
+      } else if(['alquiler','tarjeta'].includes(ev.categoria) && !ev.gfAjeno){
+        // gfAjeno: gasto de categoría alquiler/tarjeta que NO es el pago del mes
+        // (ej: consumos en una tarjeta de un tercero) — sale del disponible.
         sep -= ev.monto;
       } else {
         disp -= ev.monto;
@@ -2752,10 +2774,37 @@ function gf_getMesActivo(){
   return ym;
 }
 
+// Suma los gastos marcados como "tarjeta" (soloTarjeta, ver checkbox en Registrar gasto)
+// asignados a este mesAnio — compras ya hechas que todavía no salieron de disponible/
+// separado, se van a pagar en el próximo resumen de la tarjeta.
+function gf_getCargosTarjeta(mesAnio){
+  return movimientos
+    .filter(m => m.tipo === 'gasto' && m.soloTarjeta && m.mesAnioTarjeta === mesAnio)
+    .reduce((s, m) => s + m.monto, 0);
+}
+
+// Suma de los débitos fijos mensuales de tarjeta (Netflix, gimnasio, etc. — ver Gastos
+// Fijos → Débitos automáticos). No dependen del mes: se aplican solos a cualquier mes
+// todavía abierto, así no hay que recargarlos a mano cada vez.
+function gf_getDebitosTarjetaTotal(){
+  return gf_debitosTarjeta.reduce((s, d) => s + (d.monto || 0), 0);
+}
+
+// Total estimado de tarjeta para el mes: si ya se hizo el cierre real, ese número manda
+// (fijo, no se le suma nada más); si no, es el ajuste manual (Configurar mes) + los débitos
+// automáticos + lo itemizado con el checkbox "Tarjeta" — el manual sigue sirviendo para lo
+// que no se carga cargo por cargo, sin duplicar lo que sí se itemiza o automatiza.
+function gf_getTarjetaEstimado(mesAnio){
+  const mes = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
+  if(!mes) return 0;
+  if(mes.tarjeta.montoReal != null) return mes.tarjeta.montoReal;
+  return (mes.tarjeta.montoEstimado || 0) + gf_getDebitosTarjetaTotal() + gf_getCargosTarjeta(mesAnio);
+}
+
 function gf_calcularEstadoMes(mesAnio){
   const mes = gf_gastosFijos.find(m => m.mesAnio === mesAnio);
   if(!mes) return 'sin_configurar';
-  if(!mes.alquiler.montoEstimado && !mes.tarjeta.montoEstimado) return 'sin_configurar';
+  if(!mes.alquiler.montoEstimado && !gf_getTarjetaEstimado(mesAnio)) return 'sin_configurar';
 
   const hoy     = new Date();
   const [y,m]   = mesAnio.split('-').map(Number);
@@ -2809,7 +2858,7 @@ function gf_calcularRecomendacion(mesAnio){
   if(!mes) return { fondoNecesario:0, fondoAcumulado:0, fondoFaltante:0, sabadosRestantes:0, recomendacionPorSabado:0 };
 
   const alqMonto = mes.alquiler.estado === 'pagado' ? 0 : (mes.alquiler.montoEstimado || 0);
-  const tarMonto = mes.tarjeta.estado  === 'pagado' ? 0 : (mes.tarjeta.montoEstimado  || 0);
+  const tarMonto = mes.tarjeta.estado  === 'pagado' ? 0 : gf_getTarjetaEstimado(mesAnio);
   const fondoNecesario = alqMonto + tarMonto;
 
   const saldos       = gf_getSaldos();
@@ -2909,7 +2958,7 @@ async function gf_marcarComoPagado(mesAnio, tipo){
   const item = mes[tipo];
   if(!item) return;
 
-  const monto = (tipo === 'tarjeta' && item.montoReal != null) ? item.montoReal : item.montoEstimado;
+  const monto = tipo === 'tarjeta' ? gf_getTarjetaEstimado(mesAnio) : item.montoEstimado;
   if(!monto){ toast('Configurá el monto primero', 'err'); return; }
 
   // Si ya hay un gasto registrado para esta categoría en el mes, el saldo fue
@@ -3094,7 +3143,7 @@ async function gf_guardarConfigMes(){
 function gf_abrirModalCierreTarjeta(mesAnio){
   const mes = gf_getOrCreateMes(mesAnio);
   document.getElementById('gf-modal-cierre-mes').value        = mesAnio;
-  document.getElementById('gf-modal-cierre-prev').textContent = `Estimado: ${fmt(mes.tarjeta.montoEstimado || 0)}`;
+  document.getElementById('gf-modal-cierre-prev').textContent = `Estimado: ${fmt(gf_getTarjetaEstimado(mesAnio))}`;
   document.getElementById('gf-modal-tarjeta-real').value      = mes.tarjeta.montoReal != null ? mes.tarjeta.montoReal : '';
   document.getElementById('gf-modal-cierre-tarjeta').style.display = 'flex';
 }
@@ -3109,10 +3158,9 @@ async function gf_confirmarCierreTarjeta(){
   if(!montoReal || montoReal <= 0){ toast('Ingresá el monto real del cierre', 'err'); return; }
 
   const mes = gf_getOrCreateMes(mesAnio);
+  const estimado = gf_getTarjetaEstimado(mesAnio); // manual + cargos itemizados, ANTES de tocar nada
   mes.tarjeta.montoReal        = montoReal;
   mes.tarjeta.cierreRealizado  = true;
-
-  const estimado = mes.tarjeta.montoEstimado || 0;
   mes.tarjeta.montoEstimado = montoReal; // ajustar estimado al real, antes de recalcular el fondo necesario
 
   if(montoReal > estimado){
@@ -3291,7 +3339,7 @@ function gf_renderAlertas(mesAnio){
   if(estado === 'urgente' || (estado === 'en_curso' && rec.fondoFaltante > 0 && rec.sabadosRestantes <= 1)){
     alertas.push({ tipo:'warn', texto:`Quedan ${rec.sabadosRestantes} sábado${rec.sabadosRestantes!==1?'s':''} para completar el fondo. Separar ${fmt(rec.recomendacionPorSabado)}.` });
   }
-  if(mes && mes.tarjeta.cierreRealizado === false && mes.tarjeta.montoEstimado > 0){
+  if(mes && mes.tarjeta.cierreRealizado === false && gf_getTarjetaEstimado(mesAnio) > 0){
     const hoy  = new Date();
     const [y,m] = mesAnio.split('-').map(Number);
     const dia5  = new Date(y, m-1, mes.diaAlertaTarjeta || 5);
@@ -3319,7 +3367,7 @@ function gf_renderMesPanel(mesAnio){
   const estadoClass  = { sin_configurar:'gf-estado-gris', en_curso:'gf-estado-azul', urgente:'gf-estado-naranja', vencido:'gf-estado-rojo', completo:'gf-estado-verde' };
 
   const fila = (label, item, tipo) => {
-    const monto      = (tipo === 'tarjeta' && item.montoReal != null) ? item.montoReal : item.montoEstimado;
+    const monto      = tipo === 'tarjeta' ? gf_getTarjetaEstimado(mesAnio) : item.montoEstimado;
     const pagado     = item.estado === 'pagado';
     const esTarjeta  = tipo === 'tarjeta';
     return `
@@ -3501,6 +3549,60 @@ function gf_renderGastosFijos(){
   gf_renderHistorialMes(mesAnio);
   gf_renderHistorialMeses();
   gf_renderHint();
+  gf_renderDebitosTarjeta();
+}
+
+// ── DÉBITOS AUTOMÁTICOS DE TARJETA ────────────────────────
+// Gastos fijos de tarjeta que entran todos los meses (Netflix, gimnasio, etc.) — se
+// configuran una vez acá y gf_getTarjetaEstimado() los suma solos a cualquier mes
+// abierto, sin tener que recargarlos a mano cada vez.
+function gf_renderDebitosTarjeta(){
+  const el = document.getElementById('gf-debitos-lista');
+  if(!el) return;
+  if(!gf_debitosTarjeta.length){
+    el.innerHTML = `<div style="font-size:12px;color:var(--muted)">Sin débitos automáticos configurados.</div>`;
+    return;
+  }
+  el.innerHTML = gf_debitosTarjeta.map(d => `
+    <div class="gf-hist-row">
+      <div style="flex:1;min-width:0;font-size:13px">${esc(d.label)}</div>
+      <input type="number" value="${d.monto}" min="0" style="width:110px;flex-shrink:0"
+        onchange="gf_editarDebitoTarjeta(${d.id}, this.value)">
+      <button class="btn btn-danger btn-sm" onclick="gf_eliminarDebitoTarjeta(${d.id})" style="padding:2px 8px;font-size:12px">×</button>
+    </div>`).join('');
+}
+
+async function gf_agregarDebitoTarjeta(){
+  const labelEl = document.getElementById('gf-debito-label');
+  const montoEl = document.getElementById('gf-debito-monto');
+  const label = labelEl.value.trim();
+  const monto = parseFloat(montoEl.value);
+  if(!label){ toast('Ingresá un nombre', 'err'); return; }
+  if(!monto || monto <= 0){ toast('Ingresá un monto válido', 'err'); return; }
+  gf_debitosTarjeta.push({ id: Date.now(), label, monto });
+  await S.set('gf_debitosTarjeta', gf_debitosTarjeta);
+  labelEl.value = '';
+  montoEl.value = '';
+  gf_renderGastosFijos();
+  toast('✓ Débito agregado');
+}
+
+async function gf_editarDebitoTarjeta(id, monto){
+  const d = gf_debitosTarjeta.find(x => x.id === id);
+  if(!d) return;
+  const nuevo = parseFloat(monto);
+  if(!nuevo || nuevo <= 0){ toast('Monto inválido', 'err'); gf_renderDebitosTarjeta(); return; }
+  d.monto = nuevo;
+  await S.set('gf_debitosTarjeta', gf_debitosTarjeta);
+  gf_renderGastosFijos();
+  toast('✓ Monto actualizado');
+}
+
+async function gf_eliminarDebitoTarjeta(id){
+  gf_debitosTarjeta = gf_debitosTarjeta.filter(x => x.id !== id);
+  await S.set('gf_debitosTarjeta', gf_debitosTarjeta);
+  gf_renderGastosFijos();
+  toast('Débito eliminado');
 }
 
 // ── FCI / CEDEARs ─────────────────────────────────────────
@@ -4353,6 +4455,7 @@ async function registrarGasto(){
   const fecha   = document.getElementById('gasto-fecha').value;
   const desc    = document.getElementById('gasto-desc').value;
   const tareaId = parseInt(document.getElementById('gasto-tarea')?.value || '0');
+  const tarjeta = document.getElementById('gasto-tarjeta')?.checked || false;
   if(isNaN(monto) || monto <= 0){ toast('Ingresá un monto válido mayor que cero', 'err'); return; }
   if(!fecha){ toast('Elegí una fecha', 'err'); return; }
   if(_saving) return;
@@ -4361,10 +4464,50 @@ async function registrarGasto(){
 
   _saving = true;
   try {
-    await _ejecutarRegistroGasto(data);
+    if(tarjeta) await _registrarCargoTarjeta(data);
+    else await _ejecutarRegistroGasto(data);
   } finally {
     _saving = false;
   }
+}
+
+// Compra con tarjeta (checkbox "💳 Tarjeta") — no es salida de caja todavía, así que no
+// toca disponible/separado (gf_getSaldos() la ignora por el flag soloTarjeta). Solo se
+// suma al total del mes abierto de tarjeta en G. Fijos (ver gf_getCargosTarjeta).
+async function _registrarCargoTarjeta({ monto, cat, fecha, desc, tareaId }){
+  const mesAnioTarjeta = gf_getMesActivo();
+  const gasto = { id: Date.now(), tipo:'gasto', monto, categoria: cat, fecha, nota: desc, soloTarjeta: true, mesAnioTarjeta };
+
+  let tareaCompletada = null;
+  if(tareaId){
+    const t = tareas.find(t => t.id === tareaId);
+    if(t && !t.done){
+      t.done = true;
+      tareaCompletada = t;
+      gasto.tareaId = tareaId;
+    }
+  }
+
+  movimientos.push(gasto);
+  _adjuntarSaldoActual(gasto);
+  await _guardarMulti([
+    { key: 'movimientos', arr: movimientos, setIds: [gasto.id] },
+    { key: 'tareas', arr: tareas },
+  ]);
+
+  document.getElementById('gasto-monto').value = '';
+  document.getElementById('gasto-desc').value  = '';
+  document.getElementById('gasto-tarea').value = '';
+  document.getElementById('gasto-tarjeta').checked = false;
+
+  const tareaMsg = tareaCompletada ? ` · "${tareaCompletada.desc}" completada ✓` : '';
+  toast(`✓ Cargo de tarjeta registrado${tareaMsg} · se suma al próximo pago`);
+
+  fabCloseSheet();
+  renderTareasSelect();
+  renderResumen();
+  renderHistorial();
+  if(tareaCompletada) renderTareas();
 }
 
 // Guarda el gasto y emite el toast correspondiente
@@ -4699,7 +4842,7 @@ function renderPlanMes(elId){
   const fillColor = estadoColors[estado] || 'var(--blue)';
 
   const alqMonto  = mes.alquiler.montoEstimado || 0;
-  const tarMonto  = (mes.tarjeta.montoReal ?? mes.tarjeta.montoEstimado) || 0;
+  const tarMonto  = gf_getTarjetaEstimado(mesAnio);
 
   const alqTask   = tareas.find(t => t.cat === 'alquiler' && !t.done);
   const tarTask   = tareas.find(t => t.cat === 'tarjeta'  && !t.done);
@@ -5143,9 +5286,10 @@ function renderHistorial(){
     const distHint = esCobro && m.distribucion ? ` <span style="font-size:10px;color:var(--blue);opacity:0.6">· dist</span>` : '';
     const descText = esc(m.nota) || catLabels[m.categoria] || m.categoria;
     const ajenoTag = m.gfAjeno ? ` <span class="badge" style="background:var(--surface2);color:var(--muted);font-size:10px">aparte</span>` : '';
+    const tarjetaTag = m.soloTarjeta ? ` <span class="badge" style="background:var(--surface2);color:var(--muted);font-size:10px">💳 tarjeta</span>` : '';
     return `<div class="mov-row"${isFlash?' data-flash':''} ${si} onclick="abrirModalMov(${m.id})">
       <div class="mov-date">${fmtFecha(m.fecha)}</div>
-      <div><div class="mov-desc">${descText}${distHint}</div><div class="mov-cat"><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span>${ajenoTag}</div></div>
+      <div><div class="mov-desc">${descText}${distHint}</div><div class="mov-cat"><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span>${ajenoTag}${tarjetaTag}</div></div>
       <div class="mov-amt" style="color:${esCobro?'var(--green)':'var(--red)'}">${esCobro?'+':'−'}${fmt(m.monto)}</div>
       ${saldoCell(m)}
     </div>`;
@@ -7570,6 +7714,7 @@ async function exportarDatos(){
     gf_separacionesSemana:  gf_separacionesSemana,
     gf_transferenciasSaldo: gf_transferenciasSaldo,
     gf_ingresosEspeciales:  gf_ingresosEspeciales,
+    gf_debitosTarjeta:      gf_debitosTarjeta,
     // Antes faltaban estos dos — categorias_config es dato real del usuario (categorías
     // personalizadas), y los *SeedVersion evitan que un import re-dispare una migración
     // de seed ya hecha (ver init()).
@@ -7631,6 +7776,7 @@ async function importarDatos(event){
   if(datos.gf_separacionesSemana)   gf_separacionesSemana   = datos.gf_separacionesSemana;
   if(datos.gf_transferenciasSaldo)  gf_transferenciasSaldo  = datos.gf_transferenciasSaldo;
   if(datos.gf_ingresosEspeciales)   gf_ingresosEspeciales   = datos.gf_ingresosEspeciales;
+  if(datos.gf_debitosTarjeta)       gf_debitosTarjeta       = datos.gf_debitosTarjeta;
 
   if(datos.categorias_config) await S.set('categorias_config', datos.categorias_config);
   if(datos.seedVersion)       await S.set('seedVersion', datos.seedVersion);
@@ -7652,6 +7798,7 @@ async function importarDatos(event){
   await S.set('gf_separacionesSemana',   gf_separacionesSemana);
   await S.replaceCollection('gf_transferenciasSaldo',  gf_transferenciasSaldo);
   await S.set('gf_ingresosEspeciales',   gf_ingresosEspeciales);
+  await S.set('gf_debitosTarjeta',       gf_debitosTarjeta);
   if(datos.historial_meses) await S.replaceCollection('historial_meses', datos.historial_meses);
   renderResumen();
   renderHistorial();
@@ -7706,7 +7853,11 @@ function fabOpenSheet(type){
   sheet.classList.remove('closing');
   sheet.classList.add('visible');
   document.getElementById('fab-backdrop').classList.add('visible');
-  if(type === 'gasto') renderTareasSelect();
+  if(type === 'gasto'){
+    renderTareasSelect();
+    const tarjetaEl = document.getElementById('gasto-tarjeta');
+    if(tarjetaEl) tarjetaEl.checked = false;
+  }
   if(type === 'transf') gf_actualizarPreviewTransferencia();
 }
 
@@ -7804,6 +7955,12 @@ if ('serviceWorker' in navigator) {
         <div class="form-group">
           <input type="date" id="gasto-fecha">
         </div>
+      </div>
+      <div class="form-group full" style="flex-direction:row;align-items:center;gap:6px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);cursor:pointer;user-select:none">
+          <input type="checkbox" id="gasto-tarjeta" style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer">
+          💳 Tarjeta
+        </label>
       </div>
       <div class="form-group inline-action full">
         <select id="gasto-tarea" onchange="seleccionarTareaGasto()" style="flex:1">
