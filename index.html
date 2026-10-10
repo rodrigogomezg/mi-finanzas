@@ -2807,6 +2807,20 @@ function gf_mesAnioTarjetaPara(fecha){
   return `${pago.getFullYear()}-${String(pago.getMonth() + 1).padStart(2, '0')}`;
 }
 
+// Período de compras que cubre el resumen que se paga en mesAnio: desde el día siguiente al
+// cierre anterior hasta el cierre del mes previo al pago (ej: cierre 28, pago en noviembre →
+// "29/10"... "28/10" del mes anterior). Null si no hay día de cierre configurado.
+function gf_periodoResumen(mesAnio){
+  if(!gf_cierreTarjetaDia) return null;
+  const [y, m] = mesAnio.split('-').map(Number);
+  const cierre = (anio, mesIdx) => new Date(anio, mesIdx, Math.min(gf_cierreTarjetaDia, new Date(anio, mesIdx + 1, 0).getDate()));
+  const hasta = cierre(y, m - 2);
+  const desde = cierre(y, m - 3);
+  desde.setDate(desde.getDate() + 1);
+  const f = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+  return { desde: f(desde), hasta: f(hasta) };
+}
+
 function gf_getCargosTarjeta(mesAnio){
   return movimientos
     .filter(m => m.tipo === 'gasto' && m.soloTarjeta && m.mesAnioTarjeta === mesAnio)
@@ -3410,7 +3424,7 @@ function gf_renderMesPanel(mesAnio){
     const esTarjeta  = tipo === 'tarjeta';
     return `
       <div class="gf-item-fila">
-        <div class="gf-item-label">${label}</div>
+        <div class="gf-item-label">${label}${esTarjeta && gf_periodoResumen(mesAnio) ? `<div style="font-size:11px;font-weight:400;color:var(--muted)">Compras del ${gf_periodoResumen(mesAnio).desde} al ${gf_periodoResumen(mesAnio).hasta}</div>` : ''}</div>
         <div class="gf-item-monto">${monto ? fmt(monto) : '<span style="color:var(--muted)">—</span>'}</div>
         <div class="gf-item-acciones">
           ${pagado
@@ -3427,6 +3441,7 @@ function gf_renderMesPanel(mesAnio){
       <div class="gf-mes-header">
         <div>
           <div class="gf-mes-nombre">${gf_nombreMes(mesAnio)}</div>
+          <div style="font-size:11px;color:var(--muted);margin:2px 0 4px">Pagos que vencen en este mes</div>
           <div class="gf-mes-estado ${estadoClass[estado]||''}">${estadoLabels[estado]||estado}</div>
         </div>
         <button class="btn btn-sm" onclick="gf_abrirModalConfig('${mesAnio}')">Configurar</button>
@@ -3600,14 +3615,14 @@ function gf_renderProximoResumen(mesAnio){
   const meses = new Set([gf_getMesSiguiente(mesAnio)]);
   movimientos.forEach(m => { if(m.soloTarjeta && m.mesAnioTarjeta > mesAnio) meses.add(m.mesAnioTarjeta); });
   const debitos = gf_getDebitosTarjetaTotal();
-  const nota = gf_cierreTarjetaDia
-    ? `El resumen cierra el día ${gf_cierreTarjetaDia} de cada mes.`
-    : 'Configurá el día de cierre del resumen en "Configurar mes" para que cada compra caiga en el pago correcto.';
+  const sinCierre = 'Configurá el día de cierre del resumen en "Configurar mes" para que cada compra caiga en el pago correcto.';
   el.innerHTML = [...meses].sort().map(ma => {
     const compras = movimientos
       .filter(m => m.tipo === 'gasto' && m.soloTarjeta && m.mesAnioTarjeta === ma)
       .sort((a, b) => b.fecha.localeCompare(a.fecha) || (b.id || 0) - (a.id || 0));
     const totalCompras = compras.reduce((sum, m) => sum + m.monto, 0);
+    const per = gf_periodoResumen(ma);
+    const nota = per ? `Compras del ${per.desde} al ${per.hasta} (el resumen cierra el día ${gf_cierreTarjetaDia}).` : sinCierre;
     const filas = compras.map(m => `
       <div class="gf-hist-row">
         <div style="font-size:12px;color:var(--muted);width:44px;flex-shrink:0">${m.fecha.slice(8, 10)}/${m.fecha.slice(5, 7)}</div>
@@ -3617,7 +3632,7 @@ function gf_renderProximoResumen(mesAnio){
     return `
     <div class="gf-card">
       <div class="gf-card-header">
-        <span class="gf-card-title">Próximo resumen · se paga en ${gf_nombreMes(ma)}</span>
+        <span class="gf-card-title">Siguiente resumen · se paga en ${gf_nombreMes(ma)}</span>
       </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${nota}</div>
       ${filas || '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Todavía sin compras con tarjeta para este resumen.</div>'}
