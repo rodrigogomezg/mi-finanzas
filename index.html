@@ -1307,7 +1307,7 @@ service cloud.firestore {
         <div id="tab-config-categorias" class="tab-pane">
           <div class="form-card">
             <h3>Categorías y colores</h3>
-            <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5">Personalizá los nombres y colores. Se reflejan en el gráfico de Registros.</p>
+            <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5">Personalizá nombres y colores, y agregá o eliminá categorías. Se reflejan en los formularios, Movimientos, Tareas y Registros. Alquiler, Tarjeta, Inversión, FCI y Otro no se pueden eliminar porque la app los usa internamente.</p>
             <div id="cat-config-list"></div>
             <div style="margin-top:16px;display:flex;gap:8px">
               <button class="btn btn-primary" onclick="guardarCategoriasConfig()">Guardar</button>
@@ -2071,10 +2071,10 @@ function abrirModalMov(id){
   const m = movimientos.find(x => x.id === id);
   if(!m) return;
   const esCobro = m.tipo === 'cobro';
-  const opts = (esCobro
+  const opts = esCobro
     ? [['sueldo','Pago de sueldo'],['semanal','Cobro semanal'],['mensual_fijo','Cobro mensual fijo'],['extra','Ingreso extra']]
-    : [['comida','Comida'],['servicios','Servicios'],['combustible','Combustible'],['alquiler','Alquiler'],['tarjeta','Tarjeta'],['otro','Otro']]
-  ).map(([v,l]) => `<option value="${v}"${m.categoria===v?' selected':''}>${l}</option>`).join('');
+        .map(([v,l]) => `<option value="${v}"${m.categoria===v?' selected':''}>${l}</option>`).join('')
+    : _catOptions(m.categoria, ['inversion','fci']);
   const distRow = esCobro ? `<div style="margin-bottom:12px"><button class="btn btn-sm" style="color:var(--blue);border-color:var(--blue);width:100%" onclick="document.getElementById('_mov-modal-overlay').remove();_showDistModal(${m.id})">Ver distribución</button></div>` : '';
   _movModalOpen(`<div class="modal-content" style="width:360px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -2415,7 +2415,10 @@ async function init(){
   }
   await _migrarGastosFijos();
   const savedCats = await S.get('categorias_config');
-  if(savedCats){ Object.assign(categoriasConfig, savedCats); }
+  if(savedCats){
+    categoriasConfig = JSON.parse(JSON.stringify(savedCats));
+    CAT_PROTEGIDAS.forEach(k => { if(!categoriasConfig[k]) categoriasConfig[k] = { ...CAT_DEFAULTS[k] }; });
+  }
   _syncCatConfig();
   const seedVer = await S.get('seedVersion') || 0;
   if(seedVer < 3){
@@ -5056,8 +5059,8 @@ function abrirModalDia(dia){
     .toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
 
   const fila = (nota, cat, monto, colorMonto) => {
-    const desc = nota || CLABELS[cat] || cat;
-    const badge = `<span class="badge badge-${CCOLORS[cat]||'amber'}" style="font-size:10px">${CLABELS[cat]||cat}</span>`;
+    const desc = nota || (categoriasConfig[cat] ? _catLabel(cat) : (CLABELS[cat] || cat));
+    const badge = categoriasConfig[cat] ? _catBadge(cat, 'font-size:10px') : `<span class="badge badge-${CCOLORS[cat]||'amber'}" style="font-size:10px">${CLABELS[cat]||cat}</span>`;
     const sub = nota ? badge : '';
     return `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)">
       <div style="overflow:hidden;min-width:0">
@@ -5173,6 +5176,11 @@ function renderHistorial(){
     comida:'amber', transporte:'amber', personal:'amber', inversion:'purple', fci:'blue', otro:'amber'
   };
 
+  // Gastos: nombre/color vienen de la configuración de categorías; cobros y categorías
+  // viejas sin config siguen con los mapas fijos de arriba.
+  const catLabelAny = k => categoriasConfig[k] ? _catLabel(k) : (catLabels[k] || k);
+  const catBadgeAny = k => categoriasConfig[k] ? _catBadge(k) : `<span class="badge badge-${catColor[k]||'amber'}">${catLabels[k]||k}</span>`;
+
   // Populate month selector
   const sel = document.getElementById('hist-mes-sel');
   if(sel){
@@ -5221,7 +5229,7 @@ function renderHistorial(){
     )];
     // rebuild options
     const catOpts = ['<option value="">Todas las cat.</option>',
-      ...catsPresentes.map(c => `<option value="${c}"${c===prevCat?' selected':''}>${catLabels[c]||c}</option>`)
+      ...catsPresentes.map(c => `<option value="${c}"${c===prevCat?' selected':''}>${catLabelAny(c)}</option>`)
     ].join('');
     catSel.innerHTML = catOpts;
   }
@@ -5244,7 +5252,7 @@ function renderHistorial(){
   const totalesEl = document.getElementById('hist-totales');
   if(totalesEl){
     const hayFiltro = tipoVal !== 'todos' || catVal;
-    const label = catVal ? (catLabels[catVal] || catVal) : (tipoVal === 'cobro' ? 'Cobros' : tipoVal === 'gasto' ? 'Gastos' : null);
+    const label = catVal ? catLabelAny(catVal) : (tipoVal === 'cobro' ? 'Cobros' : tipoVal === 'gasto' ? 'Gastos' : null);
     if(hayFiltro && label && (sumaC > 0 || sumaG > 0)){
       const montoFiltro = tipoVal === 'cobro' ? sumaC : tipoVal === 'gasto' ? sumaG : (sumaC || sumaG);
       totalesEl.innerHTML = `<div class="hist-totales-row" style="display:inline-flex;align-items:center;gap:10px;font-size:13px">
@@ -5317,12 +5325,12 @@ function renderHistorial(){
     const esCobro  = m.tipo === 'cobro';
     const isFlash  = _flashMovId === m.id;
     const distHint = esCobro && m.distribucion ? ` <span style="font-size:10px;color:var(--blue);opacity:0.6">· dist</span>` : '';
-    const descText = esc(m.nota) || catLabels[m.categoria] || m.categoria;
+    const descText = esc(m.nota) || catLabelAny(m.categoria);
     const ajenoTag = m.gfAjeno ? ` <span class="badge" style="background:var(--surface2);color:var(--muted);font-size:10px">aparte</span>` : '';
     const tarjetaTag = m.soloTarjeta ? ` <span class="badge" style="background:var(--surface2);color:var(--muted);font-size:10px">💳 tarjeta</span>` : '';
     return `<div class="mov-row"${isFlash?' data-flash':''} ${si} onclick="abrirModalMov(${m.id})">
       <div class="mov-date">${fmtFecha(m.fecha)}</div>
-      <div><div class="mov-desc">${descText}${distHint}</div><div class="mov-cat"><span class="badge badge-${catColor[m.categoria]||'amber'}">${catLabels[m.categoria]||m.categoria}</span>${ajenoTag}${tarjetaTag}</div></div>
+      <div><div class="mov-desc">${descText}${distHint}</div><div class="mov-cat">${catBadgeAny(m.categoria)}${ajenoTag}${tarjetaTag}</div></div>
       <div class="mov-amt" style="color:${esCobro?'var(--green)':'var(--red)'}">${esCobro?'+':'−'}${fmt(m.monto)}</div>
       ${saldoCell(m)}
     </div>`;
@@ -5916,8 +5924,6 @@ function renderTarjeta(){
   }
 }
 
-const catColorT = { servicios:'blue', monotributo:'blue', alquiler:'red', tarjeta:'red', inversion:'purple', fci:'blue', otro:'amber' };
-const catLabelT = { servicios:'Servicios', monotributo:'Monotributo', alquiler:'Alquiler', tarjeta:'Tarjeta', inversion:'CEDEARs', fci:'FCI', otro:'Otro' };
 
 function diasHasta(fechaStr){
   const hoy = new Date(); hoy.setHours(0,0,0,0);
@@ -6081,8 +6087,7 @@ async function eliminarTarea(id){
 function abrirModalTarea(id){
   const t = tareas.find(x => x.id === id);
   if(!t) return;
-  const cats = Object.entries(catLabelT)
-    .map(([v,l]) => `<option value="${v}"${t.cat===v?' selected':''}>${l}</option>`).join('');
+  const cats = _catOptions(t.cat);
   const notaGasto = t.done
     ? `<p style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5">Esta tarea ya está pagada — editar acá no modifica el gasto que haya generado.</p>`
     : '';
@@ -6158,32 +6163,76 @@ async function guardarSaldoInicial(){
 function renderCategoriasConfig(){
   const wrap = document.getElementById('cat-config-list');
   if(!wrap) return;
-  wrap.innerHTML = Object.entries(categoriasConfig).map(([k, v]) => `
+  wrap.innerHTML = Object.entries(categoriasConfig).map(([k, v]) => {
+    const prot = CAT_PROTEGIDAS.includes(k);
+    return `
     <div class="cat-row">
       <input type="color" class="cat-color-input" value="${v.color}" data-cat="${k}">
-      <span class="cat-key">${k}</span>
-      <input type="text" class="cat-label-input" value="${v.label}" data-cat="${k}" placeholder="Nombre">
-    </div>`).join('');
+      <span class="cat-key" title="${prot ? 'Categoría del sistema: no se puede eliminar' : ''}">${CAT_DEFAULTS[k] ? k : 'personalizada'}</span>
+      <input type="text" class="cat-label-input" value="${esc(v.label)}" data-cat="${k}" placeholder="Nombre">
+      ${prot ? '<span style="width:30px;flex-shrink:0"></span>' : `<button class="btn btn-sm" onclick="eliminarCategoria('${k}')" title="Eliminar categoría" style="flex-shrink:0;width:30px;padding:0">×</button>`}
+    </div>`;
+  }).join('') + `<div style="padding-top:12px"><button class="btn btn-sm" onclick="agregarCategoria()">+ Agregar categoría</button></div>`;
 }
 
-async function guardarCategoriasConfig(){
+// Vuelca lo escrito en las filas a categoriasConfig (en memoria), sin guardar.
+function _leerFilasCategorias(){
   document.querySelectorAll('.cat-row').forEach(row => {
     const colorEl = row.querySelector('.cat-color-input');
     const labelEl = row.querySelector('.cat-label-input');
     const k = colorEl?.dataset.cat;
-    if(k) categoriasConfig[k] = { label: labelEl.value.trim() || CAT_DEFAULTS[k].label, color: colorEl.value };
+    if(k && categoriasConfig[k]) categoriasConfig[k] = { label: labelEl.value.trim() || CAT_DEFAULTS[k]?.label || categoriasConfig[k].label, color: colorEl.value };
   });
+}
+
+function agregarCategoria(){
+  _leerFilasCategorias();
+  const paleta = ['#fb923c','#2dd4bf','#a3e635','#e879f9','#38bdf8','#facc15','#f43f5e'];
+  const key = 'cat_' + Date.now().toString(36);
+  categoriasConfig[key] = { label: 'Nueva categoría', color: paleta[Object.keys(categoriasConfig).length % paleta.length] };
+  renderCategoriasConfig();
+  const inp = document.querySelector(`.cat-label-input[data-cat="${key}"]`);
+  if(inp){ inp.focus(); inp.select(); }
+  toast('Escribí el nombre y tocá Guardar', 'ok');
+}
+
+async function eliminarCategoria(k){
+  if(CAT_PROTEGIDAS.includes(k) || !categoriasConfig[k]) return;
+  _leerFilasCategorias();
+  const movs = movimientos.filter(m => m.categoria === k);
+  const tars = tareas.filter(t => t.cat === k);
+  const usos = movs.length + tars.length;
+  const msg = usos
+    ? `¿Eliminar "${categoriasConfig[k].label}"? ${movs.length} movimiento(s) y ${tars.length} tarea(s) pasan a "${categoriasConfig.otro.label}".`
+    : `¿Eliminar "${categoriasConfig[k].label}"?`;
+  if(!confirm(msg)) return;
+  if(movs.length){ movs.forEach(m => { m.categoria = 'otro'; }); await S.saveArray('movimientos', movimientos, { setIds: movs.map(m => m.id) }); }
+  if(tars.length){ tars.forEach(t => { t.cat = 'otro'; }); await S.saveArray('tareas', tareas, { setIds: tars.map(t => t.id) }); }
+  delete categoriasConfig[k];
   await S.set('categorias_config', categoriasConfig);
   _syncCatConfig();
+  renderCategoriasConfig();
+  renderHistorial();
+  renderTareas();
+  toast('Categoría eliminada', 'ok');
+}
+
+async function guardarCategoriasConfig(){
+  _leerFilasCategorias();
+  await S.set('categorias_config', categoriasConfig);
+  _syncCatConfig();
+  renderCategoriasConfig();
+  renderHistorial();
+  renderTareas();
   toast('Categorías guardadas', 'ok');
 }
 
 async function resetCategoriasConfig(){
-  categoriasConfig = JSON.parse(JSON.stringify(CAT_DEFAULTS));
+  Object.entries(CAT_DEFAULTS).forEach(([k, v]) => { categoriasConfig[k] = { ...v }; });
   await S.set('categorias_config', categoriasConfig);
   _syncCatConfig();
   renderCategoriasConfig();
-  toast('Categorías restablecidas', 'ok');
+  toast('Nombres y colores originales restablecidos (las categorías propias se mantienen)', 'ok');
 }
 
 function renderConfig(){
@@ -6300,7 +6349,7 @@ function renderTareas(){
         <div class="tarea-desc">${esc(t.desc)}</div>
         <div class="tarea-meta">
           ${t.monto ? `<span class="tarea-monto">${fmt(t.monto)}</span>` : ''}
-          <span class="badge badge-${catColorT[t.cat]||'amber'}">${catLabelT[t.cat]||t.cat}</span>
+          ${_catBadge(t.cat)}
           <span class="tarea-venc ${vencClass(t.venc, t.done)}">${vencLabel(t.venc, t.done)}</span>
         </div>
       </div>
@@ -6687,6 +6736,38 @@ function _syncCatConfig(){
     REG_CAT_LABELS[k] = v.label;
     REG_CAT_COLORS[k] = v.color;
   });
+  _poblarSelectsCategorias();
+}
+
+// Categorías que la app usa por su clave (descuentan del separado, avisos de inversión,
+// fallback "otro"): se pueden renombrar y cambiar de color, pero no eliminar.
+const CAT_PROTEGIDAS = ['alquiler','tarjeta','inversion','fci','otro'];
+
+function _catLabel(k){
+  return categoriasConfig[k]?.label || REG_CAT_LABELS[k] || (k ? k.charAt(0).toUpperCase() + k.slice(1) : '');
+}
+
+// Chip de categoría con el color configurado (tinte suave del mismo color).
+function _catBadge(k, extraStyle = ''){
+  const c = categoriasConfig[k]?.color || REG_CAT_COLORS[k] || '#94a3b8';
+  return `<span class="badge" style="background:${c}26;color:${c};${extraStyle}">${esc(_catLabel(k))}</span>`;
+}
+
+function _catOptions(selected, excluir = []){
+  const opts = Object.entries(categoriasConfig)
+    .filter(([k]) => !excluir.includes(k) || k === selected)
+    .map(([k, v]) => `<option value="${k}"${k === selected ? ' selected' : ''}>${esc(v.label)}</option>`);
+  if(selected && !categoriasConfig[selected]) opts.push(`<option value="${esc(selected)}" selected>${esc(_catLabel(selected))}</option>`);
+  return opts.join('');
+}
+
+// Los selects de categoría del formulario de gasto y de tareas se arman desde la
+// configuración, así reflejan nombres y categorías agregadas/eliminadas.
+function _poblarSelectsCategorias(){
+  const g = document.getElementById('gasto-cat');
+  if(g){ const v = g.value; g.innerHTML = _catOptions('', ['inversion','fci']); if(v && [...g.options].some(o => o.value === v)) g.value = v; }
+  const t = document.getElementById('tarea-cat');
+  if(t){ const v = t.value; t.innerHTML = _catOptions(''); if(v && [...t.options].some(o => o.value === v)) t.value = v; }
 }
 
 let _registrosData = [];
