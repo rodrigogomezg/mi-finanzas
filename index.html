@@ -4525,7 +4525,7 @@ async function _registrarCargoTarjeta({ monto, cat, fecha, desc, tareaId }){
   _adjuntarSaldoActual(gasto);
   await _guardarMulti([
     { key: 'movimientos', arr: movimientos, setIds: [gasto.id] },
-    { key: 'tareas', arr: tareas },
+    { key: 'tareas', arr: tareas, setIds: tareaCompletada ? [tareaCompletada.id] : [] },
   ]);
 
   document.getElementById('gasto-monto').value = '';
@@ -4603,7 +4603,7 @@ async function _ejecutarRegistroGasto({ monto, cat, fecha, desc, tareaId }){
   _adjuntarSaldoActual(gasto);
   await _guardarMulti([
     { key: 'movimientos', arr: movimientos, setIds: [gasto.id] },
-    { key: 'tareas', arr: tareas },
+    { key: 'tareas', arr: tareas, setIds: tareaCompletada ? [tareaCompletada.id] : [] },
   ]);
 
   document.getElementById('gasto-monto').value = '';
@@ -4654,7 +4654,7 @@ async function _ejecutarRegistroGastoForzado({ monto, cat, fecha, desc, tareaId,
   _adjuntarSaldoActual(gasto);
   await _guardarMulti([
     { key: 'movimientos', arr: movimientos, setIds: [gasto.id] },
-    { key: 'tareas', arr: tareas },
+    { key: 'tareas', arr: tareas, setIds: tareaCompletada ? [tareaCompletada.id] : [] },
   ]);
   if(!gfAjeno) await gf_sincronizarEstadoDesdeGasto(gasto);
 
