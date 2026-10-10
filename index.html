@@ -1573,6 +1573,10 @@ service cloud.firestore {
         <input type="number" id="gf-modal-dia-vencimiento" placeholder="10" min="1" max="28">
       </div>
       <div class="form-group">
+        <label>Día de cierre del resumen de tarjeta (todos los meses)</label>
+        <input type="number" id="gf-modal-dia-cierre-resumen" placeholder="28" min="1" max="31">
+      </div>
+      <div class="form-group">
         <label>Día de alerta cierre de tarjeta</label>
         <input type="number" id="gf-modal-dia-alerta" placeholder="5" min="1" max="28">
       </div>
@@ -2229,6 +2233,7 @@ let gf_gastosFijos         = [];
 let gf_separacionesSemana  = [];
 let gf_transferenciasSaldo = [];
 let gf_ingresosEspeciales  = [];
+let gf_cierreTarjetaDia    = null; // día del mes en que cierra el resumen de la tarjeta (ej: 28) — define a qué pago cae cada compra con 💳
 let gf_debitosTarjeta      = []; // débitos fijos mensuales (ej: Netflix, gimnasio) — se suman solos cada mes, sin recargarlos a mano
 
 // ── PLAN MENSUAL ─────────────────────────────────────────
@@ -2394,6 +2399,7 @@ async function init(){
   gf_transferenciasSaldo = S.usaColecciones('gf_transferenciasSaldo') ? (await S.getCollection('gf_transferenciasSaldo')) || [] : (await S.get('gf_transferenciasSaldo') || []);
   gf_ingresosEspeciales  = await S.get('gf_ingresosEspeciales')  || [];
   gf_debitosTarjeta      = await S.get('gf_debitosTarjeta')      || [];
+  gf_cierreTarjetaDia    = await S.get('gf_cierreTarjetaDia')    || null;
 
   // Migración única (tanda 1): movimientos/inversiones/gf_transferenciasSaldo — se copian a
   // colecciones y se marca hecho. Si algo falla acá, NO se marca el flag: sigue en modo blob
@@ -2733,6 +2739,13 @@ function _adjuntarSaldoActual(item){
   return item;
 }
 
+// Monto que un gasto aporta a las ESTADÍSTICAS (no a saldos): el pago del resumen de tarjeta
+// guarda solo la parte que no estaba ya contada cargo por cargo (soloTarjeta), así el gasto
+// se suma una sola vez. Los saldos siguen usando m.monto completo.
+function _montoEst(m){
+  return m.montoEstadistica ?? m.monto;
+}
+
 // Alias de compatibilidad — código existente sigue funcionando
 function _getSaldoReservas(){
   const s = gf_getSaldos();
@@ -2777,6 +2790,18 @@ function gf_getMesActivo(){
 // Suma los gastos marcados como "tarjeta" (soloTarjeta, ver checkbox en Registrar gasto)
 // asignados a este mesAnio — compras ya hechas que todavía no salieron de disponible/
 // separado, se van a pagar en el próximo resumen de la tarjeta.
+// A qué pago (mesAnio = mes en que se paga, ej: vence el 10) cae una compra con tarjeta: si es
+// hasta el día de cierre inclusive entra al resumen que cierra ese mes y se paga el mes
+// siguiente; si es posterior, al resumen que cierra el mes siguiente y se paga dos meses
+// después. Sin día de cierre configurado, cae al mes abierto (comportamiento anterior).
+function gf_mesAnioTarjetaPara(fecha){
+  if(!gf_cierreTarjetaDia || !fecha) return gf_getMesActivo();
+  const [y, m, d] = fecha.split('-').map(Number);
+  const desplazo = d <= gf_cierreTarjetaDia ? 1 : 2;
+  const pago = new Date(y, m - 1 + desplazo, 1);
+  return `${pago.getFullYear()}-${String(pago.getMonth() + 1).padStart(2, '0')}`;
+}
+
 function gf_getCargosTarjeta(mesAnio){
   return movimientos
     .filter(m => m.tipo === 'gasto' && m.soloTarjeta && m.mesAnioTarjeta === mesAnio)
@@ -2979,6 +3004,10 @@ async function gf_marcarComoPagado(mesAnio, tipo){
     // separado cualquier gasto con esta categoría, así que no hay doble descuento.
     const catLabel = tipo === 'alquiler' ? 'Alquiler' : 'Tarjeta';
     const nuevoGasto = { id: Date.now(), tipo:'gasto', monto, categoria: tipo, fecha: new Date().toISOString().split('T')[0], nota: `Pago ${catLabel} ${gf_nombreMes(mesAnio)}` };
+    // Los cargos itemizados con 💳 ya sumaron a estadísticas cuando se cargaron, con su
+    // categoría real: el pago solo aporta el resto (débitos, ajuste manual, cierre real),
+    // puede quedar negativo si el resumen real fue menor a lo itemizado.
+    if(tipo === 'tarjeta') nuevoGasto.montoEstadistica = monto - gf_getCargosTarjeta(mesAnio);
     movimientos.push(nuevoGasto);
     _adjuntarSaldoActual(nuevoGasto);
     await S.saveArray('movimientos', movimientos, { setIds: [nuevoGasto.id] });
@@ -3115,6 +3144,7 @@ function gf_abrirModalConfig(mesAnio){
   document.getElementById('gf-modal-tarjeta-est').value     = mes.tarjeta.montoEstimado  || '';
   document.getElementById('gf-modal-dia-vencimiento').value = mes.diaVencimientoFondo || '';
   document.getElementById('gf-modal-dia-alerta').value      = mes.diaAlertaTarjeta    || '';
+  document.getElementById('gf-modal-dia-cierre-resumen').value = gf_cierreTarjetaDia || '';
   document.getElementById('gf-modal-config').style.display = 'flex';
 }
 
@@ -3133,6 +3163,9 @@ async function gf_guardarConfigMes(){
   mes.tarjeta.montoEstimado  = tarjeta;
   mes.diaVencimientoFondo = (diaVto >= 1 && diaVto <= 28) ? diaVto : null;
   mes.diaAlertaTarjeta    = (diaAlerta >= 1 && diaAlerta <= 28) ? diaAlerta : null;
+  const diaCierre = parseInt(document.getElementById('gf-modal-dia-cierre-resumen').value, 10);
+  gf_cierreTarjetaDia = (diaCierre >= 1 && diaCierre <= 31) ? diaCierre : null;
+  await S.set('gf_cierreTarjetaDia', gf_cierreTarjetaDia);
   if(mes.estado === 'sin_configurar') mes.estado = 'en_curso';
   await S.saveArray('gastosFijos', gf_gastosFijos, { setIds: [S.docId('gastosFijos', mes)] });
   gf_cerrarModalConfig();
@@ -4475,7 +4508,7 @@ async function registrarGasto(){
 // toca disponible/separado (gf_getSaldos() la ignora por el flag soloTarjeta). Solo se
 // suma al total del mes abierto de tarjeta en G. Fijos (ver gf_getCargosTarjeta).
 async function _registrarCargoTarjeta({ monto, cat, fecha, desc, tareaId }){
-  const mesAnioTarjeta = gf_getMesActivo();
+  const mesAnioTarjeta = gf_mesAnioTarjetaPara(fecha);
   const gasto = { id: Date.now(), tipo:'gasto', monto, categoria: cat, fecha, nota: desc, soloTarjeta: true, mesAnioTarjeta };
 
   let tareaCompletada = null;
@@ -4501,7 +4534,7 @@ async function _registrarCargoTarjeta({ monto, cat, fecha, desc, tareaId }){
   document.getElementById('gasto-tarjeta').checked = false;
 
   const tareaMsg = tareaCompletada ? ` · "${tareaCompletada.desc}" completada ✓` : '';
-  toast(`✓ Cargo de tarjeta registrado${tareaMsg} · se suma al próximo pago`);
+  toast(`✓ Cargo de tarjeta registrado${tareaMsg} · entra al pago de ${gf_nombreMes(mesAnioTarjeta)}`);
 
   fabCloseSheet();
   renderTareasSelect();
@@ -4697,7 +4730,7 @@ function renderResumen(){
     return d.getMonth()===mes && d.getFullYear()===anio;
   });
   const totalCobrado = delMes.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
-  const totalGastado = delMes.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0);
+  const totalGastado = delMes.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+_montoEst(m),0);
   const pctGasto      = totalCobrado > 0 ? Math.round(totalGastado/totalCobrado*100) : 0;
   const cobrosN       = delMes.filter(m=>m.tipo==='cobro').length;
 
@@ -4928,7 +4961,7 @@ function renderFlujo(){
   });
 
   const totalCobrado   = delMes.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
-  const totalGastado   = delMes.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0);
+  const totalGastado   = delMes.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+_montoEst(m),0);
   const pendienteMonto = tareasDelMes.filter(t=>!t.done).reduce((s,t)=>s+(t.monto||0),0);
   const disponible     = totalCobrado - totalGastado - pendienteMonto;
 
@@ -5052,7 +5085,7 @@ function abrirModalDia(dia){
   ].join('');
 
   const totCobros = cobros.reduce((s,c)=>s+c.monto,0);
-  const totGastos = gastos.reduce((s,g)=>s+g.monto,0);
+  const totGastos = gastos.reduce((s,g)=>s+_montoEst(g),0);
   const balance   = totCobros - totGastos;
   const showTot   = cobros.length + gastos.length > 1;
   const totalesHTML = showTot ? `
@@ -5206,7 +5239,7 @@ function renderHistorial(){
 
   // Calculate totals for filtered view
   const sumaC  = sorted.filter(m => !m._esInversion && !m._esTransferencia && m.tipo === 'cobro').reduce((s,m) => s+m.monto, 0);
-  const sumaG  = sorted.filter(m => !m._esInversion && !m._esTransferencia && m.tipo === 'gasto').reduce((s,m) => s+m.monto, 0);
+  const sumaG  = sorted.filter(m => !m._esInversion && !m._esTransferencia && m.tipo === 'gasto').reduce((s,m) => s+_montoEst(m), 0);
   const saldo  = sumaC - sumaG;
   const totalesEl = document.getElementById('hist-totales');
   if(totalesEl){
@@ -6330,7 +6363,7 @@ function renderTareas(){
 function _calcularDetalleMes(movsDelMes, mesKey){
   const gastosPorCategoria = movsDelMes.filter(mv => mv.tipo === 'gasto').reduce((acc, g) => {
     const cat = g.categoria || g.cat || 'otro';
-    acc[cat] = (acc[cat] || 0) + g.monto;
+    acc[cat] = (acc[cat] || 0) + _montoEst(g);
     return acc;
   }, {});
   const cobMovArr   = movsDelMes.filter(mv => mv.tipo === 'cobro');
@@ -6416,7 +6449,7 @@ async function autoArchivarMesesViejos(){
     const yaArchivado = historialMeses.some(h => h.mes === g.mes && h.anio === g.anio);
     if(yaArchivado) continue;
     const cobrado  = g.movs.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
-    const gastado  = g.movs.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0);
+    const gastado  = g.movs.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+_montoEst(m),0);
     const mesNombre = new Date(g.anio, g.mes, 1).toLocaleString('es-AR',{month:'long',year:'numeric'});
     const mesKey = `${g.anio}-${String(g.mes + 1).padStart(2,'0')}`;
     // Calcular el desglose ANTES de borrar los movimientos más abajo — si no, se
@@ -6496,7 +6529,7 @@ async function checkCierreMensual(){
     return d.getFullYear() === ly && d.getMonth() === lm - 1;
   });
   const cobradoAnt = movMesAnt.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
-  const gastadoAnt = movMesAnt.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0);
+  const gastadoAnt = movMesAnt.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+_montoEst(m),0);
   const resultado = cobradoAnt - gastadoAnt;
 
   // Trabajo del mes anterior
@@ -6568,7 +6601,7 @@ async function ejecutarCierre(){
     });
     const gastosPorCategoria = movMesAnt.filter(mv => mv.tipo === 'gasto').reduce((acc, g) => {
       const cat = g.categoria || g.cat || 'otro';
-      acc[cat] = (acc[cat] || 0) + g.monto;
+      acc[cat] = (acc[cat] || 0) + _montoEst(g);
       return acc;
     }, {});
 
@@ -6674,7 +6707,7 @@ function _mesEnCursoData(){
     return d.getFullYear() === anio && d.getMonth() === mes;
   });
   const cobrado = movsDelMes.filter(m=>m.tipo==='cobro').reduce((s,m)=>s+m.monto,0);
-  const gastado = movsDelMes.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+m.monto,0);
+  const gastado = movsDelMes.filter(m=>m.tipo==='gasto').reduce((s,m)=>s+_montoEst(m),0);
   const { gastosPorCategoria, cobros, totalIngresos } = _calcularDetalleMes(movsDelMes, mesKey);
   const trabMes   = registrosDiarios.filter(r => r.fecha?.startsWith(mesKey));
   const ganMes    = trabMes.reduce((s,r)=>s+r.monto,0);
@@ -6926,7 +6959,7 @@ function _openCatDetalle(catKey){
             <span style="color:var(--text)">${esc(g.nota) || label}</span>
             <span style="font-size:11px">${g.fecha}</span>
           </span>
-          <span class="reg-stat-value" style="color:var(--red)">${fmt(g.monto)}</span>
+          <span class="reg-stat-value" style="color:var(--red)">${fmt(_montoEst(g))}</span>
         </div>`).join('') || '<div class="empty-state" style="padding:16px;font-size:12px">Sin gastos individuales</div>'}
       </div>`;
   } else {
@@ -7715,6 +7748,7 @@ async function exportarDatos(){
     gf_transferenciasSaldo: gf_transferenciasSaldo,
     gf_ingresosEspeciales:  gf_ingresosEspeciales,
     gf_debitosTarjeta:      gf_debitosTarjeta,
+    gf_cierreTarjetaDia:    gf_cierreTarjetaDia,
     // Antes faltaban estos dos — categorias_config es dato real del usuario (categorías
     // personalizadas), y los *SeedVersion evitan que un import re-dispare una migración
     // de seed ya hecha (ver init()).
@@ -7777,6 +7811,7 @@ async function importarDatos(event){
   if(datos.gf_transferenciasSaldo)  gf_transferenciasSaldo  = datos.gf_transferenciasSaldo;
   if(datos.gf_ingresosEspeciales)   gf_ingresosEspeciales   = datos.gf_ingresosEspeciales;
   if(datos.gf_debitosTarjeta)       gf_debitosTarjeta       = datos.gf_debitosTarjeta;
+  if(datos.gf_cierreTarjetaDia)     gf_cierreTarjetaDia     = datos.gf_cierreTarjetaDia;
 
   if(datos.categorias_config) await S.set('categorias_config', datos.categorias_config);
   if(datos.seedVersion)       await S.set('seedVersion', datos.seedVersion);
@@ -7799,6 +7834,7 @@ async function importarDatos(event){
   await S.replaceCollection('gf_transferenciasSaldo',  gf_transferenciasSaldo);
   await S.set('gf_ingresosEspeciales',   gf_ingresosEspeciales);
   await S.set('gf_debitosTarjeta',       gf_debitosTarjeta);
+  if(gf_cierreTarjetaDia) await S.set('gf_cierreTarjetaDia', gf_cierreTarjetaDia);
   if(datos.historial_meses) await S.replaceCollection('historial_meses', datos.historial_meses);
   renderResumen();
   renderHistorial();
