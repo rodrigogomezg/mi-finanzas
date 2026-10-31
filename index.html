@@ -696,6 +696,18 @@
   .seg-toggle { display:flex;gap:0;background:transparent;border-radius:0;border-bottom:2px solid var(--border);padding:0;margin-bottom:18px; }
   .seg-btn { flex:1;padding:9px 12px;border-radius:0;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;font-size:14px;font-weight:600;font-family:'Manrope',sans-serif;background:transparent;color:var(--muted);transition:color 150ms var(--ease-out),border-color 150ms var(--ease-out);min-height:42px; }
   .seg-btn.active { background:transparent;color:var(--text);border-bottom:2px solid var(--blue); }
+  .cc-cols, .cc-row { display:grid; grid-template-columns:46px minmax(0,1fr) auto 96px; gap:10px; align-items:center; padding:10px 16px; }
+  .cc-cols { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; border-bottom:1px solid var(--border); }
+  .cc-cols span:nth-child(n+3), .cc-row .cc-monto, .cc-row .cc-saldo { text-align:right; }
+  .cc-row { border-top:1px solid var(--border); cursor:pointer; transition:background 130ms var(--ease-out); }
+  .cc-row:first-of-type { border-top:none; }
+  @media(hover:hover) and (pointer:fine){ .cc-row:hover { background:var(--surface2); } }
+  .cc-desc { font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cc-sub { font-size:11px; color:var(--muted); margin-top:2px; display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+  .cc-monto { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600; white-space:nowrap; }
+  .cc-saldo { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted); white-space:nowrap; }
+  .cc-apertura { display:flex; justify-content:space-between; padding:10px 16px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); background:var(--surface2); }
+  @media(max-width:600px){ .cc-cols, .cc-row { grid-template-columns:38px minmax(0,1fr) auto 78px; gap:8px; padding:10px 12px; } .cc-saldo { font-size:11px; } }
   .trab-pill { display:inline-block; font-size:10px; font-weight:600; padding:1px 7px; border-radius:99px; }
   .trab-pill-f      { background:var(--green-bg);  color:var(--green);  }
   .trab-pill-nf     { background:var(--amber-bg);  color:var(--amber);  }
@@ -1322,13 +1334,13 @@ service cloud.firestore {
     <!-- TRABAJO / SUELDO -->
     <div id="page-trabajo" class="page">
       <div class="page-title">Sueldo</div>
-      <div class="page-sub">Horas trabajadas, pagos recibidos e ingresos especiales del año</div>
+      <div class="page-sub">Cuenta corriente: horas e ingresos a favor, pagos y descuentos en contra</div>
 
       <div id="trabajo-metricas"></div>
 
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="dia" onclick="switchTab('trabajo','dia',this)">Registrar día</button>
-        <button class="tab-btn" data-tab="hist" onclick="switchTab('trabajo','hist',this)">Historial</button>
+        <button class="tab-btn" data-tab="hist" onclick="switchTab('trabajo','hist',this)">Cuenta corriente</button>
       </div>
 
       <!-- Tab: día (día de trabajo + ingreso especial) -->
@@ -1338,7 +1350,7 @@ service cloud.firestore {
           <!-- Segmented toggle -->
           <div class="seg-toggle">
             <button id="dia-btn-trabajo" class="seg-btn active" onclick="setDiaMode('trabajo')">Día de trabajo</button>
-            <button id="dia-btn-ingreso" class="seg-btn" onclick="setDiaMode('ingreso')">Ingreso especial</button>
+            <button id="dia-btn-ingreso" class="seg-btn" onclick="setDiaMode('ingreso')">Ajuste</button>
           </div>
 
           <!-- Modo: día de trabajo -->
@@ -1368,6 +1380,12 @@ service cloud.firestore {
           <!-- Modo: ingreso especial -->
           <div id="dia-form-ingreso" style="display:none">
             <div class="form-grid">
+              <div class="form-group full">
+                <select id="trab-adel-signo">
+                  <option value="favor">A favor (suma al saldo adeudado)</option>
+                  <option value="contra">En contra (resta del saldo adeudado)</option>
+                </select>
+              </div>
               <div class="form-group">
                 <input type="number" id="trab-adel-monto" placeholder="Monto ($)" min="1">
               </div>
@@ -1375,7 +1393,7 @@ service cloud.firestore {
                 <input type="date" id="trab-adel-fecha">
               </div>
               <div class="form-group inline-action full">
-                <input type="text" id="trab-adel-desc" placeholder="Descripción (ej: Monotributo mayo, Hostinger)" style="flex:1">
+                <input type="text" id="trab-adel-desc" placeholder="Descripción (ej: Hostinger, Descuento por adelanto)" style="flex:1">
                 <button class="btn btn-primary" onclick="agregarAdelantoEmpresa()">Registrar</button>
               </div>
             </div>
@@ -1385,7 +1403,6 @@ service cloud.firestore {
 
       <!-- Tab: historial -->
       <div id="tab-trabajo-hist" class="tab-pane">
-        <div id="trabajo-tendencia"></div>
         <div id="trabajo-historial-content"></div>
       </div>
 
@@ -1529,28 +1546,6 @@ service cloud.firestore {
       <button class="btn btn-sm" onclick="closeRegModal('modal-tareas-mes')" style="padding:4px 10px">✕</button>
     </div>
     <div id="reg-tareas-list" style="margin-top:8px;max-height:65vh;overflow-y:auto"></div>
-  </div>
-</div>
-
-<!-- Modal: días trabajados del mes (Trabajo) -->
-<div id="modal-trab-dias" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeRegModal('modal-trab-dias')">
-  <div class="modal-content" style="width:min(360px,94vw)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <h3 id="trab-dias-titulo" style="font-size:15px;font-weight:600;margin:0"></h3>
-      <button class="btn btn-sm" onclick="closeRegModal('modal-trab-dias')" style="padding:4px 10px">✕</button>
-    </div>
-    <div id="trab-dias-list" style="margin-top:8px;max-height:65vh;overflow-y:auto"></div>
-  </div>
-</div>
-
-<!-- Modal: pagos / ingresos especiales del mes (Trabajo) -->
-<div id="modal-trab-lista" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeRegModal('modal-trab-lista')">
-  <div class="modal-content" style="width:min(360px,94vw)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <h3 id="trab-lista-titulo" style="font-size:15px;font-weight:600;margin:0"></h3>
-      <button class="btn btn-sm" onclick="closeRegModal('modal-trab-lista')" style="padding:4px 10px">✕</button>
-    </div>
-    <div id="trab-lista-list" style="margin-top:8px;max-height:65vh;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -2228,7 +2223,6 @@ let registrosDiarios = [];
 let pagosMatisa      = [];
 let adelantosEmpresa = [];
 let tarifaHora       = 8440;
-let trabajoMetricMode = 'month';
 
 // ── GASTOS FIJOS STATE ────────────────────────────────────
 let gf_gastosFijos         = [];
@@ -2550,7 +2544,6 @@ function switchTab(page, tab, btn){
   if(page==='config'      && tab==='categorias') renderCategoriasConfig();
   if(page==='historial'   && tab==='flujo')    renderFlujo();
   if(page==='historial'   && tab==='lista')    renderHistorial();
-  if(page==='trabajo'     && tab==='hist')     renderTrabTendencia();
 }
 
 // ── TIPO DE CAMBIO MEP ────────────────────────────────────
@@ -7358,16 +7351,20 @@ async function agregarRegistroDia(){
 }
 
 async function agregarAdelantoEmpresa(){
-  const monto = parseFloat(document.getElementById('trab-adel-monto').value);
+  const montoIngresado = parseFloat(document.getElementById('trab-adel-monto').value);
   const fecha = document.getElementById('trab-adel-fecha').value;
   const desc  = document.getElementById('trab-adel-desc').value.trim();
-  if(!monto || monto <= 0 || !fecha || !desc){ toast('Completá todos los campos', 'err'); return; }
+  if(!montoIngresado || montoIngresado <= 0 || !fecha || !desc){ toast('Completá todos los campos', 'err'); return; }
+  // En contra = monto negativo en la misma lista: todas las cuentas que ya suman
+  // generado + ajustes - cobrado (Resumen, meses archivados) lo descuentan solas.
+  const enContra = document.getElementById('trab-adel-signo').value === 'contra';
+  const monto = enContra ? -montoIngresado : montoIngresado;
   const nuevoAdelanto = { id: Date.now(), fecha, descripcion: desc, monto };
   adelantosEmpresa.push(nuevoAdelanto);
   await S.saveArray('adelantosEmpresa', adelantosEmpresa, { setIds: [nuevoAdelanto.id] });
   document.getElementById('trab-adel-monto').value = '';
   document.getElementById('trab-adel-desc').value  = '';
-  toast(`Ingreso registrado: ${fmt(monto)}`);
+  toast(enContra ? `Descuento registrado: -${fmt(montoIngresado)}` : `Ajuste a favor registrado: ${fmt(montoIngresado)}`);
   renderTrabajo();
 }
 
@@ -7380,7 +7377,7 @@ function eliminarPagoMatisa(id){
 }
 
 function eliminarAdelantoEmpresa(id){
-  softDelete({ arr: adelantosEmpresa, id, setKey: 'adelantosEmpresa', render: renderTrabajo, label: 'Ingreso especial' });
+  softDelete({ arr: adelantosEmpresa, id, setKey: 'adelantosEmpresa', render: renderTrabajo, label: 'Ajuste' });
 }
 
 async function toggleFacturadoMatisa(id){
@@ -7393,67 +7390,50 @@ async function toggleFacturadoMovimiento(id){
   if(m){ m.facturado = !m.facturado; await S.saveArray('movimientos', movimientos, { setIds: [id] }); renderTrabajo(); }
 }
 
-function switchTrabMetric(mode){
-  trabajoMetricMode = mode;
-  renderTrabajo();
-}
+const fmtSigned = v => (v < 0 ? '-' : '') + fmt(Math.abs(v));
 
 function renderTrabajo(){
-  const isMonth = trabajoMetricMode === 'month';
   const hoy = new Date();
   const ym  = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
 
   const ganY  = registrosDiarios.reduce((s,r) => s + r.monto, 0);
   const adelY = adelantosEmpresa.reduce((s,a) => s + a.monto, 0);
   const cobY  = _cobradoSueldo();
-  const sfY   = _sfSueldo();
-  const diasY = registrosDiarios.length;
-
-  const ganM  = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).reduce((s,r) => s + r.monto, 0);
-  const adelM = adelantosEmpresa.filter(a => a.fecha?.startsWith(ym)).reduce((s,a) => s + a.monto, 0);
-  const cobM  = _cobradoSueldo(ym);
-  const sfM   = _sfSueldo(ym);
-  const diasM = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).length;
-
   const adeudado = ganY + adelY - cobY;
 
-  const gan  = isMonth ? ganM  : ganY;
-  const adel = isMonth ? adelM : adelY;
-  const cob  = isMonth ? cobM  : cobY;
-  const sf   = isMonth ? sfM   : sfY;
-  const dias = isMonth ? diasM : diasY;
-
-  const sw = (m) => {
-    const active = trabajoMetricMode === m;
-    return `<button onclick="switchTrabMetric('${m}')" style="padding:3px 10px;border-radius:6px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:${active?'var(--surface)':'transparent'};color:${active?'var(--text)':'var(--muted)'};box-shadow:${active?'0 1px 2px oklch(0% 0 0 / 0.25)':'none'};transition:background 160ms var(--ease-out),color 160ms var(--ease-out),box-shadow 160ms var(--ease-out)">${m==='month'?'M':'Y'}</button>`;
-  };
+  const delMes   = lista => lista.filter(x => x.fecha?.startsWith(ym));
+  const ganM     = delMes(registrosDiarios).reduce((s,r) => s + r.monto, 0);
+  const ajustes  = delMes(adelantosEmpresa);
+  const ajFavM   = ajustes.filter(a => a.monto > 0).reduce((s,a) => s + a.monto, 0);
+  const ajContraM= ajustes.filter(a => a.monto < 0).reduce((s,a) => s - a.monto, 0);
+  const cobM     = _cobradoSueldo(ym);
+  const sfM      = _sfSueldo(ym);
+  const diasM    = delMes(registrosDiarios).length;
+  const favorM   = ganM + ajFavM;
+  const contraM  = cobM + ajContraM;
 
   const el = document.getElementById('trabajo-metricas');
   if(el){
     el.innerHTML = `
       <div class="metric-hero" style="margin-bottom:20px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
-          <div>
-            <div class="hero-label">Saldo adeudado</div>
-            <div style="font-size:34px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--amber);line-height:1.1">${fmt(adeudado)}</div>
-          </div>
-          <div style="display:flex;gap:2px;background:var(--surface2);border-radius:8px;padding:2px;flex-shrink:0;margin-top:2px">${sw('month')}${sw('year')}</div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border);margin-top:10px;margin-bottom:10px">
+        <div class="hero-label">Saldo adeudado</div>
+        <div style="font-size:34px;font-weight:600;font-family:'JetBrains Mono',monospace;color:${adeudado < 0 ? 'var(--red)' : 'var(--amber)'};line-height:1.1;margin-bottom:14px">${fmtSigned(adeudado)}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border);margin-bottom:10px">
           <div style="padding:10px 0 0">
-            <div style="font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Generado</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--green)">${fmt(gan + adel)}</div>
-            <div style="font-size:10px;color:var(--muted);margin-top:3px">${adel > 0 ? `${fmt(gan)} h · ${fmt(adel)} esp.` : `${fmt(gan)} en horas`}</div>
+            <div style="font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">A favor · este mes</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--green)">+${fmt(favorM)}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:3px">${fmt(ganM)} horas${ajFavM > 0 ? ` · ${fmt(ajFavM)} ajustes` : ''}</div>
           </div>
           <div style="padding:10px 0 0 14px;border-left:1px solid var(--border)">
-            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Cobrado</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600">${fmt(cob)}</div>
-            <div style="font-size:10px;margin-top:3px;color:${sf > 0 ? 'var(--amber)' : 'var(--muted)'}">${sf > 0 ? `${fmt(sf)} sin facturar` : 'todo facturado'}</div>
+            <div style="font-size:10px;color:var(--red);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">En contra · este mes</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:600;color:var(--red)">-${fmt(contraM)}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:3px">${fmt(cobM)} pagos${ajContraM > 0 ? ` · ${fmt(ajContraM)} descuentos` : ''}</div>
           </div>
         </div>
-        <div style="display:flex;gap:16px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)">
           <span>Tarifa: <span style="color:var(--text);font-family:'JetBrains Mono',monospace">${fmt(tarifaHora)}/h</span></span>
-          <span>${dias} día${dias!==1?'s':''} registrado${dias!==1?'s':''}</span>
+          <span>${diasM} día${diasM!==1?'s':''} este mes</span>
+          <span style="color:${sfM > 0 ? 'var(--amber)' : 'var(--muted)'}">${sfM > 0 ? `${fmt(sfM)} sin facturar` : 'todo facturado'}</span>
         </div>
       </div>`;
   }
@@ -7493,119 +7473,79 @@ function renderSemanaMiniView(){
   cont.innerHTML = `<div class="trab-week-mini">${labels}</div><div class="trab-week-mini">${cells}</div>`;
 }
 
-// ── Datos por mes (fuente única para historial, heatmap y tendencia) ────
-let _trabMesesCache = [];
+// ── CUENTA CORRIENTE ─────────────────────────────────────
+// Un asiento por cada día trabajado, ajuste (a favor o en contra) y pago recibido. El saldo
+// corre en orden cronológico: a favor suma, en contra resta — es el mismo número que el
+// "Saldo adeudado" del panel (generado + ajustes - cobrado).
+function _trabAsientos(){
+  const a = [];
+  registrosDiarios.forEach(r => a.push({
+    key:`dia:${r.id}`, tipo:'dia', id:r.id, fecha:r.fecha, favor:r.monto, contra:0,
+    concepto:'Día de trabajo', sub:`${r.entrada}–${r.salida} · ${r.horas} h${r.nota ? ' · ' + r.nota : ''}`,
+  }));
+  adelantosEmpresa.forEach(x => a.push({
+    key:`ajuste:${x.id}`, tipo:'ajuste', id:x.id, fecha:x.fecha,
+    favor: x.monto > 0 ? x.monto : 0, contra: x.monto < 0 ? -x.monto : 0,
+    concepto:x.descripcion || 'Ajuste', chip: x.monto < 0 ? ['trab-pill-nf','Descuento'] : ['trab-pill-transf','Ajuste a favor'],
+  }));
+  pagosMatisa.forEach(x => a.push({
+    key:`pago:${x.id}`, tipo:'pago', id:x.id, fecha:x.fecha, favor:0, contra:x.monto,
+    concepto:x.nota || 'Pago recibido', metodo:x.metodo || 'transferencia', facturado:!!x.facturado, fromMov:false,
+  }));
+  movimientos.filter(m => m.tipo === 'cobro' && m.categoria === 'sueldo').forEach(x => a.push({
+    key:`pagomov:${x.id}`, tipo:'pago', id:x.id, fecha:x.fecha, favor:0, contra:x.monto,
+    concepto:x.nota || 'Pago recibido', metodo:x.metodo || 'transferencia', facturado:!!x.facturado, fromMov:true,
+  }));
+  const validos = a.filter(x => x.fecha);
+  validos.sort((x, y) => x.fecha.localeCompare(y.fecha) || (x.contra > 0) - (y.contra > 0) || (x.id || 0) - (y.id || 0));
+  let saldo = 0;
+  validos.forEach(x => { saldo += x.favor - x.contra; x.saldo = saldo; });
+  return validos;
+}
 
-function _trabMesesData(){
+function _trabMesesLibro(asientos){
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const movsSueldo = movimientos.filter(m => m.tipo === 'cobro' && m.categoria === 'sueldo');
-
-  const months = new Set();
-  [...registrosDiarios, ...pagosMatisa, ...adelantosEmpresa, ...movsSueldo].forEach(e => {
-    if(e.fecha) months.add(e.fecha.slice(0,7));
+  const porMes = new Map();
+  let anterior = 0;
+  asientos.forEach(x => {
+    const ym = x.fecha.slice(0, 7);
+    if(!porMes.has(ym)){
+      const [y, m] = ym.split('-');
+      porMes.set(ym, { ym, mesLabel:`${MESES[parseInt(m) - 1]} ${y}`, apertura:anterior, asientos:[], favor:0, contra:0 });
+    }
+    const mes = porMes.get(ym);
+    mes.asientos.push(x);
+    mes.favor += x.favor; mes.contra += x.contra;
+    mes.cierre = x.saldo;
+    anterior = x.saldo;
   });
-
-  return [...months].sort().map(ym => {
-    const [y, m] = ym.split('-');
-    const regs = registrosDiarios.filter(r => r.fecha?.startsWith(ym)).sort((a,b) => a.fecha.localeCompare(b.fecha));
-    const pagosMat = pagosMatisa.filter(p => p.fecha?.startsWith(ym));
-    const pagosMov = movsSueldo
-      .filter(m => m.fecha?.startsWith(ym))
-      .map(m => ({ id: m.id, fecha: m.fecha, monto: m.monto, nota: m.nota, metodo: m.metodo || 'transferencia', facturado: m.facturado || false, _fromMov: true }));
-    const pagos = [...pagosMat, ...pagosMov].sort((a,b) => a.fecha.localeCompare(b.fecha));
-    const adels = adelantosEmpresa.filter(a => a.fecha?.startsWith(ym)).sort((a,b) => a.fecha.localeCompare(b.fecha));
-
-    const ganMes  = regs.reduce((s,r) => s + r.monto, 0);
-    const adelMes = adels.reduce((s,a) => s + a.monto, 0);
-    const cobMes  = pagos.reduce((s,p) => s + p.monto, 0);
-    const generadoMes = ganMes + adelMes;
-
-    return {
-      ym, mesLabel: `${MESES[parseInt(m)-1]} ${y}`,
-      regs, pagos, adels,
-      ganMes, adelMes, cobMes, generadoMes,
-      adeudMes: generadoMes - cobMes,
-    };
-  });
+  return [...porMes.values()];
 }
 
-// Calendario heatmap (L a D) de los días trabajados de un mes — reemplaza la
-// tabla fila-por-día, que en meses con muchos días se volvía interminable
-// y no dejaba comparar de un vistazo el patrón de trabajo.
-function _trabHeatmapHtml(mes){
-  const [y, m] = mes.ym.split('-').map(Number);
-  const lastDay = new Date(y, m, 0).getDate();
-  const firstDow = (new Date(y, m-1, 1).getDay() + 6) % 7; // 0 = lunes
-
-  const byDay = {};
-  mes.regs.forEach(r => { byDay[r.fecha] = (byDay[r.fecha] || 0) + r.monto; });
-  const montos = Object.values(byDay);
-  const max = montos.length ? Math.max(...montos) : 0;
-  const min = montos.length ? Math.min(...montos) : 0;
-
-  function nivel(monto){
-    if(!monto) return 0;
-    if(max === min) return 4;
-    const pct = (monto - min) / (max - min);
-    return pct >= 0.75 ? 4 : pct >= 0.5 ? 3 : pct >= 0.25 ? 2 : 1;
+function _trabFilaHtml(x){
+  const d = new Date(x.fecha + 'T12:00');
+  const _MS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const fecha = `<b>${String(d.getDate()).padStart(2,'0')}</b>${_MS[d.getMonth()]}`;
+  let chips = '';
+  if(x.tipo === 'pago'){
+    const metClass = x.metodo === 'transferencia' ? 'trab-pill-transf' : x.metodo === 'efectivo' ? 'trab-pill-efec' : 'trab-pill-ef';
+    const metLabel = x.metodo === 'transferencia' ? 'Transferencia' : x.metodo === 'efectivo' ? 'Efectivo' : esc(x.metodo);
+    chips = `<span class="trab-pill ${metClass}">${metLabel}</span>${x.facturado ? '<span class="trab-pill trab-pill-f">Facturado</span>' : (x.metodo === 'transferencia' ? '<span class="trab-pill trab-pill-nf">Sin facturar</span>' : '')}`;
+  } else if(x.chip){
+    chips = `<span class="trab-pill ${x.chip[0]}">${x.chip[1]}</span>`;
   }
-
-  const DOW = ['L','M','X','J','V','S','D'];
-  let html = DOW.map(d => `<div class="trab-heatmap-dow">${d}</div>`).join('');
-  for(let i = 0; i < firstDow; i++) html += `<div class="trab-heatmap-cell empty"></div>`;
-  for(let d = 1; d <= lastDay; d++){
-    const fecha = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const monto = byDay[fecha] || 0;
-    const dLabel = new Date(y, m-1, d).toLocaleDateString('es-AR', { day:'numeric', month:'short' });
-    const title = monto ? `${dLabel} · ${fmt(monto)}` : dLabel;
-    const cls = monto ? `h${nivel(monto)}` : '';
-    const click = monto ? ` onclick="abrirTrabDetalleDias('${mes.ym}')"` : '';
-    html += `<div class="trab-heatmap-cell ${cls}" title="${title}"${click}></div>`;
-  }
-  return `<div class="trab-heatmap">${html}</div>`;
-}
-
-// Comparación visual inmediata generado vs cobrado, sin tener que leer números.
-function _trabMiniBars(mes){
-  const max = Math.max(mes.generadoMes, mes.cobMes, 1);
-  const pctGen = Math.round(mes.generadoMes / max * 100);
-  const pctCob = Math.round(mes.cobMes / max * 100);
+  const monto = x.favor > 0
+    ? `<span style="color:var(--green)">+${fmt(x.favor)}</span>`
+    : `<span style="color:var(--red)">-${fmt(x.contra)}</span>`;
   return `
-    <div class="trab-mini-bar-row">
-      <span class="trab-mini-bar-label" style="color:var(--green)">Generado</span>
-      <div class="trab-mini-bar-track"><div class="trab-mini-bar-fill" style="width:${pctGen}%;background:var(--green)"></div></div>
-      <span class="trab-mini-bar-val" style="color:var(--green)">${fmt(mes.generadoMes)}</span>
-    </div>
-    <div class="trab-mini-bar-row">
-      <span class="trab-mini-bar-label" style="color:var(--blue)">Cobrado</span>
-      <div class="trab-mini-bar-track"><div class="trab-mini-bar-fill" style="width:${pctCob}%;background:var(--blue)"></div></div>
-      <span class="trab-mini-bar-val" style="color:var(--blue)">${fmt(mes.cobMes)}</span>
-    </div>`;
-}
-
-function _trabPagosResumen(mes){
-  if(!mes.pagos.length) return '';
-  const transf = mes.pagos.filter(p => p.metodo === 'transferencia').length;
-  const efec   = mes.pagos.filter(p => p.metodo === 'efectivo').length;
-  const sfMonto = mes.pagos.filter(p => !p.facturado && p.metodo === 'transferencia').reduce((s,p) => s + p.monto, 0);
-  return `
-    <div class="reg-stat-row reg-stat-clickable" onclick="abrirTrabDetallePagos('${mes.ym}')">
-      <span class="reg-stat-label">Pagos recibidos <span class="reg-stat-hint">(${mes.pagos.length}) ver detalle ↗</span></span>
-      <span class="reg-stat-value">${fmt(mes.cobMes)}</span>
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 18px 12px">
-      ${transf ? `<span class="trab-pill trab-pill-transf">${transf} transf.</span>` : ''}
-      ${efec ? `<span class="trab-pill trab-pill-efec">${efec} efectivo</span>` : ''}
-      ${sfMonto > 0 ? `<span class="trab-pill trab-pill-nf">${fmt(sfMonto)} sin facturar</span>` : ''}
-    </div>`;
-}
-
-function _trabAdelsResumen(mes){
-  if(!mes.adels.length) return '';
-  return `
-    <div class="reg-stat-row reg-stat-clickable" onclick="abrirTrabDetalleAdels('${mes.ym}')">
-      <span class="reg-stat-label">Ingresos especiales <span class="reg-stat-hint">(${mes.adels.length}) ver detalle ↗</span></span>
-      <span class="reg-stat-value" style="color:var(--blue)">${fmt(mes.adelMes)}</span>
+    <div class="cc-row" onclick="abrirAsientoTrab('${x.key}')">
+      <div class="mov-date">${fecha}</div>
+      <div style="min-width:0">
+        <div class="cc-desc">${esc(x.concepto)}</div>
+        ${x.sub || chips ? `<div class="cc-sub">${x.sub ? esc(x.sub) : ''}${chips}</div>` : ''}
+      </div>
+      <div class="cc-monto">${monto}</div>
+      <div class="cc-saldo" style="${x.saldo < 0 ? 'color:var(--red)' : ''}">${fmtSigned(x.saldo)}</div>
     </div>`;
 }
 
@@ -7613,217 +7553,66 @@ function renderTrabajoHistorial(){
   const cont = document.getElementById('trabajo-historial-content');
   if(!cont) return;
 
-  const mesesAsc  = _trabMesesData();
-  _trabMesesCache = mesesAsc;
-  const mesesDesc = [...mesesAsc].reverse();
-
-  if(mesesDesc.length === 0){
-    cont.innerHTML = '<div class="empty-state"><p>Sin historial registrado.</p></div>';
-    renderTrabTendencia();
+  const meses = _trabMesesLibro(_trabAsientos()).reverse();
+  if(!meses.length){
+    cont.innerHTML = '<div class="empty-state"><p>Sin movimientos registrados.</p></div>';
     return;
   }
+  const hoy = new Date();
+  const ymHoy = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
 
-  cont.innerHTML = mesesDesc.map((mes, i) => {
-    const prev = mesesDesc[i + 1];
-    let comparativaHtml = '';
-    if(prev){
-      const diff = mes.adeudMes - prev.adeudMes;
-      const pct  = prev.adeudMes !== 0 ? Math.round(Math.abs(diff) / Math.abs(prev.adeudMes) * 100) : 0;
-      const dir  = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
-      const sym  = diff > 0 ? '↑' : diff < 0 ? '↓' : '=';
-      comparativaHtml = `<span class="reg-comparativa ${dir}">${sym} ${pct}% vs ${prev.mesLabel.split(' ')[0]}</span>`;
-    }
-    const isOpen  = i === 0;
-    const sinNada = !mes.regs.length && !mes.pagos.length && !mes.adels.length;
-
-    return `
-      <div class="reg-card${isOpen ? ' open' : ''}" style="--i:${i}">
-        <div class="reg-header" onclick="toggleRegCard(this)">
+  cont.innerHTML = meses.map((mes, i) => `
+    <div class="reg-card${i === 0 ? ' open' : ''}" style="--i:${i}">
+      <div class="reg-header" onclick="toggleRegCard(this)">
+        <div>
+          <div class="reg-mes-nombre-row"><span class="reg-mes-nombre">${capFirst(mes.mesLabel)}</span></div>
+          <div class="reg-mini-stats">
+            <span style="color:var(--green)">+${fmt(mes.favor)}</span>
+            <span style="color:var(--red)">-${fmt(mes.contra)}</span>
+          </div>
+        </div>
+        <div class="reg-header-right">
           <div>
-            <div class="reg-mes-nombre-row"><span class="reg-mes-nombre">${capFirst(mes.mesLabel)}</span></div>
-            <div class="reg-mini-stats">
-              ${mes.regs.length ? `<span style="color:var(--green)">${mes.regs.length} día${mes.regs.length!==1?'s':''}</span>` : ''}
-              ${comparativaHtml}
-            </div>
+            <div class="reg-eyebrow">${mes.ym === ymHoy ? 'Saldo actual' : 'Saldo al cierre'}</div>
+            <span class="reg-saldo" style="color:${mes.cierre < 0 ? 'var(--red)' : 'var(--amber)'}">${fmtSigned(mes.cierre)}</span>
           </div>
-          <div class="reg-header-right">
-            <div>
-              <div class="reg-eyebrow">Adeudado</div>
-              <span class="reg-saldo" style="color:var(--amber)">${fmt(mes.adeudMes)}</span>
-            </div>
-            <svg class="reg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
+          <svg class="reg-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
-        <div class="reg-body">
-          <div class="reg-body-inner">
-            ${mes.regs.length ? `${_trabHeatmapHtml(mes)}${_trabMiniBars(mes)}` : ''}
-            ${_trabPagosResumen(mes)}
-            ${_trabAdelsResumen(mes)}
-            ${sinNada ? '<div style="padding:16px 18px;font-size:13px;color:var(--muted)">Sin movimientos registrados.</div>' : ''}
-          </div>
+      </div>
+      <div class="reg-body">
+        <div class="reg-body-inner">
+          <div class="cc-cols"><span>Fecha</span><span>Concepto</span><span>Monto</span><span>Saldo</span></div>
+          ${mes.asientos.slice().reverse().map(_trabFilaHtml).join('')}
+          <div class="cc-apertura"><span>Saldo anterior</span><span style="font-family:'JetBrains Mono',monospace">${fmtSigned(mes.apertura)}</span></div>
         </div>
-      </div>`;
-  }).join('');
-
-  renderTrabTendencia();
+      </div>
+    </div>`).join('');
 }
 
-// ── Gráfico de tendencia: Generado/Cobrado por mes + Adeudado acumulado ──
-let trabTendenciaRango  = 6;
-let _chartTrabTendencia = null;
-
-function setTrabRango(r){
-  trabTendenciaRango = r === 'all' ? 'all' : parseInt(r);
-  renderTrabTendencia();
-}
-
-function renderTrabTendencia(){
-  const cont = document.getElementById('trabajo-tendencia');
-  if(!cont) return;
-  const mesesAsc = _trabMesesCache;
-  if(!mesesAsc.length){ cont.innerHTML = ''; return; }
-
-  const RANGOS = [3, 6, 12, 'all'];
-  const rangoBtns = RANGOS.map(r => {
-    const active = trabTendenciaRango === r;
-    return `<button class="trab-rango-btn${active ? ' active' : ''}" onclick="setTrabRango('${r}')">${r === 'all' ? 'Todo' : r}</button>`;
-  }).join('');
-
-  cont.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <h4 style="font-size:13px;font-weight:700;margin:0;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em">Tendencia</h4>
-      <div class="trab-rango-toggle">${rangoBtns}</div>
+// Detalle de un asiento con sus acciones (borrar; marcar facturado en los pagos).
+function abrirAsientoTrab(key){
+  const x = _trabAsientos().find(a => a.key === key);
+  if(!x) return;
+  const fecha = new Date(x.fecha + 'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'long', year:'numeric' });
+  const monto = x.favor > 0 ? `<span style="color:var(--green)">+${fmt(x.favor)}</span>` : `<span style="color:var(--red)">-${fmt(x.contra)}</span>`;
+  const borrar = x.tipo === 'dia' ? `eliminarRegistroDia(${x.id})`
+    : x.tipo === 'ajuste' ? `eliminarAdelantoEmpresa(${x.id})`
+    : x.fromMov ? `eliminar(${x.id})` : `eliminarPagoMatisa(${x.id})`;
+  const facturar = x.tipo === 'pago' && x.metodo === 'transferencia'
+    ? `<button class="btn btn-sm" style="flex:1" onclick="_movModalClose();${x.fromMov ? 'toggleFacturadoMovimiento' : 'toggleFacturadoMatisa'}(${x.id})">${x.facturado ? 'Marcar sin facturar' : 'Marcar facturado'}</button>` : '';
+  _movModalOpen(`<div class="modal-content" style="width:340px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="font-size:15px;font-weight:600;margin:0">${esc(x.concepto)}</h3>
+      <button onclick="_movModalClose()" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px">×</button>
     </div>
-    <div style="position:relative;height:200px;margin-bottom:22px">
-      <canvas id="trab-chart-tendencia"></canvas>
-    </div>`;
-
-  const slice = trabTendenciaRango === 'all' ? mesesAsc : mesesAsc.slice(-trabTendenciaRango);
-  const acumuladoBase = mesesAsc.slice(0, mesesAsc.length - slice.length).reduce((s, m) => s + m.adeudMes, 0);
-  let acumulado = acumuladoBase;
-  const adeudadoData = slice.map(m => { acumulado += m.adeudMes; return acumulado; });
-
-  const cs    = getComputedStyle(document.documentElement);
-  const green = cs.getPropertyValue('--green').trim();
-  const blue  = cs.getPropertyValue('--blue').trim();
-  const amber = cs.getPropertyValue('--amber').trim();
-  const muted = cs.getPropertyValue('--muted').trim();
-
-  if(_chartTrabTendencia) _chartTrabTendencia.destroy();
-  _chartTrabTendencia = new Chart(document.getElementById('trab-chart-tendencia'), {
-    type: 'bar',
-    data: {
-      labels: slice.map(m => m.mesLabel.split(' ').map((s,i) => i===0 ? capFirst(s).slice(0,3) : `'${s.slice(2)}`).join(' ')),
-      datasets: [
-        { type:'bar',  label:'Generado',       data: slice.map(m => m.generadoMes), backgroundColor: green, borderRadius:3, barPercentage:0.6, categoryPercentage:0.7 },
-        { type:'bar',  label:'Cobrado',        data: slice.map(m => m.cobMes),      backgroundColor: blue,  borderRadius:3, barPercentage:0.6, categoryPercentage:0.7 },
-        { type:'line', label:'Adeudado acum.', data: adeudadoData, borderColor: amber, backgroundColor:'transparent', borderWidth:2, pointRadius:3, pointBackgroundColor: amber, tension:0.25 },
-      ],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display:true, position:'top', labels:{ color: muted, font:{ size:11 }, boxWidth:10, usePointStyle:true } } },
-      scales: {
-        x: { grid:{ display:false }, ticks:{ color: muted, font:{ size:10 } } },
-        y: { grid:{ color:'oklch(33% 0.04 258 / 0.35)' }, ticks:{ color: muted, font:{ size:10 }, callback: v => fmt(v) } },
-      },
-    },
-  });
-}
-
-// ── Modales de detalle (día/pago/ingreso especial) ───────────────────────
-function abrirTrabDetalleDias(ym){
-  const mes = _trabMesesCache.find(m => m.ym === ym);
-  if(!mes) return;
-  document.getElementById('trab-dias-titulo').textContent = `Días trabajados — ${capFirst(mes.mesLabel)}`;
-  document.getElementById('trab-dias-list').innerHTML = mes.regs.length
-    ? mes.regs.slice().sort((a,b) => b.fecha.localeCompare(a.fecha)).map(r => {
-        const d = new Date(r.fecha+'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'short' });
-        return `
-        <div class="reg-stat-row" style="border-top:0.5px solid var(--border);align-items:flex-start">
-          <div>
-            <div style="font-size:13px;color:var(--text)">${d}${r.nota ? ' · '+esc(r.nota) : ''}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${r.entrada}–${r.salida}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="reg-stat-value" style="color:var(--green)">${fmt(r.monto)}</span>
-            <button class="btn btn-danger btn-sm" onclick="eliminarRegistroDia(${r.id});_refrescarTrabModal()">×</button>
-          </div>
-        </div>`;
-      }).join('')
-    : '<div class="reg-empty" style="padding:28px">Sin días registrados</div>';
-  _TRAB_MODAL_STATE.tipo = 'dias'; _TRAB_MODAL_STATE.ym = ym;
-  document.getElementById('modal-trab-dias').style.display = 'flex';
-}
-
-const _TRAB_MODAL_STATE = { tipo:null, ym:null };
-
-function abrirTrabDetallePagos(ym){ _abrirTrabLista('pagos', ym); }
-function abrirTrabDetalleAdels(ym){ _abrirTrabLista('adels', ym); }
-
-function _abrirTrabLista(tipo, ym){
-  _TRAB_MODAL_STATE.tipo = tipo; _TRAB_MODAL_STATE.ym = ym;
-  const mes = _trabMesesCache.find(m => m.ym === ym);
-  if(!mes) return;
-
-  document.getElementById('trab-lista-titulo').textContent =
-    `${tipo === 'pagos' ? 'Pagos recibidos' : 'Ingresos especiales'} — ${capFirst(mes.mesLabel)}`;
-
-  let html;
-  if(tipo === 'pagos'){
-    const pagos = mes.pagos.slice().sort((a,b) => b.fecha.localeCompare(a.fecha));
-    html = pagos.length ? pagos.map(p => {
-      const d = new Date(p.fecha+'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'short' });
-      const toggleFn = p._fromMov ? `toggleFacturadoMovimiento(${p.id})` : `toggleFacturadoMatisa(${p.id})`;
-      const facBadge = p.facturado
-        ? `<span class="trab-pill trab-pill-f" onclick="${toggleFn};_refrescarTrabModal()" style="cursor:pointer">Facturado</span>`
-        : `<span class="trab-pill trab-pill-nf" onclick="${toggleFn};_refrescarTrabModal()" style="cursor:pointer">Sin facturar</span>`;
-      const metClass = p.metodo === 'transferencia' ? 'trab-pill-transf' : p.metodo === 'efectivo' ? 'trab-pill-efec' : 'trab-pill-ef';
-      const metLabel = p.metodo === 'transferencia' ? 'Transferencia' : p.metodo === 'efectivo' ? 'Efectivo' : p.metodo;
-      const delFn = p._fromMov ? `eliminar(${p.id})` : `eliminarPagoMatisa(${p.id})`;
-      return `
-        <div class="reg-stat-row" style="border-top:0.5px solid var(--border);align-items:flex-start">
-          <div>
-            <div style="font-size:13px;color:var(--text)">${d}${p.nota ? ' · '+esc(p.nota) : ''}</div>
-            <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap"><span class="trab-pill ${metClass}">${metLabel}</span>${facBadge}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="reg-stat-value">${fmt(p.monto)}</span>
-            <button class="btn btn-danger btn-sm" onclick="${delFn};_refrescarTrabModal()">×</button>
-          </div>
-        </div>`;
-    }).join('') : '<div class="reg-empty" style="padding:28px">Sin pagos registrados</div>';
-  } else {
-    const adels = mes.adels.slice().sort((a,b) => b.fecha.localeCompare(a.fecha));
-    html = adels.length ? adels.map(a => {
-      const d = new Date(a.fecha+'T12:00').toLocaleDateString('es-AR', { day:'numeric', month:'short' });
-      return `
-        <div class="reg-stat-row" style="border-top:0.5px solid var(--border);align-items:flex-start">
-          <div>
-            <div style="font-size:13px;color:var(--text)">${esc(a.descripcion)}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${d}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="reg-stat-value" style="color:var(--blue)">${fmt(a.monto)}</span>
-            <button class="btn btn-danger btn-sm" onclick="eliminarAdelantoEmpresa(${a.id});_refrescarTrabModal()">×</button>
-          </div>
-        </div>`;
-    }).join('') : '<div class="reg-empty" style="padding:28px">Sin ingresos especiales registrados</div>';
-  }
-  document.getElementById('trab-lista-list').innerHTML = html;
-  document.getElementById('modal-trab-lista').style.display = 'flex';
-}
-
-// Los botones de arriba (eliminar/toggle facturado) llaman a funciones ya
-// existentes que recalculan todo vía renderTrabajo() — pero esa llamada es
-// async (después de un await a S.set) y el modal es un elemento aparte del
-// historial, así que no se refresca solo. El setTimeout(0) corre después de
-// ese microtask y agarra el estado ya actualizado.
-function _refrescarTrabModal(){
-  setTimeout(() => {
-    if(_TRAB_MODAL_STATE.tipo === 'dias') abrirTrabDetalleDias(_TRAB_MODAL_STATE.ym);
-    else if(_TRAB_MODAL_STATE.tipo) _abrirTrabLista(_TRAB_MODAL_STATE.tipo, _TRAB_MODAL_STATE.ym);
-  }, 0);
+    <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${fecha}${x.sub ? ' · ' + esc(x.sub) : ''}</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;margin:8px 0 4px">${monto}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Saldo después: <span style="font-family:'JetBrains Mono',monospace">${fmtSigned(x.saldo)}</span></div>
+    <div style="display:flex;gap:8px">
+      ${facturar}
+      <button class="btn btn-danger btn-sm" style="flex:1" onclick="_movModalClose();${borrar}">Eliminar</button>
+    </div>
+  </div>`);
 }
 
 // ── BACKUP STATUS ─────────────────────────────────────────
