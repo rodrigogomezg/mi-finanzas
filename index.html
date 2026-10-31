@@ -7486,7 +7486,7 @@ function _trabAsientos(){
   adelantosEmpresa.forEach(x => a.push({
     key:`ajuste:${x.id}`, tipo:'ajuste', id:x.id, fecha:x.fecha,
     favor: x.monto > 0 ? x.monto : 0, contra: x.monto < 0 ? -x.monto : 0,
-    concepto:x.descripcion || 'Ajuste', chip: x.monto < 0 ? ['trab-pill-nf','Descuento'] : ['trab-pill-transf','Ajuste a favor'],
+    concepto:x.descripcion || 'Ajuste',
   }));
   pagosMatisa.forEach(x => a.push({
     key:`pago:${x.id}`, tipo:'pago', id:x.id, fecha:x.fecha, favor:0, contra:x.monto,
@@ -7526,14 +7526,6 @@ function _trabFilaHtml(x){
   const d = new Date(x.fecha + 'T12:00');
   const _MS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   const fecha = `<b>${String(d.getDate()).padStart(2,'0')}</b>${_MS[d.getMonth()]}`;
-  let chips = '';
-  if(x.tipo === 'pago'){
-    const metClass = x.metodo === 'transferencia' ? 'trab-pill-transf' : x.metodo === 'efectivo' ? 'trab-pill-efec' : 'trab-pill-ef';
-    const metLabel = x.metodo === 'transferencia' ? 'Transferencia' : x.metodo === 'efectivo' ? 'Efectivo' : esc(x.metodo);
-    chips = `<span class="trab-pill ${metClass}">${metLabel}</span>${x.facturado ? '<span class="trab-pill trab-pill-f">Facturado</span>' : (x.metodo === 'transferencia' ? '<span class="trab-pill trab-pill-nf">Sin facturar</span>' : '')}`;
-  } else if(x.chip){
-    chips = `<span class="trab-pill ${x.chip[0]}">${x.chip[1]}</span>`;
-  }
   const monto = x.favor > 0
     ? `<span style="color:var(--green)">+${fmt(x.favor)}</span>`
     : `<span style="color:var(--red)">-${fmt(x.contra)}</span>`;
@@ -7542,7 +7534,7 @@ function _trabFilaHtml(x){
       <div class="mov-date">${fecha}</div>
       <div style="min-width:0">
         <div class="cc-desc">${esc(x.concepto)}</div>
-        ${x.sub || chips ? `<div class="cc-sub">${x.sub ? esc(x.sub) : ''}${chips}</div>` : ''}
+        ${x.sub ? `<div class="cc-sub">${esc(x.sub)}</div>` : ''}
       </div>
       <div class="cc-monto">${monto}</div>
       <div class="cc-saldo" style="${x.saldo < 0 ? 'color:var(--red)' : ''}">${fmtSigned(x.saldo)}</div>
