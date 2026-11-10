@@ -2785,6 +2785,15 @@ function gf_getMesActivo(){
   return ym;
 }
 
+// La tarjeta avanza sola, independiente del alquiler: si el resumen del mes activo ya se
+// pagó, el que importa es el que se paga el mes siguiente (aunque el alquiler del mes
+// activo siga pendiente y el mes todavía no esté completo).
+function gf_getMesActivoTarjeta(){
+  const ma  = gf_getMesActivo();
+  const mes = gf_gastosFijos.find(m => m.mesAnio === ma);
+  return mes?.tarjeta?.estado === 'pagado' ? gf_getMesSiguiente(ma) : ma;
+}
+
 // Suma los gastos marcados como "tarjeta" (soloTarjeta, ver checkbox en Registrar gasto)
 // asignados a este mesAnio — compras ya hechas que todavía no salieron de disponible/
 // separado, se van a pagar en el próximo resumen de la tarjeta.
@@ -3384,10 +3393,12 @@ function gf_renderAlertas(mesAnio){
   if(estado === 'urgente' || (estado === 'en_curso' && rec.fondoFaltante > 0 && rec.sabadosRestantes <= 1)){
     alertas.push({ tipo:'warn', texto:`Quedan ${rec.sabadosRestantes} sábado${rec.sabadosRestantes!==1?'s':''} para completar el fondo. Separar ${fmt(rec.recomendacionPorSabado)}.` });
   }
-  if(mes && mes.tarjeta.cierreRealizado === false && gf_getTarjetaEstimado(mesAnio) > 0){
+  const mesTarAnio = gf_getMesActivoTarjeta();
+  const mesTar     = gf_gastosFijos.find(m => m.mesAnio === mesTarAnio);
+  if(mesTar && mesTar.tarjeta.cierreRealizado === false && gf_getTarjetaEstimado(mesTarAnio) > 0){
     const hoy  = new Date();
-    const [y,m] = mesAnio.split('-').map(Number);
-    const dia5  = new Date(y, m-1, mes.diaAlertaTarjeta || 5);
+    const [y,m] = mesTarAnio.split('-').map(Number);
+    const dia5  = new Date(y, m-1, mesTar.diaAlertaTarjeta || 5);
     if(hoy >= dia5){
       alertas.push({ tipo:'warn', texto:'Recordá registrar el cierre real de la tarjeta.' });
     }
@@ -3411,19 +3422,30 @@ function gf_renderMesPanel(mesAnio){
   const estadoLabels = { sin_configurar:'Sin configurar', en_curso:'En curso', urgente:'Urgente', vencido:'Vencido', completo:'Completo' };
   const estadoClass  = { sin_configurar:'gf-estado-gris', en_curso:'gf-estado-azul', urgente:'gf-estado-naranja', vencido:'gf-estado-rojo', completo:'gf-estado-verde' };
 
-  const fila = (label, item, tipo) => {
-    const monto      = tipo === 'tarjeta' ? gf_getTarjetaEstimado(mesAnio) : item.montoEstimado;
+  // Si la tarjeta de este mes ya se pagó, la fila muestra el resumen siguiente (ver
+  // gf_getMesActivoTarjeta) con su propio Cierre / Marcar pagado.
+  const mesTarAnio = gf_getMesActivoTarjeta();
+  const mesTar     = gf_getOrCreateMes(mesTarAnio);
+
+  const fila = (label, item, tipo, ma) => {
+    const monto      = tipo === 'tarjeta' ? gf_getTarjetaEstimado(ma) : item.montoEstimado;
     const pagado     = item.estado === 'pagado';
     const esTarjeta  = tipo === 'tarjeta';
+    const per        = esTarjeta ? gf_periodoResumen(ma) : null;
+    const otroMes    = ma !== mesAnio;
+    const sub = [
+      otroMes ? `Se paga en ${gf_nombreMes(ma)} · <span onclick="gf_desmarcarPagado('${mesAnio}','${tipo}')" style="cursor:pointer;text-decoration:underline" title="Click para desmarcar como pagado">${gf_nombreMes(mesAnio).split(' ')[0]} ✓ pagada</span>` : '',
+      per ? `Compras del ${per.desde} al ${per.hasta}` : '',
+    ].filter(Boolean).map(t => `<div style="font-size:11px;font-weight:400;color:var(--muted)">${t}</div>`).join('');
     return `
       <div class="gf-item-fila">
-        <div class="gf-item-label">${label}${esTarjeta && gf_periodoResumen(mesAnio) ? `<div style="font-size:11px;font-weight:400;color:var(--muted)">Compras del ${gf_periodoResumen(mesAnio).desde} al ${gf_periodoResumen(mesAnio).hasta}</div>` : ''}</div>
+        <div class="gf-item-label">${label}${sub}</div>
         <div class="gf-item-monto">${monto ? fmt(monto) : '<span style="color:var(--muted)">—</span>'}</div>
         <div class="gf-item-acciones">
           ${pagado
-            ? `<span class="gf-badge-pagado" onclick="gf_desmarcarPagado('${mesAnio}','${tipo}')" style="cursor:pointer" title="Click para desmarcar como pagado">✓ Pagado</span>`
-            : `${esTarjeta ? `<button class="btn btn-sm gf-btn-cierre" onclick="gf_abrirModalCierreTarjeta('${mesAnio}')">Cierre</button>` : ''}
-               <button class="btn btn-sm gf-btn-pagar" onclick="gf_marcarComoPagado('${mesAnio}','${tipo}')">Marcar pagado</button>`
+            ? `<span class="gf-badge-pagado" onclick="gf_desmarcarPagado('${ma}','${tipo}')" style="cursor:pointer" title="Click para desmarcar como pagado">✓ Pagado</span>`
+            : `${esTarjeta ? `<button class="btn btn-sm gf-btn-cierre" onclick="gf_abrirModalCierreTarjeta('${ma}')">Cierre</button>` : ''}
+               <button class="btn btn-sm gf-btn-pagar" onclick="gf_marcarComoPagado('${ma}','${tipo}')">Marcar pagado</button>`
           }
         </div>
       </div>`;
@@ -3440,8 +3462,8 @@ function gf_renderMesPanel(mesAnio){
         <button class="btn btn-sm" onclick="gf_abrirModalConfig('${mesAnio}')">Configurar</button>
       </div>
       <div class="gf-items-lista">
-        ${fila('Alquiler', mes.alquiler, 'alquiler')}
-        ${fila('Tarjeta', mes.tarjeta, 'tarjeta')}
+        ${fila('Alquiler', mes.alquiler, 'alquiler', mesAnio)}
+        ${fila('Tarjeta', mesTar.tarjeta, 'tarjeta', mesTarAnio)}
       </div>
       <div class="gf-rec-panel">
         <div class="gf-rec-row">
@@ -3595,7 +3617,7 @@ function gf_renderGastosFijos(){
   gf_renderHistorialMes(mesAnio);
   gf_renderHistorialMeses();
   gf_renderHint();
-  gf_renderProximoResumen(mesAnio);
+  gf_renderProximoResumen(gf_getMesActivoTarjeta());
   gf_renderDebitosTarjeta();
 }
 
