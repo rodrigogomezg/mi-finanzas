@@ -6636,7 +6636,13 @@ async function autoArchivarMesesViejos(){
   // depende gf_getSaldos(), y borrarlos hace que el cálculo vuelva a sumar todo
   // el historial desde cero (bug detectado: el checkpoint se auto-borró a los
   // 60 días e infló "disponible" con años de cobros de sueldo nunca compensados).
+  // Tampoco se borra nada que sea igual o posterior al último checkpoint (o cualquier
+  // cosa si no hay checkpoint): gf_getSaldos() rejuega esos movimientos para calcular el
+  // saldo actual, así que archivarlos le resta su efecto al disponible sin que nadie lo
+  // note (el saldo del Resumen se iba inflando de a un día por día al cruzar los 60 días).
+  const cpFecha = movimientos.filter(m => m.tipo === 'saldo_inicial').map(m => m.fecha).sort().pop();
   const movViejos = movimientos.filter(m =>
+    cpFecha && m.fecha < cpFecha &&
     !(new Date(m.fecha + 'T12:00') >= corte || (m.tipo === 'cobro' && m.categoria === 'sueldo') || m.tipo === 'saldo_inicial')
   );
   movimientos = movimientos.filter(m => !movViejos.includes(m));
