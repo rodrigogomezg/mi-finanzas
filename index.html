@@ -3012,7 +3012,7 @@ async function gf_marcarComoPagado(mesAnio, tipo){
   // Los gastos gfAjeno (ej: tarjeta de un tercero) no cuentan como pago del mes.
   const [y, m] = mesAnio.split('-');
   const gastoYaRegistrado = movimientos.find(mv =>
-    mv.tipo === 'gasto' && mv.categoria === tipo && !mv.gfAjeno &&
+    mv.tipo === 'gasto' && mv.categoria === tipo && !mv.gfAjeno && !mv.soloTarjeta &&
     mv.fecha >= `${y}-${m}-01` && mv.fecha <= `${y}-${m}-31`
   );
 
